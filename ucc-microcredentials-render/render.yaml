@@ -1,6 +1,7 @@
 services:
   - type: web
     name: ucc-microcredential-platform
+    rootDir: ucc-microcredentials-render
     runtime: docker
     plan: starter
     dockerfilePath: ./Dockerfile
@@ -11,8 +12,14 @@ services:
         value: production
       - key: PORT
         value: 10000
+      - key: HOSTNAME
+        value: 0.0.0.0
+      - key: NEXT_TELEMETRY_DISABLED
+        value: 1
       - key: DATA_DIR
         value: /var/data
+      - key: SQLITE_PATH
+        value: /var/data/ucc-microcredentials.sqlite
       - key: AUTH_SECRET
         generateValue: true
       - key: INITIAL_ADMIN_EMAIL
