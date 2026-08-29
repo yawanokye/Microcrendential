@@ -81,6 +81,8 @@ When an administrator activates the course, configured Colab activities are auto
 
 The **Virtual labs** workspace provides guided practicals in general science, physics, chemistry, biology, nursing skills, medicine and engineering. Every practical follows nine controlled stages: objectives and pre-lab briefing, safety assessment, equipment identification, interactive simulation, pause-and-answer checkpoint, data collection, practical report or supervised evidence, facilitator grading, and debriefing with a competency record.
 
+Facilitators can search and run every practical in **Facilitator preview mode** before including it in a programme. Preview mode follows the complete learner pathway but does not create a submission, mark or competency record. The same preview is available inside the Facilitator Studio's **Programme activities** stage, where a completed review is indicated before the practical is added to the course sequence.
+
 These simulations complement rather than replace physical laboratories, clinical placements, supervised skills demonstrations or regulatory competency assessment. The medical and nursing scenarios use fictional patients and must not be used to diagnose, treat or prescribe for a real person.
 
 Learners may attach an optional video, image or PDF evidence file up to 25 MB. On Render, these protected files are stored below `DATA_DIR/uploads/virtual-lab-evidence/` and are available only to the learner and authorised facilitators or administrators.
