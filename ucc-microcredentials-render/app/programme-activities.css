@@ -300,6 +300,73 @@
   background: #f2faf8;
 }
 
+.facilitator-lab-catalogue {
+  overflow: hidden;
+}
+
+.lab-preview-banner {
+  display: grid;
+  grid-template-columns: 36px 1fr;
+  gap: 10px;
+  align-items: center;
+  padding: 11px 12px;
+  color: #0a4c66;
+  background: #e5f3fb;
+  border: 1px solid #91bed2;
+  border-radius: 9px;
+}
+
+.lab-preview-banner > svg {
+  width: 24px;
+  color: #176f94;
+}
+
+.lab-preview-banner b {
+  font-size: 9px;
+}
+
+.lab-preview-banner p {
+  margin: 3px 0 0;
+  color: #426c7d;
+  font-size: 8px;
+  line-height: 1.5;
+}
+
+.virtual-practical-picker > article.practical-design-preview {
+  grid-template-columns: 35px 1fr auto;
+}
+
+.practical-design-preview > button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-width: 126px;
+  padding: 9px 10px;
+  color: #fff;
+  background: var(--navy);
+  border: 0;
+  border-radius: 7px;
+  font-size: 7px;
+  font-weight: 800;
+}
+
+.practical-design-preview > button.previewed {
+  background: var(--teal);
+}
+
+.practical-design-preview > button svg {
+  width: 13px;
+}
+
+.facilitator-lab-catalogue .virtual-lab-grid article > button {
+  gap: 6px;
+}
+
+.facilitator-lab-catalogue .virtual-lab-grid article > button svg:first-child {
+  width: 14px;
+}
+
 @media (max-width: 1050px) {
   .activity-design-grid {
     grid-template-columns: 1fr;
@@ -333,5 +400,14 @@
   .sequence-actions {
     grid-column: 1 / -1;
     grid-template-columns: repeat(3, 1fr);
+  }
+
+  .virtual-practical-picker > article.practical-design-preview {
+    grid-template-columns: 35px 1fr;
+  }
+
+  .practical-design-preview > button {
+    grid-column: 1 / -1;
+    width: 100%;
   }
 }
