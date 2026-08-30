@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: ucc-microcredential-platform
+    runtime: docker
+    plan: starter
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: DATA_DIR
+        value: /var/data
+      - key: AUTH_SECRET
+        generateValue: true
+      - key: INITIAL_ADMIN_EMAIL
+        sync: false
+    disk:
+      name: ucc-platform-data
+      mountPath: /var/data
+      sizeGB: 10
