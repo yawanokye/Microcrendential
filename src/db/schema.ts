@@ -1,0 +1,143 @@
+import { sql } from "drizzle-orm";
+import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+
+export const courseDrafts = sqliteTable("course_drafts", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  code: text("code").notNull(),
+  title: text("title").notNull(),
+  discipline: text("discipline").notNull().default("Interdisciplinary"),
+  description: text("description").notNull().default(""),
+  materialsJson: text("materials_json").notNull().default("[]"),
+  activitiesJson: text("activities_json").notNull().default("[]"),
+  assessmentModesJson: text("assessment_modes_json").notNull().default("[]"),
+  assessmentConfigJson: text("assessment_config_json").notNull().default("{}"),
+  gateRequired: integer("gate_required", { mode: "boolean" }).notNull().default(true),
+  questionLimit: integer("question_limit").notNull().default(10),
+  certificateEnabled: integer("certificate_enabled", { mode: "boolean" }).notNull().default(true),
+  status: text("status").notNull().default("pending_review"),
+  createdByEmail: text("created_by_email").notNull().default(""),
+  activatedByEmail: text("activated_by_email"),
+  activatedAt: text("activated_at"),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const users = sqliteTable("users", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  email: text("email").notNull(),
+  fullName: text("full_name").notNull(),
+  role: text("role", { enum: ["learner", "facilitator", "admin"] }).notNull().default("learner"),
+  status: text("status", { enum: ["active", "pending_setup", "pending_verification", "rejected", "suspended"] }).notNull().default("active"),
+  dateOfBirth: text("date_of_birth"),
+  gender: text("gender"),
+  nationality: text("nationality"),
+  phone: text("phone"),
+  address: text("address"),
+  idType: text("id_type"),
+  idLast4: text("id_last4"),
+  idDocumentKey: text("id_document_key"),
+  selfieKey: text("selfie_key"),
+  identityStatus: text("identity_status", { enum: ["not_submitted", "pending_review", "verified", "rejected"] }).notNull().default("not_submitted"),
+  verificationNote: text("verification_note"),
+  reviewedByEmail: text("reviewed_by_email"),
+  reviewedAt: text("reviewed_at"),
+  verifierEmail: text("verifier_email"),
+  inviteTokenHash: text("invite_token_hash"),
+  inviteExpiresAt: text("invite_expires_at"),
+  setupCompletedAt: text("setup_completed_at"),
+  createdByEmail: text("created_by_email"),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [uniqueIndex("users_email_unique").on(table.email)]);
+
+export const enrollments = sqliteTable("enrollments", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  userEmail: text("user_email").notNull(),
+  courseCode: text("course_code").notNull(),
+  status: text("status", { enum: ["active", "completed", "withdrawn"] }).notNull().default("active"),
+  enrolledAt: text("enrolled_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [uniqueIndex("enrollments_user_course_unique").on(table.userEmail, table.courseCode)]);
+
+export const assessmentAttempts = sqliteTable("assessment_attempts", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  userEmail: text("user_email").notNull(),
+  courseCode: text("course_code").notNull(),
+  score: integer("score").notNull().default(0),
+  passed: integer("passed", { mode: "boolean" }).notNull().default(false),
+  answersJson: text("answers_json").notNull().default("{}"),
+  completedAt: text("completed_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [uniqueIndex("assessment_attempt_user_course_unique").on(table.userEmail, table.courseCode)]);
+
+export const certificates = sqliteTable("certificates", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  certificateCode: text("certificate_code").notNull(),
+  userEmail: text("user_email").notNull(),
+  learnerName: text("learner_name").notNull(),
+  courseCode: text("course_code").notNull(),
+  courseTitle: text("course_title").notNull(),
+  issuedAt: text("issued_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [uniqueIndex("certificates_code_unique").on(table.certificateCode), uniqueIndex("certificates_user_course_unique").on(table.userEmail, table.courseCode)]);
+
+export const colabAssignments = sqliteTable("colab_assignments", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  courseCode: text("course_code").notNull(),
+  title: text("title").notNull(),
+  instructions: text("instructions").notNull().default(""),
+  templateFileKey: text("template_file_key").notNull(),
+  templateFileName: text("template_file_name").notNull(),
+  templateUrl: text("template_url"),
+  rubric: text("rubric").notNull().default(""),
+  maxMark: integer("max_mark").notNull().default(100),
+  passMark: integer("pass_mark").notNull().default(50),
+  attemptsAllowed: integer("attempts_allowed").notNull().default(1),
+  dueAt: text("due_at"),
+  status: text("status", { enum: ["draft", "active", "closed"] }).notNull().default("active"),
+  createdByEmail: text("created_by_email").notNull(),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [index("colab_assignments_course_idx").on(table.courseCode), index("colab_assignments_creator_idx").on(table.createdByEmail)]);
+
+export const colabSubmissions = sqliteTable("colab_submissions", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  assignmentId: integer("assignment_id").notNull().references(() => colabAssignments.id, { onDelete: "cascade" }),
+  learnerEmail: text("learner_email").notNull(),
+  attemptNumber: integer("attempt_number").notNull().default(1),
+  submissionType: text("submission_type", { enum: ["file", "link"] }).notNull(),
+  notebookKey: text("notebook_key"),
+  notebookFileName: text("notebook_file_name"),
+  notebookUrl: text("notebook_url"),
+  status: text("status", { enum: ["submitted", "assessed", "resubmit"] }).notNull().default("submitted"),
+  mark: integer("mark"),
+  passed: integer("passed", { mode: "boolean" }).notNull().default(false),
+  feedback: text("feedback").notNull().default(""),
+  assessedByEmail: text("assessed_by_email"),
+  submittedAt: text("submitted_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  assessedAt: text("assessed_at"),
+}, (table) => [
+  uniqueIndex("colab_submission_attempt_unique").on(table.assignmentId, table.learnerEmail, table.attemptNumber),
+  index("colab_submissions_assignment_idx").on(table.assignmentId),
+  index("colab_submissions_learner_idx").on(table.learnerEmail),
+]);
+
+export const virtualLabSubmissions = sqliteTable("virtual_lab_submissions", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  practicalId: text("practical_id").notNull(),
+  discipline: text("discipline").notNull(),
+  practicalTitle: text("practical_title").notNull(),
+  learnerEmail: text("learner_email").notNull(),
+  attemptNumber: integer("attempt_number").notNull().default(1),
+  observationsJson: text("observations_json").notNull().default("[]"),
+  answersJson: text("answers_json").notNull().default("{}"),
+  report: text("report").notNull().default(""),
+  evidenceKey: text("evidence_key"),
+  evidenceFileName: text("evidence_file_name"),
+  status: text("status", { enum: ["submitted", "assessed", "resubmit"] }).notNull().default("submitted"),
+  mark: integer("mark"),
+  passed: integer("passed", { mode: "boolean" }).notNull().default(false),
+  feedback: text("feedback").notNull().default(""),
+  competencyNote: text("competency_note").notNull().default(""),
+  assessedByEmail: text("assessed_by_email"),
+  submittedAt: text("submitted_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  assessedAt: text("assessed_at"),
+}, (table) => [
+  uniqueIndex("virtual_lab_attempt_unique").on(table.practicalId, table.learnerEmail, table.attemptNumber),
+  index("virtual_lab_practical_idx").on(table.practicalId),
+  index("virtual_lab_learner_idx").on(table.learnerEmail),
+]);

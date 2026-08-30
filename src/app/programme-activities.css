@@ -1,0 +1,413 @@
+.authoring-steps {
+  grid-template-columns: repeat(5, 1fr);
+}
+
+.programme-activities-builder {
+  display: grid;
+  gap: 18px;
+  padding: 22px;
+}
+
+.programme-activity-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 17px;
+  color: #fff;
+  background: linear-gradient(135deg, var(--navy-deep), #0d6170);
+  border-radius: 12px;
+}
+
+.programme-activity-heading h3 {
+  margin: 4px 0;
+  font-size: 16px;
+}
+
+.programme-activity-heading p:not(.eyebrow) {
+  max-width: 680px;
+  margin: 0;
+  color: #d3e8ec;
+  font-size: 9px;
+  line-height: 1.55;
+}
+
+.programme-activity-heading > span {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 11px;
+  color: var(--navy-deep);
+  background: #fff;
+  border-radius: 18px;
+  font-size: 8px;
+  font-weight: 800;
+}
+
+.programme-activity-heading svg {
+  width: 15px;
+  color: var(--teal);
+}
+
+.activity-kind-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.activity-kind-tabs > button {
+  display: grid;
+  grid-template-columns: 38px 1fr;
+  gap: 10px;
+  align-items: center;
+  padding: 13px;
+  color: var(--ink);
+  text-align: left;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.activity-kind-tabs > button > svg {
+  width: 36px;
+  height: 36px;
+  padding: 9px;
+  color: var(--teal);
+  background: #e9f5f3;
+  border-radius: 9px;
+}
+
+.activity-kind-tabs > button.active {
+  border-color: var(--teal);
+  background: #edf9f6;
+  box-shadow: 0 0 0 3px #dff2ef;
+}
+
+.activity-kind-tabs b {
+  display: block;
+  color: var(--navy-deep);
+  font-size: 9px;
+}
+
+.activity-kind-tabs p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.45;
+}
+
+.activity-design-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(300px, .85fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.activity-config,
+.programme-activity-sequence {
+  display: grid;
+  gap: 13px;
+  padding: 16px;
+  background: #fbfdfd;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+}
+
+.activity-config > label,
+.virtual-practical-picker label,
+.colab-course-activity > label:not(.upload-zone) {
+  display: grid;
+  gap: 6px;
+  color: var(--navy);
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.activity-config input,
+.activity-config select,
+.activity-config textarea,
+.colab-course-activity input {
+  width: 100%;
+  min-width: 0;
+  padding: 9px 10px;
+  color: var(--ink);
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  outline: 0;
+  font: inherit;
+  font-size: 9px;
+}
+
+.activity-config textarea {
+  min-height: 78px;
+  resize: vertical;
+}
+
+.activity-config input:focus,
+.activity-config select:focus,
+.activity-config textarea:focus {
+  border-color: var(--teal);
+  box-shadow: 0 0 0 3px #dff2ef;
+}
+
+.virtual-practical-picker,
+.colab-course-activity {
+  display: grid;
+  gap: 11px;
+  padding: 13px;
+  background: #eef6f7;
+  border: 1px solid #c3d9dd;
+  border-radius: 9px;
+}
+
+.virtual-practical-picker > article {
+  display: grid;
+  grid-template-columns: 35px 1fr;
+  gap: 10px;
+  align-items: center;
+  padding: 11px;
+  color: var(--navy);
+  background: #fff;
+  border-radius: 8px;
+}
+
+.virtual-practical-picker > article > svg {
+  width: 22px;
+  color: var(--teal);
+}
+
+.virtual-practical-picker b,
+.virtual-practical-picker span {
+  display: block;
+  font-size: 8px;
+}
+
+.virtual-practical-picker p {
+  margin: 3px 0;
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.45;
+}
+
+.virtual-practical-picker span {
+  color: var(--teal);
+  font-weight: 700;
+}
+
+.colab-course-activity .upload-zone {
+  background: #fff;
+}
+
+.programme-activity-sequence > div:first-child h3 {
+  margin: 4px 0;
+  color: var(--navy-deep);
+  font-size: 14px;
+}
+
+.programme-activity-sequence > div:first-child > p:not(.eyebrow) {
+  margin: 0;
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.5;
+}
+
+.programme-activity-sequence > article {
+  display: grid;
+  grid-template-columns: 34px 1fr auto;
+  gap: 9px;
+  align-items: center;
+  padding: 11px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+}
+
+.programme-activity-sequence > article > span {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  background: var(--teal);
+  border-radius: 8px;
+}
+
+.programme-activity-sequence > article > span.colab {
+  background: #256794;
+}
+
+.programme-activity-sequence svg {
+  width: 15px;
+}
+
+.programme-activity-sequence small {
+  color: var(--teal);
+  font-size: 7px;
+  font-weight: 800;
+}
+
+.programme-activity-sequence h4 {
+  margin: 3px 0;
+  color: var(--navy-deep);
+  font-size: 10px;
+}
+
+.programme-activity-sequence article p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 7px;
+}
+
+.sequence-actions {
+  display: grid;
+  gap: 4px;
+}
+
+.sequence-actions button {
+  padding: 4px 6px;
+  color: var(--navy);
+  background: #eef4f5;
+  border: 0;
+  border-radius: 5px;
+  font-size: 6px;
+  font-weight: 700;
+}
+
+.sequence-actions button.remove {
+  color: #9b3b30;
+  background: #fff0ed;
+}
+
+.sequence-actions button:disabled {
+  opacity: .4;
+}
+
+.sequence-list article.programme-activity {
+  border-color: #83bbb1;
+  background: #eef9f7;
+}
+
+.review-columns article.review-programme-activity {
+  background: #f3faf8;
+  border-radius: 7px;
+  padding-inline: 8px;
+}
+
+.published-materials article.published-programme-activity {
+  border-left: 3px solid var(--teal);
+  background: #f2faf8;
+}
+
+.facilitator-lab-catalogue {
+  overflow: hidden;
+}
+
+.lab-preview-banner {
+  display: grid;
+  grid-template-columns: 36px 1fr;
+  gap: 10px;
+  align-items: center;
+  padding: 11px 12px;
+  color: #0a4c66;
+  background: #e5f3fb;
+  border: 1px solid #91bed2;
+  border-radius: 9px;
+}
+
+.lab-preview-banner > svg {
+  width: 24px;
+  color: #176f94;
+}
+
+.lab-preview-banner b {
+  font-size: 9px;
+}
+
+.lab-preview-banner p {
+  margin: 3px 0 0;
+  color: #426c7d;
+  font-size: 8px;
+  line-height: 1.5;
+}
+
+.virtual-practical-picker > article.practical-design-preview {
+  grid-template-columns: 35px 1fr auto;
+}
+
+.practical-design-preview > button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-width: 126px;
+  padding: 9px 10px;
+  color: #fff;
+  background: var(--navy);
+  border: 0;
+  border-radius: 7px;
+  font-size: 7px;
+  font-weight: 800;
+}
+
+.practical-design-preview > button.previewed {
+  background: var(--teal);
+}
+
+.practical-design-preview > button svg {
+  width: 13px;
+}
+
+.facilitator-lab-catalogue .virtual-lab-grid article > button {
+  gap: 6px;
+}
+
+.facilitator-lab-catalogue .virtual-lab-grid article > button svg:first-child {
+  width: 14px;
+}
+
+@media (max-width: 1050px) {
+  .activity-design-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .authoring-steps {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .programme-activities-builder {
+    padding: 14px;
+  }
+
+  .programme-activity-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .activity-kind-tabs,
+  .activity-config .form-grid,
+  .virtual-practical-picker .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .programme-activity-sequence > article {
+    grid-template-columns: 34px 1fr;
+  }
+
+  .sequence-actions {
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .virtual-practical-picker > article.practical-design-preview {
+    grid-template-columns: 35px 1fr;
+  }
+
+  .practical-design-preview > button {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+}
