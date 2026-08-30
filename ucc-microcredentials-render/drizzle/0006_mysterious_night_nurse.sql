@@ -1,1 +1,0 @@
-ALTER TABLE `course_drafts` ADD `discipline` text DEFAULT 'Interdisciplinary' NOT NULL;
