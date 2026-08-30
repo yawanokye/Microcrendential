@@ -1,0 +1,55 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1787723890151,
+      "tag": "0000_adorable_starfox",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1787725182611,
+      "tag": "0001_rapid_king_bedlam",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1787808979720,
+      "tag": "0002_purple_squirrel_girl",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1787810973955,
+      "tag": "0003_chemical_black_tom",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1787812323135,
+      "tag": "0004_crazy_old_lace",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1787816856182,
+      "tag": "0005_outstanding_gladiator",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1787902658910,
+      "tag": "0006_mysterious_night_nurse",
+      "breakpoints": true
+    }
+  ]
+}

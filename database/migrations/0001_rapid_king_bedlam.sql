@@ -1,0 +1,1 @@
+ALTER TABLE `course_drafts` ADD `assessment_config_json` text DEFAULT '{}' NOT NULL;
