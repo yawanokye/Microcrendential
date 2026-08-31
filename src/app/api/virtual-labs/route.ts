@@ -25,9 +25,21 @@ export async function GET() {
   if (account.error || !account.profile) return account.error;
   const db = getRawDb();
   const base = `SELECT s.*, u.full_name AS learner_name FROM virtual_lab_submissions s LEFT JOIN users u ON u.email = s.learner_email`;
-  const rows = account.profile.role === "learner"
-    ? await db.prepare(`${base} WHERE s.learner_email = ? ORDER BY s.submitted_at DESC`).bind(account.profile.email).all<SubmissionRow>()
-    : await db.prepare(`${base} ORDER BY CASE s.status WHEN 'submitted' THEN 0 WHEN 'resubmit' THEN 1 ELSE 2 END, s.submitted_at DESC`).all<SubmissionRow>();
+  let rows;
+  if (account.profile.role === "learner") {
+    rows = await db.prepare(`${base} WHERE s.learner_email = ? ORDER BY s.submitted_at DESC`).bind(account.profile.email).all<SubmissionRow>();
+  } else if (account.profile.role === "facilitator") {
+    rows = await db.prepare(`${base}
+      WHERE EXISTS (
+        SELECT 1 FROM course_drafts c
+        WHERE c.created_by_email = ? AND c.status = 'active'
+          AND instr(c.activities_json, '"practicalId":"' || s.practical_id || '"') > 0
+      )
+      ORDER BY CASE s.status WHEN 'submitted' THEN 0 WHEN 'resubmit' THEN 1 ELSE 2 END, s.submitted_at DESC
+    `).bind(account.profile.email).all<SubmissionRow>();
+  } else {
+    rows = await db.prepare(`${base} ORDER BY CASE s.status WHEN 'submitted' THEN 0 WHEN 'resubmit' THEN 1 ELSE 2 END, s.submitted_at DESC`).all<SubmissionRow>();
+  }
   return Response.json({ practicals: virtualPracticals, submissions: rows.results.map(present) });
 }
 
@@ -75,11 +87,21 @@ export async function PATCH(request: Request) {
   if (!id || !["competent", "developing", "resubmit"].includes(payload.decision ?? "")) return Response.json({ error: "Choose a valid competency decision." }, { status: 400 });
   if (!Number.isFinite(mark) || mark < 0 || mark > 100) return Response.json({ error: "Enter a mark between 0 and 100." }, { status: 400 });
   if (!feedback || !competencyNote) return Response.json({ error: "Provide feedback and a competency note." }, { status: 400 });
-  const existing = await getRawDb().prepare("SELECT id FROM virtual_lab_submissions WHERE id = ? LIMIT 1").bind(id).first<{ id: number }>();
+  const db = getRawDb();
+  const existing = account.profile.role === "admin"
+    ? await db.prepare("SELECT id FROM virtual_lab_submissions WHERE id = ? LIMIT 1").bind(id).first<{ id: number }>()
+    : await db.prepare(`
+        SELECT s.id FROM virtual_lab_submissions s
+        WHERE s.id = ? AND EXISTS (
+          SELECT 1 FROM course_drafts c
+          WHERE c.created_by_email = ? AND c.status = 'active'
+            AND instr(c.activities_json, '"practicalId":"' || s.practical_id || '"') > 0
+        ) LIMIT 1
+      `).bind(id, account.profile.email).first<{ id: number }>();
   if (!existing) return Response.json({ error: "The practical submission was not found." }, { status: 404 });
   const passed = payload.decision === "competent" && mark >= 60;
   const status = payload.decision === "resubmit" ? "resubmit" : "assessed";
-  await getRawDb().prepare("UPDATE virtual_lab_submissions SET status = ?, mark = ?, passed = ?, feedback = ?, competency_note = ?, assessed_by_email = ?, assessed_at = CURRENT_TIMESTAMP WHERE id = ?")
+  await db.prepare("UPDATE virtual_lab_submissions SET status = ?, mark = ?, passed = ?, feedback = ?, competency_note = ?, assessed_by_email = ?, assessed_at = CURRENT_TIMESTAMP WHERE id = ?")
     .bind(status, mark, passed ? 1 : 0, feedback, competencyNote, account.profile.email, id).run();
   return Response.json({ updated: true, passed, status });
 }

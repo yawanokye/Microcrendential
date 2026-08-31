@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   Activity, Award, Beaker, Bell, BookOpen, CalendarDays, CheckCircle2, ChevronRight, CirclePlay, ClipboardCheck, Clock3,
-  Code2, Eye, FileCheck2, FileText, FlaskConical, Gauge, GraduationCap, GripVertical, HeartPulse, ImageIcon, LayoutDashboard, Menu,
+  Code2, Eye, FileCheck2, FileText, FlaskConical, Gauge, GraduationCap, GripVertical, HeartPulse, LayoutDashboard, Menu,
   MessageSquareText, Microscope, Pencil, QrCode, RotateCcw, Search, Settings, ShieldCheck, Sigma, Stethoscope, Undo2, Upload, Users, Video, Wrench, X,
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
@@ -23,6 +23,7 @@ type ColabAssignment = { id: number; courseCode: string; courseTitle: string; ti
 type ColabSubmission = { id: number; assignmentId: number; assignmentTitle: string; courseCode: string; courseTitle: string; learnerEmail: string; learnerName: string; attemptNumber: number; submissionType: "file" | "link"; notebookFileName?: string | null; notebookUrl?: string | null; status: string; mark?: number | null; passed: boolean; feedback: string; maxMark: number; passMark: number; submittedAt: string; assessedAt?: string | null };
 type VirtualLabSubmission = { id: number; practicalId: string; discipline: string; practicalTitle: string; learnerEmail: string; learnerName: string; attemptNumber: number; observations: { trial?: string; input?: number; result?: number; note?: string }[]; answers: Record<string, unknown>; report: string; evidenceFileName?: string | null; status: string; mark?: number | null; passed: boolean; feedback: string; competencyNote: string; submittedAt: string; assessedAt?: string | null };
 type LabObservation = { trial: string; input: number; result: number; note: string };
+type PortalRole = "learner" | "facilitator" | "admin";
 
 const disciplines = ["Education", "Humanities & Social Sciences", "Business & Management", "Science", "Technology & Engineering", "Health Sciences", "Agriculture & Natural Resources", "Creative Arts & Design", "Interdisciplinary"];
 
@@ -41,26 +42,57 @@ const liveSessions = [
   { day: "02", month: "SEP", title: "Community evidence review", course: "Coastal Resilience", time: "09:00–10:30 GMT", host: "Dr. Aba Quansah", status: "Next week" },
 ];
 
-const nav = [
-  { id: "overview", label: "Overview", icon: LayoutDashboard },
-  { id: "learning", label: "My learning", icon: BookOpen },
-  { id: "certificates", label: "Certificates", icon: Award },
-  { id: "live", label: "Live sessions", icon: Video },
-  { id: "assessments", label: "Assessments", icon: FileCheck2 },
-  { id: "colab", label: "Colab coding", icon: Code2 },
-  { id: "virtual_labs", label: "Virtual labs", icon: FlaskConical },
-  { id: "discussions", label: "Discussions", icon: MessageSquareText },
-  { id: "facilitator", label: "Facilitator studio", icon: ShieldCheck },
-  { id: "verification", label: "Identity register", icon: FileCheck2 },
-  { id: "admin", label: "System administration", icon: Users },
-  { id: "course_admin", label: "Course approvals", icon: CheckCircle2 },
-  { id: "testing", label: "Testing sandbox", icon: Settings },
-];
+type PortalNavItem = { id: string; label: string; icon: typeof LayoutDashboard };
+type PortalNavGroup = { label: string; items: PortalNavItem[] };
+
+const roleNavigation: Record<PortalRole, PortalNavGroup[]> = {
+  learner: [
+    { label: "My journey", items: [
+      { id: "overview", label: "Learning home", icon: LayoutDashboard },
+      { id: "learning", label: "My microcredentials", icon: BookOpen },
+      { id: "assessments", label: "Assessments", icon: FileCheck2 },
+      { id: "certificates", label: "Credential wallet", icon: Award },
+    ] },
+    { label: "Learning activities", items: [
+      { id: "live", label: "Live sessions", icon: Video },
+      { id: "colab", label: "Colab activities", icon: Code2 },
+      { id: "virtual_labs", label: "Virtual practicals", icon: FlaskConical },
+      { id: "discussions", label: "Learning community", icon: MessageSquareText },
+    ] },
+  ],
+  facilitator: [
+    { label: "Teaching", items: [
+      { id: "overview", label: "Teaching home", icon: LayoutDashboard },
+      { id: "facilitator", label: "Course studio", icon: BookOpen },
+      { id: "colab", label: "Colab assessment", icon: Code2 },
+      { id: "virtual_labs", label: "Practical assessment", icon: FlaskConical },
+      { id: "live", label: "Live facilitation", icon: Video },
+      { id: "discussions", label: "Learner community", icon: MessageSquareText },
+    ] },
+    { label: "Quality duties", items: [
+      { id: "verification", label: "Assigned ID reviews", icon: ShieldCheck },
+      { id: "testing", label: "Course testing", icon: Settings },
+    ] },
+  ],
+  admin: [
+    { label: "Governance", items: [
+      { id: "overview", label: "Operations home", icon: LayoutDashboard },
+      { id: "admin", label: "Users & access", icon: Users },
+      { id: "course_admin", label: "Course approvals", icon: CheckCircle2 },
+      { id: "verification", label: "Identity governance", icon: ShieldCheck },
+    ] },
+    { label: "Quality oversight", items: [
+      { id: "colab", label: "Assessment oversight", icon: Code2 },
+      { id: "virtual_labs", label: "Practical oversight", icon: FlaskConical },
+      { id: "testing", label: "Platform assurance", icon: Settings },
+    ] },
+  ],
+};
 
 type LearningResource = { type: "Watch" | "Read" | "Code"; title: string; source: string; license: string; url: string; externalUrl: string; transcript?: string; transcriptLanguage?: string };
-type PortalRole = "learner" | "facilitator" | "admin";
 type AccountProfile = { email: string; fullName: string; role: PortalRole; status: string; identityStatus?: string; dateOfBirth?: string; gender?: string; nationality?: string; phone?: string; address?: string; idType?: string; idLast4?: string };
 type AccountSession = { authenticated: boolean; identity?: { email: string; fullName: string }; profile?: AccountProfile | null; enrollments?: string[] };
+type DashboardSummary = { role: PortalRole; metrics: Record<string, number> };
 
 const openResources: LearningResource[] = [
   { type: "Watch", title: "But what is a neural network?", source: "3Blue1Brown · YouTube", license: "YouTube", url: "https://www.youtube-nocookie.com/embed/aircAruvnKk", externalUrl: "https://www.youtube.com/watch?v=aircAruvnKk" },
@@ -86,8 +118,8 @@ export default function Home() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [publishedCourses, setPublishedCourses] = useState<Course[]>([]);
+  const [dashboardSummary, setDashboardSummary] = useState<DashboardSummary | null>(null);
   const [selectedSession, setSelectedSession] = useState<(typeof liveSessions)[number] | null>(null);
-  const [completed, setCompleted] = useState([true, true, false, false]);
   const [resourceQuery, setResourceQuery] = useState("");
   const [lessonStage, setLessonStage] = useState<"content" | "check" | "complete">("content");
   const [answer, setAnswer] = useState("");
@@ -102,13 +134,16 @@ export default function Home() {
     fetch("/api/auth/session").then((response) => response.json()).then((data: AccountSession) => setAccount(data)).catch(() => setAccount({ authenticated: false }));
   }, []);
   const role: PortalRole = account?.profile?.role ?? "learner";
-  useEffect(() => { if (role === "facilitator") setActive("facilitator"); if (role === "admin") setActive("admin"); }, [role]);
+  useEffect(() => { setActive("overview"); }, [role]);
   useEffect(() => {
     if (account?.profile?.status !== "active") return;
     fetch("/api/courses").then((response) => response.json()).then((result: { courses?: { id: number; code: string; title: string; discipline: string; description: string; materials: Course["materials"]; activities: Course["activities"]; assessmentConfig: Course["assessmentConfig"]; questionLimit: number; certificateEnabled: boolean; status: string; facilitatorName: string }[] }) => setPublishedCourses((result.courses ?? []).filter((course) => course.status === "active").map((course, index) => ({ id: course.id, code: course.code, title: course.title, discipline: course.discipline, description: course.description, materials: course.materials, activities: course.activities, assessmentConfig: course.assessmentConfig, certificateEnabled: course.certificateEnabled, status: course.status, facilitatorName: course.facilitatorName, school: `Facilitator: ${course.facilitatorName}`, progress: 0, modules: `${(course.materials?.length ?? 0) + (course.activities?.length ?? 0)} learning activities`, accent: ["teal", "blue", "gold"][index % 3], next: "Open active course", published: true })))).catch(() => setPublishedCourses([]));
+    fetch("/api/dashboard/summary").then((response) => response.json()).then((result: DashboardSummary) => setDashboardSummary(result)).catch(() => setDashboardSummary(null));
   }, [account?.profile?.email, account?.profile?.status]);
   const enrolledCodes = account?.enrollments ?? [];
-  const allCourses = [...courses, ...publishedCourses.filter((course) => !courses.some((existing) => existing.code === course.code))];
+  // Production learners see only administrator-approved database courses.
+  // Static demonstration courses remain isolated inside the staff testing area.
+  const allCourses = publishedCourses;
   const visibleCourses = role === "learner" ? allCourses.filter((course) => enrolledCodes.includes(course.code)) : allCourses;
   const filteredCourses = visibleCourses.filter((course) => `${course.title} ${course.code}`.toLowerCase().includes(query.toLowerCase()));
   const selectView = (id: string) => { setActive(id); setMobileOpen(false); };
@@ -132,24 +167,25 @@ export default function Home() {
   if (account.profile.status !== "active") return <SuspendedAccess email={account.profile.email} status={account.profile.status} />;
   const displayName = account.profile.fullName;
   const initials = displayName.split(/\s+/).slice(0, 2).map((part) => part[0]).join("").toUpperCase();
-  const allowedNav = nav.filter((item) => {
-    if (item.id === "facilitator") return role === "facilitator" || role === "admin";
-    if (item.id === "certificates") return role === "learner";
-    if (item.id === "verification") return role === "facilitator" || role === "admin";
-    if (item.id === "admin") return role === "admin";
-    if (item.id === "course_admin") return role === "admin";
-    if (item.id === "testing") return role !== "learner";
-    return true;
-  });
+  const navigationGroups = roleNavigation[role];
+  const allowedNav = navigationGroups.flatMap((group) => group.items);
+  const todayLabel = new Intl.DateTimeFormat("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(new Date());
+  const roleLabel = role === "admin" ? "System administrator" : role === "facilitator" ? "Facilitator" : "Learner";
+  const roleMessage = role === "learner"
+    ? "Continue an active microcredential, prepare for assessment, or discover your next course."
+    : role === "facilitator"
+      ? "Design quality-assured learning, guide participants, and assess authentic evidence."
+      : "Govern access, approve academic offerings, and monitor institutional quality.";
+  const primaryDestination = role === "learner" ? "learning" : role === "facilitator" ? "facilitator" : "admin";
 
   return (
     <main className="portal-shell">
       <header className="topbar">
         <div className="brand"><div className="brand-mark"><GraduationCap size={25} /></div><div><strong>UCC Microcredentials</strong><span>Learn · Demonstrate · Progress</span></div></div>
         <div className="top-actions">
-          <label className="searchbox"><Search size={18} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search your learning" aria-label="Search your learning" /></label>
+          {role !== "admin" && <label className="searchbox"><Search size={18} /><input value={role === "facilitator" ? resourceQuery : query} onChange={(event) => role === "facilitator" ? setResourceQuery(event.target.value) : setQuery(event.target.value)} placeholder={role === "facilitator" ? "Search teaching resources" : "Search your learning"} aria-label={role === "facilitator" ? "Search teaching resources" : "Search your learning"} /></label>}
           <button className="icon-button" aria-label="Notifications" onClick={() => setUtility("notifications")}><Bell size={19} /><i /></button>
-          <span className={`account-role ${role}`}><ShieldCheck /> {role === "admin" ? "System admin" : role}</span>
+          <span className={`account-role ${role}`}><ShieldCheck /> {roleLabel}</span>
           <button className="profile-chip" onClick={() => setUtility("profile")}><span>{initials || "UC"}</span><b>{displayName}</b></button>
           <a className="signout-link" href="/signout-with-chatgpt?return_to=%2F">Sign out</a>
           <button className="mobile-menu" onClick={() => setMobileOpen(!mobileOpen)} aria-label="Open navigation">{mobileOpen ? <X /> : <Menu />}</button>
@@ -157,41 +193,30 @@ export default function Home() {
       </header>
 
       <aside className={`side-nav ${mobileOpen ? "open" : ""}`}>
-        <p className="nav-label">LEARNING SPACE</p>
-        <nav aria-label="Learning portal navigation">{allowedNav.map((item) => { const Icon = item.icon; return <button key={item.id} onClick={() => selectView(item.id)} className={active === item.id ? "active" : ""}><Icon size={19} /><span>{item.label}</span></button>; })}</nav>
-        <div className="nav-divider" /><p className="nav-label">SUPPORT</p>
-        <nav><button onClick={() => setUtility("support")}><Users size={19} /><span>Learning support</span></button><button onClick={() => setUtility("preferences")}><Settings size={19} /><span>Preferences</span></button></nav>
-        <button className="qa-card" onClick={() => toast.success("Quality controls active", { description: "Assessment, progression and records checks are enabled." })}><FileCheck2 size={20} /><div><b>UCC quality assured</b><span>Verified learning and assessment</span></div></button>
+        {navigationGroups.map((group, index) => <div className="nav-group" key={group.label}>{index > 0 && <div className="nav-divider" />}<p className="nav-label">{group.label}</p><nav aria-label={`${group.label} navigation`}>{group.items.map((item) => { const Icon = item.icon; return <button key={item.id} onClick={() => selectView(item.id)} className={active === item.id ? "active" : ""}><Icon size={19} /><span>{item.label}</span></button>; })}</nav></div>)}
+        <div className="nav-divider" /><p className="nav-label">Help & account</p>
+        <nav><button onClick={() => setUtility("support")}><Users size={19} /><span>{role === "learner" ? "Learner support" : role === "facilitator" ? "Teaching support" : "Platform support"}</span></button><button onClick={() => setUtility("preferences")}><Settings size={19} /><span>Preferences</span></button></nav>
+        <button className="qa-card" onClick={() => toast.success("Quality controls active", { description: role === "learner" ? "Your assessed learning and credential records are protected." : "Role permissions, evidence controls and academic review are enabled." })}><FileCheck2 size={20} /><div><b>{role === "learner" ? "Verified achievement" : role === "facilitator" ? "Assessment integrity" : "Governance controls"}</b><span>{role === "learner" ? "Assessment-backed credentials" : "UCC quality assurance active"}</span></div></button>
       </aside>
 
       <section className="workspace">
-        <div className="welcome-row"><div><p className="eyebrow">{role.toUpperCase()} PORTAL · WEDNESDAY, 26 AUGUST 2026</p><h1>Good morning, {displayName.split(" ")[0]}</h1><p>{role === "learner" ? "Enrol in an open microcredential or continue your current learning." : role === "facilitator" ? "Develop courses, guide learners and manage assessment evidence." : "Manage platform users, facilitator access and institutional operations."}</p></div><button className="primary-action" onClick={() => selectView(role === "admin" ? "admin" : role === "facilitator" ? "facilitator" : "learning")}><CirclePlay size={18} /> Open {role === "admin" ? "administration" : role === "facilitator" ? "studio" : "learning"}</button></div>
-
-        <div className="stat-grid">
-          <button onClick={() => selectView("learning")}><span className="stat-icon navy"><BookOpen /></span><div><strong>{role === "learner" ? enrolledCodes.length : 6}</strong><span>{role === "learner" ? "My enrolments" : "Active microcredentials"}</span></div><small>{role === "learner" ? "Instant access to open courses" : "3 sandbox courses included"}</small></button>
-          <button onClick={() => toast.info("Weekly activity report opened", { description: "4 hours 30 minutes across three microcredentials." })}><span className="stat-icon gold"><Clock3 /></span><div><strong>4.5h</strong><span>Learning this week</span></div><small>+45 min from last week</small></button>
-          <button onClick={() => selectView("assessments")}><span className="stat-icon teal"><FileCheck2 /></span><div><strong>2</strong><span>Assessments due</span></div><small>Next due 28 Aug</small></button>
-          <button onClick={() => selectView("live")}><span className="stat-icon sky"><CalendarDays /></span><div><strong>3</strong><span>Live sessions</span></div><small>One tomorrow</small></button>
-        </div>
+        <div className={`welcome-row role-welcome ${role}`}><div><p className="eyebrow">{roleLabel.toUpperCase()} PORTAL · {todayLabel.toUpperCase()}</p><h1>Welcome back, {displayName.split(" ")[0]}</h1><p>{roleMessage}</p></div><button className="primary-action" onClick={() => selectView(primaryDestination)}><CirclePlay size={18} /> {role === "learner" ? "Resume learning" : role === "facilitator" ? "Open course studio" : "Open administration"}</button></div>
 
         <Tabs value={active} onValueChange={setActive} className="content-tabs">
-          <TabsList variant="line" className="mobile-tabs" aria-label="Dashboard sections"><TabsTrigger value="overview">Overview</TabsTrigger><TabsTrigger value="learning">Learning</TabsTrigger><TabsTrigger value="live">Live</TabsTrigger><TabsTrigger value="assessments">Tasks</TabsTrigger></TabsList>
-          <TabsContent value="overview"><div className="main-grid">
-            <div className="panel course-panel"><div className="panel-heading"><div><p className="eyebrow">CURRENT ENROLMENTS</p><h2>Continue learning</h2></div><button onClick={() => selectView("learning")}>View all <ChevronRight size={16} /></button></div><div className="course-list">{filteredCourses.map((course) => <CourseRow key={course.code} course={course} onOpen={() => setSelectedCourse(course)} />)}{filteredCourses.length === 0 && <div className="empty-state">No enrolled microcredentials match “{query}”.</div>}</div></div>
-            <div className="panel schedule-panel"><div className="panel-heading"><div><p className="eyebrow">UPCOMING</p><h2>Live learning</h2></div><button onClick={() => selectView("live")}>Calendar <ChevronRight size={16} /></button></div><div className="session-list">{liveSessions.slice(0, 2).map((session) => <SessionRow key={session.title} session={session} />)}</div></div>
-          </div></TabsContent>
-          <TabsContent value="learning"><div className="learning-stack"><div className="page-panel"><div className="page-title"><div><p className="eyebrow">ASYNCHRONOUS LEARNING</p><h2>{role === "learner" ? "My microcredentials" : "Microcredential catalogue"}</h2><p>Work through course materials, activities and assessments at your pace.</p></div><label className="inline-search"><Search size={17} /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Find a course" /></label></div><div className="course-card-grid">{filteredCourses.map((course) => <CourseCard key={course.code} course={course} onOpen={() => setSelectedCourse(course)} />)}{filteredCourses.length === 0 && <div className="empty-state wide">{role === "learner" ? "You have not enrolled in a course yet. Choose an open course below." : "No course matches your search."}</div>}</div></div>{role === "learner" && <OpenCourseCatalog courses={allCourses} enrolledCodes={enrolledCodes} query={query} onEnrol={enrolCourse} onOpen={setSelectedCourse} />}</div></TabsContent>
-          <TabsContent value="certificates"><CertificateWallet /></TabsContent>
-          <TabsContent value="live"><div className="page-panel"><div className="page-title"><div><p className="eyebrow">SYNCHRONOUS LEARNING</p><h2>Live sessions</h2><p>Join scheduled classes, clinics and academic discussions.</p></div><button className="secondary-action" onClick={downloadCalendar}><CalendarDays size={17} /> Add calendar feed</button></div><div className="live-grid">{liveSessions.map((session) => <LiveCard key={session.title} session={session} onOpen={() => setSelectedSession(session)} />)}</div></div></TabsContent>
-          <TabsContent value="assessments"><Assessments onOpen={() => setUtility("assessment")} /></TabsContent>
+          <TabsList variant="line" className="mobile-tabs" aria-label="Dashboard sections">{allowedNav.slice(0, 4).map((item) => <TabsTrigger key={item.id} value={item.id}>{item.label}</TabsTrigger>)}</TabsList>
+          <TabsContent value="overview"><RoleOverview role={role} summary={dashboardSummary} courses={filteredCourses} onNavigate={selectView} onCourse={setSelectedCourse} onSession={setSelectedSession} /></TabsContent>
+          {role === "learner" && <TabsContent value="learning"><div className="learning-stack"><div className="page-panel"><div className="page-title"><div><p className="eyebrow">ASYNCHRONOUS LEARNING</p><h2>My microcredentials</h2><p>Work through course materials, activities and assessments at your pace.</p></div><label className="inline-search"><Search size={17} /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Find a course" /></label></div><div className="course-card-grid">{filteredCourses.map((course) => <CourseCard key={course.code} course={course} onOpen={() => setSelectedCourse(course)} />)}{filteredCourses.length === 0 && <div className="empty-state wide">You have not enrolled in an active microcredential yet. Choose an open course below.</div>}</div></div><OpenCourseCatalog courses={allCourses} enrolledCodes={enrolledCodes} query={query} onEnrol={enrolCourse} onOpen={setSelectedCourse} /></div></TabsContent>}
+          {role === "learner" && <TabsContent value="certificates"><CertificateWallet /></TabsContent>}
+          {(role === "learner" || role === "facilitator") && <TabsContent value="live"><div className="page-panel"><div className="page-title"><div><p className="eyebrow">SYNCHRONOUS LEARNING</p><h2>{role === "learner" ? "Live sessions" : "Live facilitation"}</h2><p>{role === "learner" ? "Join scheduled classes, clinics and academic discussions." : "Prepare and host scheduled learner sessions and academic clinics."}</p></div><button className="secondary-action" onClick={downloadCalendar}><CalendarDays size={17} /> Add calendar feed</button></div><div className="live-grid">{liveSessions.map((session) => <LiveCard key={session.title} session={session} onOpen={() => setSelectedSession(session)} />)}</div></div></TabsContent>}
+          {role === "learner" && <TabsContent value="assessments"><Assessments onOpen={() => setUtility("assessment")} /></TabsContent>}
           <TabsContent value="colab"><ColabWorkspace role={role} email={account.profile.email} /></TabsContent>
           <TabsContent value="virtual_labs"><VirtualLabsWorkspace role={role} /></TabsContent>
-          <TabsContent value="discussions"><Discussions /></TabsContent>
-          <TabsContent value="facilitator"><FacilitatorStudio query={resourceQuery} setQuery={setResourceQuery} /></TabsContent>
-          <TabsContent value="verification"><IdentityRegister /></TabsContent>
-          <TabsContent value="admin"><AdminPortal onOpenRegister={() => selectView("verification")} /></TabsContent>
-          <TabsContent value="course_admin"><CourseApprovalPanel /></TabsContent>
-          <TabsContent value="testing"><TestingSandbox onCourse={(course) => { setSelectedCourse(course); setLessonStage("content"); }} onLive={() => setSelectedSession(liveSessions[0])} onAssessment={() => setUtility("assessment")} onFacilitator={() => selectView("facilitator")} /></TabsContent>
+          {(role === "learner" || role === "facilitator") && <TabsContent value="discussions"><Discussions /></TabsContent>}
+          {role === "facilitator" && <TabsContent value="facilitator"><FacilitatorStudio query={resourceQuery} setQuery={setResourceQuery} /></TabsContent>}
+          {(role === "facilitator" || role === "admin") && <TabsContent value="verification"><IdentityRegister /></TabsContent>}
+          {role === "admin" && <TabsContent value="admin"><AdminPortal onOpenRegister={() => selectView("verification")} /></TabsContent>}
+          {role === "admin" && <TabsContent value="course_admin"><CourseApprovalPanel /></TabsContent>}
+          {role !== "learner" && <TabsContent value="testing"><TestingSandbox onCourse={(course) => { setSelectedCourse(course); setLessonStage("content"); }} onLive={() => setSelectedSession(liveSessions[0])} onAssessment={() => role === "facilitator" ? setUtility("assessment") : selectView("course_admin")} onFacilitator={() => selectView(role === "facilitator" ? "facilitator" : "course_admin")} /></TabsContent>}
         </Tabs>
 
         <Dialog open={Boolean(selectedCourse)} onOpenChange={(open) => !open && setSelectedCourse(null)}>
@@ -201,7 +226,7 @@ export default function Home() {
             <div className="module-progress"><div><span>Course progress</span><b>{selectedCourse?.progress}%</b></div><Progress value={selectedCourse?.progress ?? 0} /></div>
             {lessonStage === "content" && <><div className="lesson-tabs"><button className={activityMode === "watch" ? "active" : ""} onClick={() => setActivityMode("watch")}><Video /> Watch</button><button className={activityMode === "read" ? "active" : ""} onClick={() => setActivityMode("read")}><FileText /> Read</button><button className={activityMode === "code" ? "active" : ""} onClick={() => setActivityMode("code")}><Code2 /> Code</button></div>{activityMode === "watch" && <div className="video-frame"><iframe src="https://www.youtube-nocookie.com/embed/aircAruvnKk" title="Open learning video" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen /></div>}{activityMode === "read" && <article className="reading-frame"><p className="eyebrow">OPEN READING</p><h3>Assessment-led certification</h3><p>A credible microcredential certifies demonstrated learning rather than attendance. Learning outcomes, authentic assessment and recorded decisions provide the evidence needed for recognition and progression.</p></article>}{activityMode === "code" && <div className="code-frame"><span>practice.js</span><textarea defaultValue={'const credential = {\n  outcomes: true,\n  assessed: true,\n  stackable: true\n};\n\nconsole.log(credential);'} aria-label="Practice code editor" /></div>}<p className="activity-note">Pause, replay and take notes as needed. The short knowledge check must be passed before the next activity unlocks.</p><button className="dialog-primary" onClick={() => setLessonStage("check")}><FileCheck2 size={17} /> Pause and check understanding</button></>}
             {lessonStage === "check" && <div className="knowledge-check"><span className="check-count">REQUIRED CHECK · 1 OF 1</span><h3>Which feature makes a microcredential academically trustworthy?</h3>{["A short completion time", "Assessed learning outcomes", "A social-media badge", "An unrestricted open link"].map((option) => <label key={option} className={answer === option ? "chosen" : ""}><input type="radio" name="knowledge-check" value={option} checked={answer === option} onChange={(event) => { setAnswer(event.target.value); setAnswerState("idle"); }} />{option}</label>)}{answerState === "incorrect" && <p className="feedback error">Not quite. Review the role of assessment and try again.</p>}{answerState === "correct" && <p className="feedback success">Correct. The next learning activity is now unlocked.</p>}<button className="dialog-primary" disabled={!answer} onClick={() => { if (answer === "Assessed learning outcomes") { setAnswerState("correct"); setLessonStage("complete"); } else setAnswerState("incorrect"); }}><FileCheck2 size={17} /> Submit answer</button><details><summary>Optional essay reflection</summary><textarea placeholder="Explain how authentic assessment could work in your professional context…" /></details></div>}
-            {lessonStage === "complete" && <div className="lesson-complete"><CheckCircle2 /><h3>Checkpoint passed</h3><p>Your result has been recorded. You may now continue to the next learning activity.</p><button className="dialog-primary" onClick={() => { setLessonStage("content"); setAnswer(""); setAnswerState("idle"); setCompleted((items) => items.map((item, index) => index === 2 ? true : item)); }}><CirclePlay size={17} /> Continue to next activity</button></div>}</>}
+            {lessonStage === "complete" && <div className="lesson-complete"><CheckCircle2 /><h3>Checkpoint passed</h3><p>Your result has been recorded. You may now continue to the next learning activity.</p><button className="dialog-primary" onClick={() => { setLessonStage("content"); setAnswer(""); setAnswerState("idle"); }}><CirclePlay size={17} /> Continue to next activity</button></div>}</>}
           </DialogContent>
         </Dialog>
 
@@ -220,6 +245,62 @@ export default function Home() {
       </section>
     </main>
   );
+}
+
+function RoleOverview({ role, summary, courses: activeCourses, onNavigate, onCourse, onSession }: {
+  role: PortalRole;
+  summary: DashboardSummary | null;
+  courses: Course[];
+  onNavigate: (view: string) => void;
+  onCourse: (course: Course) => void;
+  onSession: (session: (typeof liveSessions)[number]) => void;
+}) {
+  const metric = (key: string) => summary ? String(summary.metrics[key] ?? 0) : "—";
+  const cards = role === "learner" ? [
+    { key: "activeEnrolments", label: "Active microcredentials", detail: "Courses currently in progress", icon: BookOpen, tone: "navy", target: "learning" },
+    { key: "completedCourses", label: "Completed courses", detail: "Learning requirements completed", icon: CheckCircle2, tone: "teal", target: "certificates" },
+    { key: "certificates", label: "Verified credentials", detail: "Available in your wallet", icon: Award, tone: "gold", target: "certificates" },
+    { key: "pendingFeedback", label: "Awaiting feedback", detail: "Submitted practical or coding work", icon: Clock3, tone: "sky", target: "colab" },
+  ] : role === "facilitator" ? [
+    { key: "activeCourses", label: "Active courses", detail: "Approved learner offerings", icon: BookOpen, tone: "navy", target: "facilitator" },
+    { key: "coursesInReview", label: "In academic review", detail: "Awaiting administrator decision", icon: FileCheck2, tone: "gold", target: "facilitator" },
+    { key: "markingQueue", label: "Evidence to assess", detail: "Coding and practical submissions", icon: ClipboardCheck, tone: "teal", target: "colab" },
+    { key: "identityReviews", label: "Assigned ID reviews", detail: "Restricted verification cases", icon: ShieldCheck, tone: "sky", target: "verification" },
+  ] : [
+    { key: "learners", label: "Registered learners", detail: "Across the credential portfolio", icon: GraduationCap, tone: "navy", target: "admin" },
+    { key: "facilitators", label: "Facilitators", detail: "Teaching and assessment accounts", icon: Users, tone: "teal", target: "admin" },
+    { key: "identityReviews", label: "Identity decisions", detail: "Awaiting assignment or review", icon: ShieldCheck, tone: "gold", target: "verification" },
+    { key: "courseApprovals", label: "Course approvals", detail: "Academic activation required", icon: FileCheck2, tone: "sky", target: "course_admin" },
+  ];
+
+  return <div className={`role-overview ${role}`}>
+    <div className="stat-grid role-stats">{cards.map((card) => { const Icon = card.icon; return <button key={card.key} onClick={() => onNavigate(card.target)}><span className={`stat-icon ${card.tone}`}><Icon /></span><div><strong>{metric(card.key)}</strong><span>{card.label}</span></div><small>{card.detail}</small></button>; })}</div>
+
+    {role === "learner" && <div className="main-grid learner-home-grid">
+      <section className="panel course-panel"><div className="panel-heading"><div><p className="eyebrow">PERSONALISED LEARNING PATH</p><h2>Continue where you stopped</h2></div><button onClick={() => onNavigate("learning")}>View my learning <ChevronRight size={16} /></button></div><div className="course-list">{activeCourses.slice(0, 3).map((course) => <CourseRow key={course.code} course={course} onOpen={() => onCourse(course)} />)}{activeCourses.length === 0 && <div className="empty-state action-empty"><BookOpen /><b>Your learning space is ready</b><span>Browse approved UCC microcredentials and enrol in the course that matches your goals.</span><button onClick={() => onNavigate("learning")}>Browse open courses</button></div>}</div></section>
+      <section className="panel schedule-panel"><div className="panel-heading"><div><p className="eyebrow">NEXT ON YOUR SCHEDULE</p><h2>Live learning</h2></div><button onClick={() => onNavigate("live")}>Full calendar <ChevronRight size={16} /></button></div><div className="session-list">{liveSessions.slice(0, 2).map((session) => <button className="session-button" key={session.title} onClick={() => onSession(session)}><SessionRow session={session} /></button>)}</div><button className="learner-focus-card" onClick={() => onNavigate("assessments")}><FileCheck2 /><div><b>Assessment centre</b><span>Review requirements, submit work and track feedback.</span></div><ChevronRight /></button></section>
+    </div>}
+
+    {role === "facilitator" && <div className="role-priority-grid">
+      <section className="page-panel role-command-panel"><div className="page-title"><div><p className="eyebrow">TEACHING OPERATIONS</p><h2>Your priority workspaces</h2><p>Move from course design to facilitation, assessment and feedback without entering learner-only areas.</p></div><span className="access-badge"><ShieldCheck /> Facilitator protected</span></div><div className="role-action-grid">
+        <button onClick={() => onNavigate("facilitator")}><span><BookOpen /></span><div><b>Design a microcredential</b><p>Author outcomes, accessible resources, programme activities and assessment gates.</p></div><ChevronRight /></button>
+        <button onClick={() => onNavigate("colab")}><span><Code2 /></span><div><b>Assess coding evidence</b><p>Review notebook submissions, apply rubrics and return actionable feedback.</p></div><ChevronRight /></button>
+        <button onClick={() => onNavigate("virtual_labs")}><span><FlaskConical /></span><div><b>Review practical evidence</b><p>Assess only practicals connected to courses you facilitate.</p></div><ChevronRight /></button>
+        <button onClick={() => onNavigate("verification")}><span><ShieldCheck /></span><div><b>Complete assigned ID reviews</b><p>Open only the restricted cases assigned by a system administrator.</p></div><ChevronRight /></button>
+      </div></section>
+      <aside className="page-panel contemporary-panel"><p className="eyebrow">CONTEMPORARY DELIVERY STANDARD</p><h2>Design for completion</h2><ul><li><CheckCircle2 /> Short, outcome-led learning sequences</li><li><CheckCircle2 /> Captions and reviewed transcripts</li><li><CheckCircle2 /> Authentic coding or practical evidence</li><li><CheckCircle2 /> Timely, criterion-based feedback</li><li><CheckCircle2 /> Assessment-backed credentials</li></ul><button onClick={() => onNavigate("testing")}><Settings /> Test the learner experience</button></aside>
+    </div>}
+
+    {role === "admin" && <div className="role-priority-grid">
+      <section className="page-panel role-command-panel"><div className="page-title"><div><p className="eyebrow">INSTITUTIONAL OPERATIONS</p><h2>Govern the platform by exception</h2><p>Prioritise access, academic activation and evidence integrity. Learner delivery tools remain outside the administrator workspace.</p></div><span className="access-badge"><ShieldCheck /> Administrator only</span></div><div className="role-action-grid">
+        <button onClick={() => onNavigate("admin")}><span><Users /></span><div><b>Manage users and access</b><p>Invite facilitators, review account status and assign verification work.</p></div><ChevronRight /></button>
+        <button onClick={() => onNavigate("course_admin")}><span><FileCheck2 /></span><div><b>Review course submissions</b><p>Check academic readiness before learner discovery and enrolment.</p></div><ChevronRight /></button>
+        <button onClick={() => onNavigate("verification")}><span><ShieldCheck /></span><div><b>Govern identity evidence</b><p>Resolve pending decisions with restricted, role-checked access.</p></div><ChevronRight /></button>
+        <button onClick={() => onNavigate("testing")}><span><Settings /></span><div><b>Run platform assurance</b><p>Test representative learning and assessment flows without altering records.</p></div><ChevronRight /></button>
+      </div></section>
+      <aside className="page-panel contemporary-panel admin"><p className="eyebrow">QUALITY SIGNALS</p><h2>Trust by design</h2><ul><li><CheckCircle2 /> Least-privilege role access</li><li><CheckCircle2 /> Verified learner identity</li><li><CheckCircle2 /> Academic course activation</li><li><CheckCircle2 /> Recorded assessment decisions</li><li><CheckCircle2 /> Verifiable credential codes</li></ul><button onClick={() => onNavigate("course_admin")}><CheckCircle2 /> Open approval queue</button></aside>
+    </div>}
+  </div>;
 }
 
 type CertificateRecord = { certificate_code: string; learner_name: string; course_code: string; course_title: string; issued_at: string };
@@ -389,8 +470,8 @@ function LiveSelfieCapture({ ready, uploading, onCaptured }: { ready: boolean; u
   };
   const closeCamera = () => { stopStream(); setMode("idle"); setCapturedFile(null); if (preview) URL.revokeObjectURL(preview); setPreview(""); };
   const usePhoto = async () => { if (!capturedFile) return; await onCaptured(capturedFile); closeCamera(); };
-  const useFileFallback = async (file: File | undefined) => { if (!file) return; setError(""); await onCaptured(file); };
-  return <div className={`live-selfie-capture ${ready ? "evidence-ready" : ""}`}><Users /><b>{ready ? "Live selfie received" : "Take a live selfie"}</b><span>The webcam opens here—face forward in good lighting and do not use filters.</span>{mode === "idle" && <button type="button" className="camera-open" onClick={startCamera}><Video /> Open webcam</button>}{mode === "camera" && <div className="camera-stage"><video ref={videoRef} autoPlay muted playsInline aria-label="Live front-camera preview" /><div className="camera-actions"><button type="button" className="camera-cancel" onClick={closeCamera}>Cancel</button><button type="button" className="camera-capture" onClick={capture}><Video /> Capture photo</button></div></div>}{mode === "preview" && preview && <div className="camera-stage"><img src={preview} alt="Captured live selfie preview" /><div className="camera-actions"><button type="button" className="camera-cancel" onClick={startCamera}>Retake</button><button type="button" className="camera-capture" disabled={uploading} onClick={usePhoto}><CheckCircle2 /> {uploading ? "Securing photo…" : "Use this photo"}</button></div></div>}{error && <em className="camera-error">{error}</em>}<label className="selfie-fallback">Camera unavailable? Upload an image instead<input type="file" accept="image/jpeg,image/png" onChange={(event) => useFileFallback(event.target.files?.[0])} /></label></div>;
+  const uploadFileFallback = async (file: File | undefined) => { if (!file) return; setError(""); await onCaptured(file); };
+  return <div className={`live-selfie-capture ${ready ? "evidence-ready" : ""}`}><Users /><b>{ready ? "Live selfie received" : "Take a live selfie"}</b><span>The webcam opens here—face forward in good lighting and do not use filters.</span>{mode === "idle" && <button type="button" className="camera-open" onClick={startCamera}><Video /> Open webcam</button>}{mode === "camera" && <div className="camera-stage"><video ref={videoRef} autoPlay muted playsInline aria-label="Live front-camera preview" /><div className="camera-actions"><button type="button" className="camera-cancel" onClick={closeCamera}>Cancel</button><button type="button" className="camera-capture" onClick={capture}><Video /> Capture photo</button></div></div>}{mode === "preview" && preview && <div className="camera-stage"><img src={preview} alt="Captured live selfie preview" /><div className="camera-actions"><button type="button" className="camera-cancel" onClick={startCamera}>Retake</button><button type="button" className="camera-capture" disabled={uploading} onClick={usePhoto}><CheckCircle2 /> {uploading ? "Securing photo…" : "Use this photo"}</button></div></div>}{error && <em className="camera-error">{error}</em>}<label className="selfie-fallback">Camera unavailable? Upload an image instead<input type="file" accept="image/jpeg,image/png" onChange={(event) => uploadFileFallback(event.target.files?.[0])} /></label></div>;
 }
 
 function IdentityRegistration({ role, initialName, email, inviteToken = "", onComplete }: { role: "learner" | "facilitator"; initialName: string; email: string; inviteToken?: string; onComplete: (profile: AccountProfile) => void }) {
@@ -490,7 +571,7 @@ function AdminPortal({ onOpenRegister }: { onOpenRegister: () => void }) {
       const response = await fetch("/api/admin/facilitators", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ fullName, email }) });
       const result = await response.json() as { error?: string; inviteUrl?: string; expiresAt?: string };
       if (!response.ok) throw new Error(result.error ?? "The facilitator account could not be created.");
-      if (result.inviteUrl && result.expiresAt) setInvite({ url: result.inviteUrl, email, expiresAt: result.expiresAt });
+      if (result.inviteUrl && result.expiresAt) setInvite({ url: new URL(result.inviteUrl, window.location.origin).toString(), email, expiresAt: result.expiresAt });
       setFullName(""); setEmail(""); await load();
       toast.success("Facilitator setup link created", { description: "Send the one-time link to the approved facilitator email." });
     } catch (error) { toast.error(error instanceof Error ? error.message : "The facilitator account could not be created."); }
@@ -626,17 +707,43 @@ function VirtualLabIcon({ discipline }: { discipline: string }) {
 }
 
 function getLabScene(discipline: string) {
-  if (discipline === "Nursing Skills" || discipline === "Medicine") return { src: "/labs/clinical-simulation-room.webp", alt: "University clinical simulation room with a training mannequin, monitor and skills trolley" };
-  if (discipline === "Engineering") return { src: "/labs/engineering-electronics-bench.webp", alt: "University engineering laboratory bench with electronic instruments and a training circuit" };
-  return { src: "/labs/science-lab-workbench.webp", alt: "University science laboratory bench with glassware, microscope and measurement equipment" };
+  if (discipline === "Nursing Skills" || discipline === "Medicine") return { src: "/labs/clinical-simulation-room.webp", alt: "University clinical simulation room with a training mannequin, monitor and skills trolley", station: "Clinical simulation room" };
+  if (discipline === "Engineering") return { src: "/labs/engineering-electronics-bench.webp", alt: "University engineering laboratory bench with electronic instruments and a training circuit", station: "Engineering instrumentation bench" };
+  return { src: "/labs/science-lab-workbench.webp", alt: "University science laboratory bench with glassware, microscope and measurement equipment", station: "Science laboratory workbench" };
 }
 
-const labHotspots = [{ left: 18, top: 62 }, { left: 43, top: 40 }, { left: 68, top: 63 }, { left: 84, top: 34 }];
+const labHotspots = {
+  clinical: [{ left: 13, top: 38 }, { left: 46, top: 42 }, { left: 79, top: 52 }, { left: 64, top: 17 }],
+  engineering: [{ left: 17, top: 55 }, { left: 43, top: 41 }, { left: 57, top: 72 }, { left: 84, top: 57 }],
+  science: [{ left: 15, top: 64 }, { left: 43, top: 46 }, { left: 65, top: 62 }, { left: 86, top: 61 }],
+};
+
+function getLabHotspots(discipline: string) {
+  if (discipline === "Nursing Skills" || discipline === "Medicine") return labHotspots.clinical;
+  if (discipline === "Engineering") return labHotspots.engineering;
+  return labHotspots.science;
+}
+
+function LabCatalogueScene({ practical }: { practical: VirtualPractical }) {
+  const scene = getLabScene(practical.discipline);
+  return <figure className="lab-card-scene"><img src={scene.src} alt="" loading="lazy" /><figcaption><span>SIMULATED WORKSTATION</span><b>{scene.station}</b></figcaption></figure>;
+}
+
+function LabBriefingScene({ practical }: { practical: VirtualPractical }) {
+  const scene = getLabScene(practical.discipline);
+  return <figure className="lab-briefing-scene"><img src={scene.src} alt={scene.alt} /><figcaption><span>{practical.discipline} · PRE-LAB ORIENTATION</span><b>{scene.station}</b><small>Inspect the room, controls and apparatus before beginning the safety gate.</small></figcaption><em><span /> Simulation environment ready</em></figure>;
+}
 
 function LabEquipmentScene({ practical, selected, onToggle }: { practical: VirtualPractical; selected: string[]; onToggle: (item: string) => void }) {
   const scene = getLabScene(practical.discipline);
+  const hotspots = getLabHotspots(practical.discipline);
   const current = practical.equipment.find((item) => selected.includes(item)) ?? practical.equipment[0];
-  return <div className="lab-equipment-scene"><figure className="lab-scene-frame"><img src={scene.src} alt={scene.alt} />{practical.equipment.map((item, index) => { const point = labHotspots[index % labHotspots.length]; const active = selected.includes(item); return <button key={item} type="button" className={active ? "lab-hotspot active" : "lab-hotspot"} style={{ left: `${point.left}%`, top: `${point.top}%` }} onClick={() => onToggle(item)} aria-pressed={active} aria-label={`${active ? "Remove" : "Identify"} ${item}`}><span>{active ? "✓" : index + 1}</span></button>; })}<figcaption>Interactive workstation · select the numbered apparatus</figcaption></figure><aside><p className="eyebrow">APPARATUS INSPECTOR</p><h4>{current}</h4><p>Use the image hotspots or the equipment list. Every required item must be identified before the simulation opens.</p><div className="apparatus-progress"><span style={{ width: `${(selected.length / practical.equipment.length) * 100}%` }} /></div><b>{selected.length} of {practical.equipment.length} identified</b></aside></div>;
+  return <div className="lab-equipment-scene"><figure className="lab-scene-frame"><img src={scene.src} alt={scene.alt} />{practical.equipment.map((item, index) => { const point = hotspots[index % hotspots.length]; const active = selected.includes(item); return <button key={item} type="button" className={active ? "lab-hotspot active" : "lab-hotspot"} style={{ left: `${point.left}%`, top: `${point.top}%` }} onClick={() => onToggle(item)} aria-pressed={active} aria-label={`${active ? "Remove" : "Identify"} ${item}`}><span>{active ? "✓" : index + 1}</span><em>{item}</em></button>; })}<figcaption>{scene.station} · select the numbered apparatus</figcaption></figure><aside><p className="eyebrow">APPARATUS INSPECTOR</p><h4>{current}</h4><p>Use the image hotspots or the equipment list. Every required item must be identified before the simulation opens.</p><div className="apparatus-progress"><span style={{ width: `${(selected.length / practical.equipment.length) * 100}%` }} /></div><b>{selected.length} of {practical.equipment.length} identified</b></aside></div>;
+}
+
+function LabInstrumentConsole({ practical, observations, input, output, note, onInput, onNote, onRun }: { practical: VirtualPractical; observations: LabObservation[]; input: number; output: number; note: string; onInput: (value: number) => void; onNote: (value: string) => void; onRun: () => void }) {
+  const scene = getLabScene(practical.discipline);
+  return <div className="lab-instrument-console"><figure className="lab-console-scene"><img src={scene.src} alt={scene.alt} /><div className="lab-console-readout"><span>LIVE {practical.resultLabel}</span><strong>{output} <small>{practical.resultUnit}</small></strong><em>Model output</em></div><div className="lab-console-ready"><i /> BENCH ONLINE</div><figcaption>{scene.station} · supervised digital twin</figcaption></figure><aside className="lab-control-rack"><header><div><span>INSTRUMENT CONTROL</span><b>{practical.title}</b></div><Gauge /></header><div className="lab-console-values"><span><small>SETPOINT</small><b>{input} {practical.parameterUnit}</b></span><ChevronRight /><span><small>OUTPUT</small><b>{output} {practical.resultUnit}</b></span></div><label>{practical.parameterLabel}<b>{input} {practical.parameterUnit}</b><input type="range" min={practical.parameterMin} max={practical.parameterMax} value={input} onChange={(event) => onInput(Number(event.target.value))} /></label><label>Observation note<input value={note} onChange={(event) => onNote(event.target.value)} placeholder="What changed and what did you notice?" /></label><button className="secondary-action" onClick={onRun}><Activity /> Run instrument and record trial</button></aside><LabMeasurementDiagram practical={practical} observations={observations} input={input} output={output} /></div>;
 }
 
 function LabMeasurementDiagram({ practical, observations, input, output }: { practical: VirtualPractical; observations: LabObservation[]; input: number; output: number }) {
@@ -696,10 +803,10 @@ function VirtualPracticalRunner({ practical, latest, onSubmitted, preview = fals
   };
   const reset = () => { setStage(1); setSafetyAnswer(""); setEquipment([]); setSequenceIndex(0); setParameter(practical.parameterDefault); setRan(false); setCheckpointAnswer(""); setObservations([]); setNote(""); setReport(""); setEvidence(null); };
   return <div className="practical-runner">{preview && <div className="lab-preview-banner"><Eye /><div><b>Facilitator preview mode</b><p>Work through the activity exactly as a learner would. Nothing entered here is submitted, graded or added to a competency record.</p></div></div>}<div className="lab-disclaimer"><ShieldCheck /><div><b>Complementary virtual practice</b><p>This simulation supports preparation, repetition and assessment. It does not replace required physical laboratory work, clinical placement, supervision or regulatory competency assessment.</p></div></div><div className="lab-stage-track">{["Brief", "Safety", "Equipment", "Simulate", "Checkpoint", "Data", "Report", preview ? "Review" : "Grade", "Debrief"].map((label, index) => <span key={label} className={stage === index + 1 ? "active" : stage > index + 1 ? "complete" : ""}><b>{stage > index + 1 ? "✓" : index + 1}</b>{label}</span>)}</div>
-    {stage === 1 && <section className="lab-stage"><p className="eyebrow">OBJECTIVES AND PRE-LAB BRIEFING</p><h3>{practical.title}</h3><p>{practical.focus}</p><ul>{practical.objectives.map((item) => <li key={item}>{item}</li>)}</ul><div className="prelab-note"><ClipboardCheck /><p>Complete the stages in order. Unexpected results must be recorded—not hidden or altered.</p></div><button className="dialog-primary" onClick={() => setStage(2)}>Begin safety assessment <ChevronRight /></button></section>}
+    {stage === 1 && <section className="lab-stage"><p className="eyebrow">OBJECTIVES AND PRE-LAB BRIEFING</p><h3>{practical.title}</h3><LabBriefingScene practical={practical} /><p>{practical.focus}</p><ul>{practical.objectives.map((item) => <li key={item}>{item}</li>)}</ul><div className="prelab-note"><ClipboardCheck /><p>Complete the stages in order. Unexpected results must be recorded—not hidden or altered.</p></div><button className="dialog-primary" onClick={() => setStage(2)}>Begin safety assessment <ChevronRight /></button></section>}
     {stage === 2 && <section className="lab-stage"><p className="eyebrow">SAFETY ASSESSMENT</p><h3>{practical.safetyQuestion}</h3><div className="lab-answer-list">{practical.safetyOptions.map((option) => <label key={option} className={safetyAnswer === option ? "selected" : ""}><input type="radio" name={`safety-${practical.id}`} checked={safetyAnswer === option} onChange={() => setSafetyAnswer(option)} />{option}</label>)}</div><button className="dialog-primary" disabled={!safetyAnswer} onClick={advanceSafety}><ShieldCheck /> Check safety decision</button></section>}
     {stage === 3 && <section className="lab-stage"><p className="eyebrow">EQUIPMENT IDENTIFICATION</p><h3>Inspect the workstation and identify every required item</h3><LabEquipmentScene practical={practical} selected={equipment} onToggle={toggleEquipment} /><div className="equipment-grid">{practical.equipment.map((item) => <button key={item} className={equipment.includes(item) ? "selected" : ""} onClick={() => toggleEquipment(item)}><VirtualLabIcon discipline={practical.discipline} /><span>{item}</span>{equipment.includes(item) && <CheckCircle2 />}</button>)}</div><button className="dialog-primary" disabled={equipment.length !== practical.equipment.length} onClick={() => setStage(4)}>Open interactive simulation <ChevronRight /></button></section>}
-    {stage === 4 && <section className="lab-stage"><p className="eyebrow">INTERACTIVE SIMULATION</p><h3>{practical.mode === "measurement" ? "Operate the virtual instrument and observe the live response" : "Complete the safest procedure at the simulated station"}</h3>{practical.mode === "measurement" ? <div className="virtual-instrument"><div className="instrument-screen"><Activity /><span>{practical.resultLabel}</span><strong>{result} {practical.resultUnit}</strong></div><label>{practical.parameterLabel}: <b>{parameter} {practical.parameterUnit}</b><input type="range" min={practical.parameterMin} max={practical.parameterMax} value={parameter} onChange={(event) => setParameter(Number(event.target.value))} /></label><label>Observation note<input value={note} onChange={(event) => setNote(event.target.value)} placeholder="What changed and what did you notice?" /></label><button className="secondary-action" onClick={runMeasurement}><Gauge /> Run and record trial</button><LabMeasurementDiagram practical={practical} observations={observations} input={parameter} output={result} /></div> : <div className="procedure-simulator"><LabProcedureScene practical={practical} sequenceIndex={sequenceIndex} /><p>Select the next safest step:</p><div>{orderedChoices.filter((item) => !practical.procedureSteps.slice(0, sequenceIndex).includes(item)).map((item) => <button key={item} onClick={() => chooseProcedureStep(item)}>{item}<ChevronRight /></button>)}</div></div>}<button className="dialog-primary" disabled={!ran} onClick={() => setStage(5)}>Pause and assess understanding <FileCheck2 /></button></section>}
+    {stage === 4 && <section className="lab-stage"><p className="eyebrow">INTERACTIVE SIMULATION</p><h3>{practical.mode === "measurement" ? "Operate the virtual instrument and observe the live response" : "Complete the safest procedure at the simulated station"}</h3>{practical.mode === "measurement" ? <LabInstrumentConsole practical={practical} observations={observations} input={parameter} output={result} note={note} onInput={setParameter} onNote={setNote} onRun={runMeasurement} /> : <div className="procedure-simulator"><LabProcedureScene practical={practical} sequenceIndex={sequenceIndex} /><p>Select the next safest step:</p><div>{orderedChoices.filter((item) => !practical.procedureSteps.slice(0, sequenceIndex).includes(item)).map((item) => <button key={item} onClick={() => chooseProcedureStep(item)}>{item}<ChevronRight /></button>)}</div></div>}<button className="dialog-primary" disabled={!ran} onClick={() => setStage(5)}>Pause and assess understanding <FileCheck2 /></button></section>}
     {stage === 5 && <section className="lab-stage"><p className="eyebrow">PAUSE-AND-ANSWER CHECKPOINT</p><h3>{practical.checkpointQuestion}</h3><div className="lab-answer-list">{practical.checkpointOptions.map((option) => <label key={option} className={checkpointAnswer === option ? "selected" : ""}><input type="radio" name={`checkpoint-${practical.id}`} checked={checkpointAnswer === option} onChange={() => setCheckpointAnswer(option)} />{option}</label>)}</div><button className="dialog-primary" disabled={!checkpointAnswer} onClick={advanceCheckpoint}><FileCheck2 /> Submit checkpoint answer</button></section>}
     {stage === 6 && <section className="lab-stage"><p className="eyebrow">DATA COLLECTION AND CALCULATIONS</p><h3>Recorded observations and response diagram</h3>{practical.mode === "measurement" && <LabMeasurementDiagram practical={practical} observations={observations} input={parameter} output={result} />}<div className="observation-table"><div><b>Trial</b><b>Input</b><b>Result</b><b>Observation</b></div>{observations.map((row, index) => <div key={`${row.trial}-${index}`}><span>{row.trial}</span><span>{row.input} {practical.parameterUnit}</span><span>{row.result} {practical.resultUnit}</span><span>{row.note}</span></div>)}</div>{practical.mode === "measurement" && <button className="secondary-action" onClick={() => setStage(4)}><RotateCcw /> Run another trial</button>}<button className="dialog-primary" onClick={() => setStage(7)}>Prepare practical report <ChevronRight /></button></section>}
     {stage === 7 && <section className="lab-stage"><p className="eyebrow">PRACTICAL REPORT AND EVIDENCE</p><h3>Explain the result and its limitations</h3><label className="lab-report-field">Report<textarea value={report} onChange={(event) => setReport(event.target.value)} placeholder="State the objective, method, observations, calculation or reasoning, conclusion, limitations and what must be confirmed in a real supervised laboratory…" /><span>{report.trim().length} characters · minimum 40</span></label>{!preview && <label className={evidence ? "lab-evidence selected" : "lab-evidence"}><Upload /><div><b>{evidence?.name || "Optional supervised skills evidence"}</b><span>Video, image or PDF · maximum 25 MB</span></div><input type="file" accept="video/*,image/*,application/pdf" onChange={(event) => setEvidence(event.target.files?.[0] ?? null)} /></label>}<button className="dialog-primary" disabled={submitting || report.trim().length < 40} onClick={submit}><FileCheck2 /> {preview ? "Complete preview and open debrief" : submitting ? "Submitting practical…" : "Submit for facilitator grading"}</button></section>}
@@ -721,8 +828,8 @@ function VirtualLabsWorkspace({ role }: { role: PortalRole }) {
   useEffect(() => { if (role !== "learner") return; const practicalId = sessionStorage.getItem("ucc-open-practical"); if (!practicalId) return; sessionStorage.removeItem("ucc-open-practical"); const practical = virtualPracticals.find((item) => item.id === practicalId); if (practical) { setDiscipline(practical.discipline); setSelected(practical); } }, [role]);
   const filtered = virtualPracticals.filter((item) => (discipline === "All" || item.discipline === discipline) && `${item.title} ${item.discipline} ${item.focus}`.toLowerCase().includes(query.toLowerCase()));
   const latest = selected ? submissions.find((item) => item.practicalId === selected.id) : undefined;
-  if (role !== "learner") return <div className="virtual-lab-admin"><section className="page-panel facilitator-lab-catalogue"><div className="virtual-lab-hero"><div><p className="eyebrow">FACILITATOR PRACTICAL PREVIEW</p><h2>Experience every simulation before using it</h2><p>Search, open and complete the learner pathway in non-recorded preview mode. Use the objectives, safety gate, interaction, data and debrief to judge whether the practical fits your programme.</p></div><div className="lab-hero-meter"><Eye /><strong>{virtualPracticals.length}</strong><span>practicals to preview</span></div></div><div className="lab-toolbar"><label><Search /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search practicals to preview" /></label><div><button className={discipline === "All" ? "active" : ""} onClick={() => setDiscipline("All")}>All</button>{labDisciplines.map((item) => <button key={item} className={discipline === item ? "active" : ""} onClick={() => setDiscipline(item)}>{item} ({virtualPracticals.filter((practical) => practical.discipline === item).length})</button>)}</div></div><div className="virtual-lab-grid">{filtered.map((practical) => <article key={practical.id}><header><span><VirtualLabIcon discipline={practical.discipline} /></span><em>{practical.discipline}</em><b>preview</b></header><h3>{practical.title}</h3><p>{practical.focus}</p><div><span><ShieldCheck /> Safety gate</span><span><Activity /> Interactive</span><span><ClipboardCheck /> Debrief</span></div><button onClick={() => setSelected(practical)}><Eye /> Preview full practical <ChevronRight /></button></article>)}{filtered.length === 0 && <div className="empty-state wide">No practical matches this search or discipline.</div>}</div><Dialog open={Boolean(selected)} onOpenChange={(open) => !open && setSelected(null)}><DialogContent className="virtual-lab-dialog"><DialogHeader><p className="eyebrow">{selected?.discipline} · FACILITATOR PREVIEW</p><DialogTitle>{selected?.title}</DialogTitle><DialogDescription>Non-recorded nine-stage learner simulation preview</DialogDescription></DialogHeader>{selected && <VirtualPracticalRunner key={`preview-${selected.id}`} practical={selected} preview onSubmitted={async () => {}} />}</DialogContent></Dialog></section><section className="page-panel"><div className="page-title"><div><p className="eyebrow">PRACTICAL ASSESSMENT REGISTER</p><h2>Learner evidence and competency decisions</h2><p>Grade the virtual evidence while clearly recording what still requires physical supervision.</p></div><span className="access-badge"><ClipboardCheck /> {submissions.filter((item) => item.status === "submitted").length} awaiting review</span></div>{loading && <div className="empty-state">Loading practical submissions…</div>}<div className="lab-review-list">{submissions.map((submission) => <VirtualLabSubmissionReview key={submission.id} submission={submission} onUpdated={load} />)}{!loading && submissions.length === 0 && <div className="empty-state">Learner practical submissions will appear here.</div>}</div></section></div>;
-  return <section className="page-panel virtual-lab-workspace"><div className="virtual-lab-hero"><div><p className="eyebrow">INTERACTIVE VIRTUAL PRACTICALS</p><h2>Prepare, practise and reflect safely</h2><p>Use these browser simulations to complement—never replace—approved physical laboratories, clinical placements and supervised skills assessment.</p></div><div className="lab-hero-meter"><FlaskConical /><strong>{virtualPracticals.length}</strong><span>guided practicals</span></div></div><div className="lab-toolbar"><label><Search /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search practicals" /></label><div><button className={discipline === "All" ? "active" : ""} onClick={() => setDiscipline("All")}>All</button>{labDisciplines.map((item) => <button key={item} className={discipline === item ? "active" : ""} onClick={() => setDiscipline(item)}>{item}</button>)}</div></div>{loading && <div className="empty-state">Loading your practical record…</div>}<div className="virtual-lab-grid">{filtered.map((practical) => { const record = submissions.find((item) => item.practicalId === practical.id); return <article key={practical.id}><header><span><VirtualLabIcon discipline={practical.discipline} /></span><em>{practical.discipline}</em>{record && <b className={record.passed ? "passed" : record.status}>{record.passed ? "competent" : record.status}</b>}</header><h3>{practical.title}</h3><p>{practical.focus}</p><div><span><ShieldCheck /> Safety gate</span><span><Activity /> Interactive</span><span><ClipboardCheck /> Graded</span></div><button onClick={() => setSelected(practical)}>{record?.passed ? "Review debrief" : record?.status === "submitted" ? "View submission" : "Start practical"}<ChevronRight /></button></article>; })}{filtered.length === 0 && <div className="empty-state wide">No virtual practical matches this search.</div>}</div><Dialog open={Boolean(selected)} onOpenChange={(open) => !open && setSelected(null)}><DialogContent className="virtual-lab-dialog"><DialogHeader><p className="eyebrow">{selected?.discipline}</p><DialogTitle>{selected?.title}</DialogTitle><DialogDescription>Nine-stage complementary virtual practical</DialogDescription></DialogHeader>{selected && <VirtualPracticalRunner key={`${selected.id}-${latest?.id ?? 0}-${latest?.status ?? "new"}`} practical={selected} latest={latest} onSubmitted={load} />}</DialogContent></Dialog></section>;
+  if (role !== "learner") return <div className="virtual-lab-admin"><section className="page-panel facilitator-lab-catalogue"><div className="virtual-lab-hero"><div><p className="eyebrow">FACILITATOR PRACTICAL PREVIEW</p><h2>Experience every simulation before using it</h2><p>Search, open and complete the learner pathway in non-recorded preview mode. Use the objectives, safety gate, interaction, data and debrief to judge whether the practical fits your programme.</p></div><div className="lab-hero-meter"><Eye /><strong>{virtualPracticals.length}</strong><span>practicals to preview</span></div></div><div className="lab-toolbar"><label><Search /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search practicals to preview" /></label><div><button className={discipline === "All" ? "active" : ""} onClick={() => setDiscipline("All")}>All</button>{labDisciplines.map((item) => <button key={item} className={discipline === item ? "active" : ""} onClick={() => setDiscipline(item)}>{item} ({virtualPracticals.filter((practical) => practical.discipline === item).length})</button>)}</div></div><div className="virtual-lab-grid">{filtered.map((practical) => <article key={practical.id}><header><span><VirtualLabIcon discipline={practical.discipline} /></span><em>{practical.discipline}</em><b>preview</b></header><LabCatalogueScene practical={practical} /><h3>{practical.title}</h3><p>{practical.focus}</p><div><span><ShieldCheck /> Safety gate</span><span><Activity /> Interactive</span><span><ClipboardCheck /> Debrief</span></div><button onClick={() => setSelected(practical)}><Eye /> Preview full practical <ChevronRight /></button></article>)}{filtered.length === 0 && <div className="empty-state wide">No practical matches this search or discipline.</div>}</div><Dialog open={Boolean(selected)} onOpenChange={(open) => !open && setSelected(null)}><DialogContent className="virtual-lab-dialog"><DialogHeader><p className="eyebrow">{selected?.discipline} · FACILITATOR PREVIEW</p><DialogTitle>{selected?.title}</DialogTitle><DialogDescription>Non-recorded nine-stage learner simulation preview</DialogDescription></DialogHeader>{selected && <VirtualPracticalRunner key={`preview-${selected.id}`} practical={selected} preview onSubmitted={async () => {}} />}</DialogContent></Dialog></section><section className="page-panel"><div className="page-title"><div><p className="eyebrow">PRACTICAL ASSESSMENT REGISTER</p><h2>Learner evidence and competency decisions</h2><p>Grade the virtual evidence while clearly recording what still requires physical supervision.</p></div><span className="access-badge"><ClipboardCheck /> {submissions.filter((item) => item.status === "submitted").length} awaiting review</span></div>{loading && <div className="empty-state">Loading practical submissions…</div>}<div className="lab-review-list">{submissions.map((submission) => <VirtualLabSubmissionReview key={submission.id} submission={submission} onUpdated={load} />)}{!loading && submissions.length === 0 && <div className="empty-state">Learner practical submissions will appear here.</div>}</div></section></div>;
+  return <section className="page-panel virtual-lab-workspace"><div className="virtual-lab-hero"><div><p className="eyebrow">INTERACTIVE VIRTUAL PRACTICALS</p><h2>Prepare, practise and reflect safely</h2><p>Use these browser simulations to complement—never replace—approved physical laboratories, clinical placements and supervised skills assessment.</p></div><div className="lab-hero-meter"><FlaskConical /><strong>{virtualPracticals.length}</strong><span>guided practicals</span></div></div><div className="lab-toolbar"><label><Search /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search practicals" /></label><div><button className={discipline === "All" ? "active" : ""} onClick={() => setDiscipline("All")}>All</button>{labDisciplines.map((item) => <button key={item} className={discipline === item ? "active" : ""} onClick={() => setDiscipline(item)}>{item}</button>)}</div></div>{loading && <div className="empty-state">Loading your practical record…</div>}<div className="virtual-lab-grid">{filtered.map((practical) => { const record = submissions.find((item) => item.practicalId === practical.id); return <article key={practical.id}><header><span><VirtualLabIcon discipline={practical.discipline} /></span><em>{practical.discipline}</em>{record && <b className={record.passed ? "passed" : record.status}>{record.passed ? "competent" : record.status}</b>}</header><LabCatalogueScene practical={practical} /><h3>{practical.title}</h3><p>{practical.focus}</p><div><span><ShieldCheck /> Safety gate</span><span><Activity /> Interactive</span><span><ClipboardCheck /> Graded</span></div><button onClick={() => setSelected(practical)}>{record?.passed ? "Review debrief" : record?.status === "submitted" ? "View submission" : "Start practical"}<ChevronRight /></button></article>; })}{filtered.length === 0 && <div className="empty-state wide">No virtual practical matches this search.</div>}</div><Dialog open={Boolean(selected)} onOpenChange={(open) => !open && setSelected(null)}><DialogContent className="virtual-lab-dialog"><DialogHeader><p className="eyebrow">{selected?.discipline}</p><DialogTitle>{selected?.title}</DialogTitle><DialogDescription>Nine-stage complementary virtual practical</DialogDescription></DialogHeader>{selected && <VirtualPracticalRunner key={`${selected.id}-${latest?.id ?? 0}-${latest?.status ?? "new"}`} practical={selected} latest={latest} onSubmitted={load} />}</DialogContent></Dialog></section>;
 }
 
 function Assessments({ onOpen }: { onOpen: () => void }) {
@@ -1078,11 +1185,22 @@ function ProfileEditor({ profile, onUpdated }: { profile: AccountProfile; onUpda
 }
 
 function UtilityDialog({ value, profile, onProfileUpdated, onClose }: { value: "notifications" | "support" | "preferences" | "profile" | "assessment" | null; profile: AccountProfile; onProfileUpdated: (profile: AccountProfile) => void; onClose: () => void }) {
-  const title = value === "notifications" ? "Notifications" : value === "support" ? "Learning support" : value === "preferences" ? "Preferences" : value === "profile" ? `${profile.role === "learner" ? "Learner" : profile.role === "facilitator" ? "Facilitator" : "Administrator"} profile` : "Assessment attempt";
-  return <Dialog open={Boolean(value)} onOpenChange={(open) => !open && onClose()}><DialogContent className={value === "profile" ? "utility-dialog profile-dialog" : "utility-dialog"}><DialogHeader><p className="eyebrow">UCC MICROCREDENTIALS</p><DialogTitle>{title}</DialogTitle><DialogDescription>{value === "assessment" ? "Complete the objective item and optional essay response." : value === "profile" ? "Complete biodata and submit current identity evidence for restricted UCC verification." : "Manage this area without leaving your learning workspace."}</DialogDescription></DialogHeader>
-    {value === "notifications" && <div className="utility-list"><button onClick={() => toast.success("Marked as read")}><FileCheck2 /><div><b>Assessment due Friday</b><span>Digital Pedagogy · 28 August</span></div></button><button onClick={() => toast.success("Reminder saved")}><Video /><div><b>Live session tomorrow</b><span>10:00 GMT · Join from Live sessions</span></div></button></div>}
-    {value === "support" && <div className="support-form"><label>How can we help?<select defaultValue="learning"><option value="learning">Learning activity</option><option value="assessment">Assessment or feedback</option><option value="technical">Technical access</option></select></label><label>Message<textarea placeholder="Describe the issue and the support team will respond." /></label><button className="dialog-primary" onClick={() => { toast.success("Support request submitted"); onClose(); }}>Send support request</button></div>}
-    {value === "preferences" && <div className="preference-list"><label><div><b>Assessment reminders</b><span>Notify me 48 hours before a deadline</span></div><Switch defaultChecked /></label><label><div><b>Live-class reminders</b><span>Notify me 15 minutes before a session</span></div><Switch defaultChecked /></label><label><div><b>Weekly progress email</b><span>Receive a summary every Monday</span></div><Switch /></label><button className="dialog-primary" onClick={() => { toast.success("Preferences saved"); onClose(); }}>Save preferences</button></div>}
+  const roleName = profile.role === "learner" ? "Learner" : profile.role === "facilitator" ? "Facilitator" : "Administrator";
+  const title = value === "notifications" ? "Notifications" : value === "support" ? `${roleName} support` : value === "preferences" ? "Preferences" : value === "profile" ? `${roleName} profile` : "Assessment attempt";
+  const notificationItems = profile.role === "learner"
+    ? [{ title: "Assessment due Friday", detail: "Open Assessments to review the requirements", icon: FileCheck2 }, { title: "Live session tomorrow", detail: "Open Live sessions for the room and calendar", icon: Video }]
+    : profile.role === "facilitator"
+      ? [{ title: "Evidence awaiting assessment", detail: "Open the coding and practical assessment queues", icon: ClipboardCheck }, { title: "Course review status available", detail: "Open Course studio to review the decision", icon: BookOpen }]
+      : [{ title: "Identity decisions require attention", detail: "Open Identity governance to review the queue", icon: ShieldCheck }, { title: "Courses await academic activation", detail: "Open Course approvals to record a decision", icon: FileCheck2 }];
+  const preferenceItems = profile.role === "learner"
+    ? [{ title: "Assessment reminders", detail: "Notify me 48 hours before a deadline", checked: true }, { title: "Live-class reminders", detail: "Notify me 15 minutes before a session", checked: true }, { title: "Weekly progress email", detail: "Receive a learning summary every Monday", checked: false }]
+    : profile.role === "facilitator"
+      ? [{ title: "Marking-queue alerts", detail: "Notify me when new evidence is submitted", checked: true }, { title: "Course review decisions", detail: "Notify me when an administrator records a decision", checked: true }, { title: "Weekly teaching digest", detail: "Receive a summary of active delivery and feedback", checked: false }]
+      : [{ title: "Access and identity alerts", detail: "Notify me when governance action is required", checked: true }, { title: "Course approval alerts", detail: "Notify me when a course enters academic review", checked: true }, { title: "Weekly operations digest", detail: "Receive an institutional activity summary", checked: false }];
+  return <Dialog open={Boolean(value)} onOpenChange={(open) => !open && onClose()}><DialogContent className={value === "profile" ? "utility-dialog profile-dialog" : "utility-dialog"}><DialogHeader><p className="eyebrow">UCC MICROCREDENTIALS</p><DialogTitle>{title}</DialogTitle><DialogDescription>{value === "assessment" ? "Complete the objective item and optional essay response." : value === "profile" ? "Complete biodata and submit current identity evidence for restricted UCC verification." : "Manage this area without leaving your role-protected workspace."}</DialogDescription></DialogHeader>
+    {value === "notifications" && <div className="utility-list">{notificationItems.map((item) => { const Icon = item.icon; return <button key={item.title} onClick={() => toast.success("Marked as read")}><Icon /><div><b>{item.title}</b><span>{item.detail}</span></div></button>; })}</div>}
+    {value === "support" && <div className="support-form"><label>How can we help?<select defaultValue="technical">{profile.role === "learner" ? <><option value="learning">Learning activity</option><option value="assessment">Assessment or feedback</option><option value="technical">Technical access</option></> : profile.role === "facilitator" ? <><option value="course">Course design or publishing</option><option value="assessment">Assessment workflow</option><option value="technical">Technical access</option></> : <><option value="access">User or access governance</option><option value="quality">Academic quality workflow</option><option value="technical">Platform operations</option></>}</select></label><label>Message<textarea placeholder="Describe the issue and the support team will respond." /></label><button className="dialog-primary" onClick={() => { toast.success("Support request submitted"); onClose(); }}>Send support request</button></div>}
+    {value === "preferences" && <div className="preference-list">{preferenceItems.map((item) => <label key={item.title}><div><b>{item.title}</b><span>{item.detail}</span></div><Switch defaultChecked={item.checked} /></label>)}<button className="dialog-primary" onClick={() => { toast.success("Preferences saved"); onClose(); }}>Save preferences</button></div>}
     {value === "profile" && <ProfileEditor profile={profile} onUpdated={onProfileUpdated} />}
     {value === "assessment" && <div className="knowledge-check"><span className="check-count">OBJECTIVE QUESTION · REQUIRED</span><h3>Which element must be approved before a UCC microcredential is delivered?</h3>{["Programme title only", "Learning outcomes and assessment", "Social media campaign", "External logo"].map((option) => <label key={option}><input type="radio" name="assessment-dialog" />{option}</label>)}<details><summary>Optional essay question</summary><textarea placeholder="Explain how quality assurance supports learner trust…" /></details><button className="dialog-primary" onClick={() => { toast.success("Assessment response saved"); onClose(); }}>Save response</button></div>}
   </DialogContent></Dialog>;

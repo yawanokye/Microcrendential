@@ -28,6 +28,8 @@ export async function POST(request: Request) {
   } catch {
     return Response.json({ error: "An account already exists for this email address." }, { status: 409 });
   }
-  const inviteUrl = `${new URL(request.url).origin}/?invite=${encodeURIComponent(token)}`;
-  return Response.json({ facilitator: { email, fullName, status: "pending_setup" }, inviteUrl, expiresAt }, { status: 201 });
+  // Return an application-relative URL so the browser uses the public Render
+  // hostname instead of the container's internal 0.0.0.0 address.
+  const invitePath = `/?invite=${encodeURIComponent(token)}`;
+  return Response.json({ facilitator: { email, fullName, status: "pending_setup" }, inviteUrl: invitePath, expiresAt }, { status: 201 });
 }
