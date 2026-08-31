@@ -2,6 +2,14 @@
 
 This package contains the learner, facilitator and administrator portals, course authoring, open-course enrolment, identity verification, assessments, mathematical whiteboard, YouTube transcript review, free Google Colab coding assignments, interactive virtual laboratories and QR certificate features.
 
+Each role has a separate operational experience:
+
+- **Learners** see only their learning journey, approved course catalogue, assessment activities, live sessions, community, practicals and credential wallet.
+- **Facilitators** see course design, teaching, marking, assigned identity reviews and quality-testing tools; learner-only registration and credential-wallet screens are excluded.
+- **System administrators** see access governance, academic approvals, identity governance and platform-assurance workspaces; learner delivery screens are excluded.
+
+Role separation is enforced by both the interface and the API. Hiding a navigation item is never treated as authorisation.
+
 The package is adapted for Render. It uses:
 
 - Next.js on Node.js 22
@@ -42,10 +50,10 @@ You can also use GitHub’s **Add file → Upload files** option and upload the 
 ## 3. Create the first administrator
 
 1. Open the deployed `onrender.com` URL.
-2. Select **New learner** on the sign-in page.
-3. Register using the exact `INITIAL_ADMIN_EMAIL` configured in Render.
-4. On first successful sign-in, that email is promoted to the initial administrator.
-5. Complete the administrator biodata and identity-verification flow where required.
+2. Select **System administrator**.
+3. Choose **First admin setup**.
+4. Register using the exact `INITIAL_ADMIN_EMAIL` configured in Render.
+5. On first successful sign-in, that email is promoted to the initial administrator.
 
 The administrator can then create facilitator invitations from the System Administration portal. Facilitators must register/sign in with the exact invited email address.
 
@@ -79,13 +87,13 @@ When an administrator activates the course, configured Colab activities are auto
 
 ## Interactive virtual laboratories
 
-The **Virtual labs** workspace provides guided practicals in general science, physics, chemistry, biology, nursing skills, medicine and engineering. Every practical follows nine controlled stages: objectives and pre-lab briefing, safety assessment, equipment identification, interactive simulation, pause-and-answer checkpoint, data collection, practical report or supervised evidence, facilitator grading, and debriefing with a competency record.
+The **Virtual labs** workspace provides guided practicals in general science, physics, chemistry, biology, nursing skills, medicine and engineering. Realistic science workbenches, engineering instrumentation benches and clinical simulation rooms appear throughout the catalogue and practical runner. Learners orient themselves in the room, identify apparatus through image hotspots, operate a live instrument console or complete a step-by-step clinical station, and record observations against a response diagram. Every practical follows nine controlled stages: objectives and pre-lab briefing, safety assessment, equipment identification, interactive simulation, pause-and-answer checkpoint, data collection, practical report or supervised evidence, facilitator grading, and debriefing with a competency record.
 
 Facilitators can search and run every practical in **Facilitator preview mode** before including it in a programme. Preview mode follows the complete learner pathway but does not create a submission, mark or competency record. The same preview is available inside the Facilitator Studio's **Programme activities** stage, where a completed review is indicated before the practical is added to the course sequence.
 
 These simulations complement rather than replace physical laboratories, clinical placements, supervised skills demonstrations or regulatory competency assessment. The medical and nursing scenarios use fictional patients and must not be used to diagnose, treat or prescribe for a real person.
 
-Learners may attach an optional video, image or PDF evidence file up to 25 MB. On Render, these protected files are stored below `DATA_DIR/uploads/virtual-lab-evidence/` and are available only to the learner and authorised facilitators or administrators.
+Learners may attach an optional video, image or PDF evidence file up to 25 MB. On Render, these protected files are stored below `DATA_DIR/uploads/virtual-lab-evidence/` and are available only to the learner, the facilitator responsible for the linked active course, or a system administrator.
 
 ## Environment variables
 
