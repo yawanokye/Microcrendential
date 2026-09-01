@@ -45,6 +45,15 @@ export const users = sqliteTable("users", {
   inviteExpiresAt: text("invite_expires_at"),
   setupCompletedAt: text("setup_completed_at"),
   createdByEmail: text("created_by_email"),
+  studentNumber: text("student_number"),
+  educationLevel: text("education_level"),
+  occupation: text("occupation"),
+  organisation: text("organisation"),
+  interestsJson: text("interests_json").notNull().default("[]"),
+  preferredLanguage: text("preferred_language").notNull().default("English"),
+  accessibilityNeeds: text("accessibility_needs"),
+  termsAcceptedAt: text("terms_accepted_at"),
+  privacyAcceptedAt: text("privacy_accepted_at"),
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 }, (table) => [uniqueIndex("users_email_unique").on(table.email)]);
 
@@ -73,6 +82,11 @@ export const certificates = sqliteTable("certificates", {
   learnerName: text("learner_name").notNull(),
   courseCode: text("course_code").notNull(),
   courseTitle: text("course_title").notNull(),
+  credentialType: text("credential_type").notNull().default("microcredential"),
+  status: text("status", { enum: ["active", "revoked"] }).notNull().default("active"),
+  expiresAt: text("expires_at"),
+  revokedAt: text("revoked_at"),
+  revocationReason: text("revocation_reason"),
   issuedAt: text("issued_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 }, (table) => [uniqueIndex("certificates_code_unique").on(table.certificateCode), uniqueIndex("certificates_user_course_unique").on(table.userEmail, table.courseCode)]);
 

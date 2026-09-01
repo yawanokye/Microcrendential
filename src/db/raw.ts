@@ -71,6 +71,15 @@ CREATE TABLE IF NOT EXISTS users (
   invite_expires_at TEXT,
   setup_completed_at TEXT,
   created_by_email TEXT,
+  student_number TEXT,
+  education_level TEXT,
+  occupation TEXT,
+  organisation TEXT,
+  interests_json TEXT NOT NULL DEFAULT '[]',
+  preferred_language TEXT NOT NULL DEFAULT 'English',
+  accessibility_needs TEXT,
+  terms_accepted_at TEXT,
+  privacy_accepted_at TEXT,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 CREATE TABLE IF NOT EXISTS enrollments (
@@ -98,6 +107,11 @@ CREATE TABLE IF NOT EXISTS certificates (
   learner_name TEXT NOT NULL,
   course_code TEXT NOT NULL,
   course_title TEXT NOT NULL,
+  credential_type TEXT NOT NULL DEFAULT 'microcredential',
+  status TEXT NOT NULL DEFAULT 'active',
+  expires_at TEXT,
+  revoked_at TEXT,
+  revocation_reason TEXT,
   issued_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   UNIQUE(user_email, course_code)
 );
@@ -177,10 +191,29 @@ export function getRawDb() {
   mkdirSync(dirname(databasePath), { recursive: true });
   const database = new DatabaseSync(databasePath);
   database.exec(schema);
+  const ensureColumn = (table: string, column: string, definition: string) => {
+    const columns = database.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
+    if (!columns.some((item) => item.name === column)) database.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+  };
   const courseColumns = database.prepare("PRAGMA table_info(course_drafts)").all() as { name: string }[];
   if (!courseColumns.some((column) => column.name === "activities_json")) {
     database.exec("ALTER TABLE course_drafts ADD COLUMN activities_json TEXT NOT NULL DEFAULT '[]'");
   }
+  ensureColumn("users", "student_number", "TEXT");
+  ensureColumn("users", "education_level", "TEXT");
+  ensureColumn("users", "occupation", "TEXT");
+  ensureColumn("users", "organisation", "TEXT");
+  ensureColumn("users", "interests_json", "TEXT NOT NULL DEFAULT '[]'");
+  ensureColumn("users", "preferred_language", "TEXT NOT NULL DEFAULT 'English'");
+  ensureColumn("users", "accessibility_needs", "TEXT");
+  ensureColumn("users", "terms_accepted_at", "TEXT");
+  ensureColumn("users", "privacy_accepted_at", "TEXT");
+  ensureColumn("certificates", "credential_type", "TEXT NOT NULL DEFAULT 'microcredential'");
+  ensureColumn("certificates", "status", "TEXT NOT NULL DEFAULT 'active'");
+  ensureColumn("certificates", "expires_at", "TEXT");
+  ensureColumn("certificates", "revoked_at", "TEXT");
+  ensureColumn("certificates", "revocation_reason", "TEXT");
+  database.exec("UPDATE users SET student_number = 'UCC-MC-' || strftime('%Y', created_at) || '-' || printf('%06d', id) WHERE role = 'learner' AND (student_number IS NULL OR student_number = '')");
   globalForDatabase.__uccRawDb = new RenderDatabase(database);
   return globalForDatabase.__uccRawDb;
 }
