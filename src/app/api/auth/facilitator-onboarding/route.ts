@@ -1,5 +1,6 @@
 import { getIdentityAndProfile } from "@/lib/accounts";
 import { getRawDb } from "@/db/raw";
+import { ownsValidIdentityEvidence } from "@/lib/identity-evidence";
 
 const hashToken = async (value: string) => Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value)))).map((byte) => byte.toString(16).padStart(2, "0")).join("");
 
@@ -13,6 +14,7 @@ export async function POST(request: Request) {
   if (!invite.invite_expires_at || Date.parse(invite.invite_expires_at) < Date.now()) return Response.json({ error: "The facilitator setup link has expired. Ask the administrator for a new invitation." }, { status: 410 });
   const required = [payload.fullName, payload.dateOfBirth, payload.gender, payload.nationality, payload.phone, payload.address, payload.idType, payload.idLast4, payload.idDocumentKey, payload.selfieKey];
   if (required.some((value) => !value?.trim()) || !payload.consent) return Response.json({ error: "Complete all biodata, identity evidence and consent fields." }, { status: 400 });
+  if (!await ownsValidIdentityEvidence(identity.email, payload.idDocumentKey!, payload.selfieKey!)) return Response.json({ error: "Upload a valid identity document and live selfie from this signed-in account." }, { status: 400 });
   await getRawDb().prepare("UPDATE users SET full_name = ?, status = 'pending_verification', date_of_birth = ?, gender = ?, nationality = ?, phone = ?, address = ?, id_type = ?, id_last4 = ?, id_document_key = ?, selfie_key = ?, identity_status = 'pending_review', invite_token_hash = NULL, invite_expires_at = NULL, setup_completed_at = CURRENT_TIMESTAMP WHERE email = ?")
     .bind(payload.fullName!.trim(), payload.dateOfBirth, payload.gender, payload.nationality, payload.phone, payload.address, payload.idType, payload.idLast4!.slice(-4), payload.idDocumentKey, payload.selfieKey, profile.email).run();
   return Response.json({ profile: { email: profile.email, fullName: payload.fullName!.trim(), role: "facilitator", status: "pending_verification", identityStatus: "pending_review" } });

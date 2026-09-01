@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import "./programme-activities.css";
 import "./lab-visuals.css";
+import "./modern-platform.css";
 
 export const metadata: Metadata = {
   title: "UCC Microcredential Learning Platform",

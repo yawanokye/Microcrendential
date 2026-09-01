@@ -7,7 +7,7 @@ type AuthAccount = { email: string; full_name: string; password_hash: string; pa
 const hash = (password: string, salt: string) => scryptSync(password, salt, 64).toString("hex");
 
 export async function POST(request: Request) {
-  const payload = await request.json() as { mode?: "login" | "register" | "admin_setup"; email?: string; fullName?: string; password?: string; returnTo?: string };
+  const payload = await request.json() as { mode?: "login" | "register" | "admin_setup"; email?: string; fullName?: string; password?: string; returnTo?: string; termsAccepted?: boolean };
   const email = payload.email?.trim().toLowerCase() ?? ""; const fullName = payload.fullName?.trim() ?? ""; const password = payload.password ?? "";
   if (!/^\S+@\S+\.\S+$/.test(email)) return Response.json({ error: "Enter a valid email address." }, { status: 400 });
   if (password.length < 10) return Response.json({ error: "Passwords must contain at least 10 characters." }, { status: 400 });
@@ -15,6 +15,7 @@ export async function POST(request: Request) {
   let account = existing;
   if (payload.mode === "register" || payload.mode === "admin_setup") {
     if (!fullName) return Response.json({ error: "Enter your full legal name." }, { status: 400 });
+    if (payload.mode === "register" && !payload.termsAccepted) return Response.json({ error: "Accept the platform terms before creating a student account." }, { status: 400 });
     if (payload.mode === "admin_setup") {
       const initialAdminEmail = process.env.INITIAL_ADMIN_EMAIL?.trim().toLowerCase();
       if (!initialAdminEmail) return Response.json({ error: "INITIAL_ADMIN_EMAIL is not configured on Render." }, { status: 503 });

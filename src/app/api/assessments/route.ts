@@ -36,7 +36,7 @@ export async function POST(request: Request) {
   if (passed && course.certificate_enabled) {
     const code = `UCC${crypto.randomUUID().replaceAll("-", "").slice(0, 10).toUpperCase()}`;
     await getRawDb().prepare("INSERT OR IGNORE INTO certificates (certificate_code, user_email, learner_name, course_code, course_title) VALUES (?, ?, ?, ?, ?)").bind(code, account.profile.email, account.profile.full_name, courseCode, course.title).run();
-    certificate = await getRawDb().prepare("SELECT certificate_code, learner_name, course_code, course_title, issued_at FROM certificates WHERE user_email = ? AND course_code = ? LIMIT 1").bind(account.profile.email, courseCode).first();
+    certificate = await getRawDb().prepare("SELECT certificate_code, learner_name, course_code, course_title, credential_type, status, issued_at, expires_at, revoked_at, revocation_reason FROM certificates WHERE user_email = ? AND course_code = ? LIMIT 1").bind(account.profile.email, courseCode).first();
     await getRawDb().prepare("UPDATE enrollments SET status = 'completed' WHERE user_email = ? AND course_code = ?").bind(account.profile.email, courseCode).run();
   }
   return Response.json({ score, passed, certificate });
