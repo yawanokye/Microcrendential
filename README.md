@@ -1,14 +1,33 @@
 # UCC Microcredential Learning Platform — GitHub/Render Edition
 
-This package contains the learner, facilitator and administrator portals, course authoring, open-course enrolment, identity verification, assessments, mathematical whiteboard, YouTube transcript review, free Google Colab coding assignments, interactive virtual laboratories and QR certificate features.
+This package contains dedicated student, facilitator and system-administration portals; a separate student registration journey; course authoring and enrolment; identity verification; stackable learning pathways; a lifelong skills passport; assessments; mathematical whiteboard; YouTube transcript review; free Google Colab coding assignments; realistic interactive virtual laboratories; governed digital credentials; public credential verification; and institution-level learning analytics.
 
 Each role has a separate operational experience:
 
-- **Learners** see only their learning journey, approved course catalogue, assessment activities, live sessions, community, practicals and credential wallet.
-- **Facilitators** see course design, teaching, marking, assigned identity reviews and quality-testing tools; learner-only registration and credential-wallet screens are excluded.
-- **System administrators** see access governance, academic approvals, identity governance and platform-assurance workspaces; learner delivery screens are excluded.
+- **Students** register through `/student-registration` and see only their learning journey, approved course catalogue, assessment activities, live sessions, community, practicals, private skills passport and credential wallet.
+- **Facilitators** see course design, teaching, marking, cohort intelligence, assigned identity reviews and quality-testing tools; student registration and private credential-wallet screens are excluded.
+- **System administrators** see access governance, academic approvals, identity governance, the institution-wide credential registry, credential revocation/restoration and platform analytics; student delivery screens are excluded.
 
 Role separation is enforced by both the interface and the API. Hiding a navigation item is never treated as authorisation.
+
+## Contemporary microcredential capabilities
+
+- A dedicated four-step **Student Registration Portal** creates a secure account, captures learner and accessibility preferences, protects identity evidence, and assigns a unique student number.
+- A private **Skills Passport** combines earned credentials, assessed practical competencies and progress towards stackable discipline pathways. Students can export their private record as JSON.
+- Every issued certificate has a public, no-sign-in verification page at `/verify-credential`, with live active, expired or revoked status from the governed credential register.
+- Facilitators receive governed **cohort intelligence** for only their own courses, including participation, completion, average scores, pass rates and evidence queues.
+- Administrators receive institution-wide analytics plus a searchable **Credential Registry** with a recorded reason for every revocation and a controlled restoration action.
+- Commercial role-selection, sign-in, registration, learner, educator, administrator and verifier experiences share one responsive product design and remain usable on desktop, tablet and mobile.
+- Virtual laboratories use recognisable workbenches, apparatus, instrument panels, clinical stations, observations and practical reports so the learner experience resembles a real guided laboratory workflow.
+
+### Student registration and access
+
+1. From the public portal selector, choose **Register as a student**.
+2. Create a password-protected account using a long-term email address.
+3. Add education, occupation, organisation, learning interests, preferred language and any accessibility support needs.
+4. Upload an accepted identity document and take a current selfie using the browser camera.
+5. Review the supplied information and submit it for an authorised identity decision.
+6. After approval, sign in through **Student Portal**. The internal access role remains `learner` for backwards compatibility, while all learner-facing product labels use **Student**.
 
 The package is adapted for Render. It uses:
 
