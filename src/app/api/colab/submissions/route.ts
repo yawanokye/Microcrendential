@@ -1,5 +1,6 @@
 import { getRawDb } from "@/db/raw";
 import { requireActiveProfile } from "@/lib/accounts";
+import { issueCertificateIfComplete } from "@/lib/course-completion";
 import { putStoredFile } from "@/lib/render-storage";
 
 type SubmissionRow = {
@@ -114,16 +115,6 @@ export async function PATCH(request: Request) {
   const passed = decision === "assessed" && (mark / record.max_mark) * 100 >= record.pass_mark;
   await db.prepare("UPDATE colab_submissions SET status = ?, mark = ?, passed = ?, feedback = ?, assessed_by_email = ?, assessed_at = CURRENT_TIMESTAMP WHERE id = ?")
     .bind(decision, mark, passed ? 1 : 0, feedback, account.profile.email, id).run();
-  let courseCompleted = false;
-  if (passed) {
-    const outstanding = await db.prepare(`
-      SELECT COUNT(*) AS count FROM colab_assignments a
-      WHERE a.course_code = ? AND a.status = 'active' AND NOT EXISTS (
-        SELECT 1 FROM colab_submissions s WHERE s.assignment_id = a.id AND s.learner_email = ? AND s.passed = 1
-      )
-    `).bind(record.course_code, record.learner_email).first<{ count: number }>();
-    courseCompleted = Number(outstanding?.count ?? 0) === 0;
-    if (courseCompleted) await db.prepare("UPDATE enrollments SET status = 'completed' WHERE user_email = ? AND course_code = ?").bind(record.learner_email, record.course_code).run();
-  }
-  return Response.json({ updated: true, passed, courseCompleted });
+  const completion = passed ? await issueCertificateIfComplete(record.learner_email, record.course_code) : null;
+  return Response.json({ updated: true, passed, courseCompleted: completion?.evaluation?.complete ?? false, completion: completion?.evaluation ?? null, certificate: completion?.certificate ?? null });
 }

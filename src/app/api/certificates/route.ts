@@ -1,25 +1,37 @@
 import { getRawDb } from "@/db/raw";
 import { requireActiveProfile } from "@/lib/accounts";
 
+type CertificateRow = { certificate_code: string; learner_name: string; course_code: string; course_title: string; issuer_name: string; requirements_json: string; credential_type: string; status: string; issued_at: string; expires_at: string | null; revoked_at: string | null; revocation_reason: string | null };
+
+function presentCertificate(certificate: CertificateRow, publicView = false) {
+  let requirements: { id?: string; type?: string; label?: string; complete?: boolean; evidence?: string }[] = [];
+  try { const parsed = JSON.parse(certificate.requirements_json || "{}") as { requirements?: typeof requirements }; requirements = Array.isArray(parsed.requirements) ? parsed.requirements : []; } catch { requirements = []; }
+  return {
+    ...certificate,
+    requirements_json: undefined,
+    requirements: requirements.map((item) => ({ id: item.id, type: item.type, label: item.label, complete: Boolean(item.complete), ...(publicView ? {} : { evidence: item.evidence }) })),
+  };
+}
+
 export async function GET(request: Request) {
   const parameters = new URL(request.url).searchParams;
   const code = parameters.get("code")?.trim().toUpperCase();
   if (code) {
-    const certificate = await getRawDb().prepare("SELECT certificate_code, learner_name, course_code, course_title, credential_type, status, issued_at, expires_at, revoked_at, revocation_reason FROM certificates WHERE certificate_code = ? LIMIT 1").bind(code).first<{ certificate_code: string; learner_name: string; course_code: string; course_title: string; credential_type: string; status: string; issued_at: string; expires_at: string | null; revoked_at: string | null; revocation_reason: string | null }>();
+    const certificate = await getRawDb().prepare("SELECT certificate_code, learner_name, course_code, course_title, issuer_name, requirements_json, credential_type, status, issued_at, expires_at, revoked_at, revocation_reason FROM certificates WHERE certificate_code = ? LIMIT 1").bind(code).first<CertificateRow>();
     if (!certificate) return Response.json({ valid: false, error: "Certificate was not found." }, { status: 404 });
     const expired = Boolean(certificate.expires_at && Date.parse(certificate.expires_at) < Date.now());
-    return Response.json({ valid: certificate.status === "active" && !expired, status: expired ? "expired" : certificate.status, certificate });
+    return Response.json({ valid: certificate.status === "active" && !expired, status: expired ? "expired" : certificate.status, certificate: presentCertificate(certificate, true) });
   }
   if (parameters.get("scope") === "registry") {
     const account = await requireActiveProfile(["admin"]);
     if (account.error) return account.error;
-    const credentials = await getRawDb().prepare("SELECT certificate_code, learner_name, user_email, course_code, course_title, credential_type, status, issued_at, expires_at, revoked_at, revocation_reason FROM certificates ORDER BY issued_at DESC LIMIT 250").all();
-    return Response.json({ credentials: credentials.results });
+    const credentials = await getRawDb().prepare("SELECT certificate_code, learner_name, user_email, course_code, course_title, issuer_name, requirements_json, credential_type, status, issued_at, expires_at, revoked_at, revocation_reason FROM certificates ORDER BY issued_at DESC LIMIT 250").all<CertificateRow & { user_email: string }>();
+    return Response.json({ credentials: credentials.results.map((item) => ({ ...presentCertificate(item), user_email: item.user_email })) });
   }
   const account = await requireActiveProfile(["learner"]);
   if (account.error || !account.profile) return account.error;
-  const certificates = await getRawDb().prepare("SELECT certificate_code, learner_name, course_code, course_title, credential_type, status, issued_at, expires_at, revoked_at, revocation_reason FROM certificates WHERE user_email = ? ORDER BY issued_at DESC").bind(account.profile.email).all();
-  return Response.json({ certificates: certificates.results });
+  const certificates = await getRawDb().prepare("SELECT certificate_code, learner_name, course_code, course_title, issuer_name, requirements_json, credential_type, status, issued_at, expires_at, revoked_at, revocation_reason FROM certificates WHERE user_email = ? ORDER BY issued_at DESC").bind(account.profile.email).all<CertificateRow>();
+  return Response.json({ certificates: certificates.results.map((item) => presentCertificate(item)) });
 }
 
 export async function PATCH(request: Request) {

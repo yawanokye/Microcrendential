@@ -1,5 +1,6 @@
 import { getRawDb } from "@/db/raw";
 import { requireActiveProfile } from "@/lib/accounts";
+import { issueCertificateIfComplete } from "@/lib/course-completion";
 import { getVirtualPractical, virtualPracticals } from "@/lib/virtual-labs";
 import { putStoredFile } from "@/lib/render-storage";
 
@@ -89,19 +90,28 @@ export async function PATCH(request: Request) {
   if (!feedback || !competencyNote) return Response.json({ error: "Provide feedback and a competency note." }, { status: 400 });
   const db = getRawDb();
   const existing = account.profile.role === "admin"
-    ? await db.prepare("SELECT id FROM virtual_lab_submissions WHERE id = ? LIMIT 1").bind(id).first<{ id: number }>()
+    ? await db.prepare("SELECT id, learner_email, practical_id FROM virtual_lab_submissions WHERE id = ? LIMIT 1").bind(id).first<{ id: number; learner_email: string; practical_id: string }>()
     : await db.prepare(`
-        SELECT s.id FROM virtual_lab_submissions s
+        SELECT s.id, s.learner_email, s.practical_id FROM virtual_lab_submissions s
         WHERE s.id = ? AND EXISTS (
           SELECT 1 FROM course_drafts c
           WHERE c.created_by_email = ? AND c.status = 'active'
             AND instr(c.activities_json, '"practicalId":"' || s.practical_id || '"') > 0
         ) LIMIT 1
-      `).bind(id, account.profile.email).first<{ id: number }>();
+      `).bind(id, account.profile.email).first<{ id: number; learner_email: string; practical_id: string }>();
   if (!existing) return Response.json({ error: "The practical submission was not found." }, { status: 404 });
   const passed = payload.decision === "competent" && mark >= 60;
   const status = payload.decision === "resubmit" ? "resubmit" : "assessed";
   await db.prepare("UPDATE virtual_lab_submissions SET status = ?, mark = ?, passed = ?, feedback = ?, competency_note = ?, assessed_by_email = ?, assessed_at = CURRENT_TIMESTAMP WHERE id = ?")
     .bind(status, mark, passed ? 1 : 0, feedback, competencyNote, account.profile.email, id).run();
-  return Response.json({ updated: true, passed, status });
+  const completions = [];
+  if (passed) {
+    const courses = await db.prepare(`
+      SELECT c.code FROM course_drafts c
+      JOIN enrollments e ON e.course_code = c.code AND e.user_email = ? AND e.status IN ('active','completed')
+      WHERE c.status = 'active' AND instr(c.activities_json, '"practicalId":"' || ? || '"') > 0
+    `).bind(existing.learner_email, existing.practical_id).all<{ code: string }>();
+    for (const course of courses.results) completions.push(await issueCertificateIfComplete(existing.learner_email, course.code));
+  }
+  return Response.json({ updated: true, passed, status, completions });
 }

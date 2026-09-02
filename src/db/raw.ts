@@ -38,6 +38,7 @@ CREATE TABLE IF NOT EXISTS course_drafts (
   activities_json TEXT NOT NULL DEFAULT '[]',
   assessment_modes_json TEXT NOT NULL DEFAULT '[]',
   assessment_config_json TEXT NOT NULL DEFAULT '{}',
+  design_json TEXT NOT NULL DEFAULT '{}',
   gate_required INTEGER NOT NULL DEFAULT 1,
   question_limit INTEGER NOT NULL DEFAULT 10,
   certificate_enabled INTEGER NOT NULL DEFAULT 1,
@@ -45,6 +46,9 @@ CREATE TABLE IF NOT EXISTS course_drafts (
   created_by_email TEXT NOT NULL DEFAULT '',
   activated_by_email TEXT,
   activated_at TEXT,
+  version_number INTEGER NOT NULL DEFAULT 1,
+  submitted_at TEXT,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 CREATE TABLE IF NOT EXISTS users (
@@ -107,6 +111,8 @@ CREATE TABLE IF NOT EXISTS certificates (
   learner_name TEXT NOT NULL,
   course_code TEXT NOT NULL,
   course_title TEXT NOT NULL,
+  issuer_name TEXT NOT NULL DEFAULT 'University of Cape Coast',
+  requirements_json TEXT NOT NULL DEFAULT '{}',
   credential_type TEXT NOT NULL DEFAULT 'microcredential',
   status TEXT NOT NULL DEFAULT 'active',
   expires_at TEXT,
@@ -199,6 +205,10 @@ export function getRawDb() {
   if (!courseColumns.some((column) => column.name === "activities_json")) {
     database.exec("ALTER TABLE course_drafts ADD COLUMN activities_json TEXT NOT NULL DEFAULT '[]'");
   }
+  ensureColumn("course_drafts", "design_json", "TEXT NOT NULL DEFAULT '{}'");
+  ensureColumn("course_drafts", "version_number", "INTEGER NOT NULL DEFAULT 1");
+  ensureColumn("course_drafts", "submitted_at", "TEXT");
+  ensureColumn("course_drafts", "updated_at", "TEXT");
   ensureColumn("users", "student_number", "TEXT");
   ensureColumn("users", "education_level", "TEXT");
   ensureColumn("users", "occupation", "TEXT");
@@ -209,10 +219,13 @@ export function getRawDb() {
   ensureColumn("users", "terms_accepted_at", "TEXT");
   ensureColumn("users", "privacy_accepted_at", "TEXT");
   ensureColumn("certificates", "credential_type", "TEXT NOT NULL DEFAULT 'microcredential'");
+  ensureColumn("certificates", "issuer_name", "TEXT NOT NULL DEFAULT 'University of Cape Coast'");
+  ensureColumn("certificates", "requirements_json", "TEXT NOT NULL DEFAULT '{}'");
   ensureColumn("certificates", "status", "TEXT NOT NULL DEFAULT 'active'");
   ensureColumn("certificates", "expires_at", "TEXT");
   ensureColumn("certificates", "revoked_at", "TEXT");
   ensureColumn("certificates", "revocation_reason", "TEXT");
+  database.exec("UPDATE course_drafts SET updated_at = COALESCE(updated_at, created_at, CURRENT_TIMESTAMP) WHERE updated_at IS NULL");
   database.exec("UPDATE users SET student_number = 'UCC-MC-' || strftime('%Y', created_at) || '-' || printf('%06d', id) WHERE role = 'learner' AND (student_number IS NULL OR student_number = '')");
   globalForDatabase.__uccRawDb = new RenderDatabase(database);
   return globalForDatabase.__uccRawDb;

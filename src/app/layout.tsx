@@ -3,6 +3,7 @@ import "./globals.css";
 import "./programme-activities.css";
 import "./lab-visuals.css";
 import "./modern-platform.css";
+import "./commercial-course-studio.css";
 
 export const metadata: Metadata = {
   title: "UCC Microcredential Learning Platform",

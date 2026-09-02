@@ -1,5 +1,6 @@
 import { getRawDb } from "@/db/raw";
 import { requireActiveProfile } from "@/lib/accounts";
+import { evaluateCourseCompletion, issueCertificateIfComplete } from "@/lib/course-completion";
 
 type Question = { id: string; type: string; correctAnswer?: string; points?: number; pairs?: { left: string; right: string; image?: string }[] };
 
@@ -32,12 +33,8 @@ export async function POST(request: Request) {
   const score = total ? Math.round((earned / total) * 100) : 0; const passed = score >= Math.min(100, Math.max(1, Number(config.passMark) || 70));
   await getRawDb().prepare("INSERT INTO assessment_attempts (user_email, course_code, score, passed, answers_json, completed_at) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP) ON CONFLICT(user_email, course_code) DO UPDATE SET score = excluded.score, passed = excluded.passed, answers_json = excluded.answers_json, completed_at = CURRENT_TIMESTAMP")
     .bind(account.profile.email, courseCode, score, passed ? 1 : 0, JSON.stringify(answers)).run();
-  let certificate = null;
-  if (passed && course.certificate_enabled) {
-    const code = `UCC${crypto.randomUUID().replaceAll("-", "").slice(0, 10).toUpperCase()}`;
-    await getRawDb().prepare("INSERT OR IGNORE INTO certificates (certificate_code, user_email, learner_name, course_code, course_title) VALUES (?, ?, ?, ?, ?)").bind(code, account.profile.email, account.profile.full_name, courseCode, course.title).run();
-    certificate = await getRawDb().prepare("SELECT certificate_code, learner_name, course_code, course_title, credential_type, status, issued_at, expires_at, revoked_at, revocation_reason FROM certificates WHERE user_email = ? AND course_code = ? LIMIT 1").bind(account.profile.email, courseCode).first();
-    await getRawDb().prepare("UPDATE enrollments SET status = 'completed' WHERE user_email = ? AND course_code = ?").bind(account.profile.email, courseCode).run();
-  }
-  return Response.json({ score, passed, certificate });
+  const completion = passed
+    ? await issueCertificateIfComplete(account.profile.email, courseCode)
+    : { evaluation: await evaluateCourseCompletion(account.profile.email, courseCode), certificate: null };
+  return Response.json({ score, passed, certificate: completion.certificate, completion: completion.evaluation });
 }

@@ -11,6 +11,7 @@ export const courseDrafts = sqliteTable("course_drafts", {
   activitiesJson: text("activities_json").notNull().default("[]"),
   assessmentModesJson: text("assessment_modes_json").notNull().default("[]"),
   assessmentConfigJson: text("assessment_config_json").notNull().default("{}"),
+  designJson: text("design_json").notNull().default("{}"),
   gateRequired: integer("gate_required", { mode: "boolean" }).notNull().default(true),
   questionLimit: integer("question_limit").notNull().default(10),
   certificateEnabled: integer("certificate_enabled", { mode: "boolean" }).notNull().default(true),
@@ -18,6 +19,9 @@ export const courseDrafts = sqliteTable("course_drafts", {
   createdByEmail: text("created_by_email").notNull().default(""),
   activatedByEmail: text("activated_by_email"),
   activatedAt: text("activated_at"),
+  versionNumber: integer("version_number").notNull().default(1),
+  submittedAt: text("submitted_at"),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 
@@ -82,6 +86,8 @@ export const certificates = sqliteTable("certificates", {
   learnerName: text("learner_name").notNull(),
   courseCode: text("course_code").notNull(),
   courseTitle: text("course_title").notNull(),
+  issuerName: text("issuer_name").notNull().default("University of Cape Coast"),
+  requirementsJson: text("requirements_json").notNull().default("{}"),
   credentialType: text("credential_type").notNull().default("microcredential"),
   status: text("status", { enum: ["active", "revoked"] }).notNull().default("active"),
   expiresAt: text("expires_at"),

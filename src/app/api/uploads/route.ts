@@ -3,7 +3,7 @@ import { putStoredFile } from "@/lib/render-storage";
 
 export async function POST(request: Request) {
   const account = await requireActiveProfile(["facilitator", "admin"]);
-  if (account.error) return account.error;
+  if (account.error || !account.profile) return account.error;
   const form = await request.formData();
   const file = form.get("file");
   if (!(file instanceof File)) {
@@ -13,7 +13,7 @@ export async function POST(request: Request) {
     return Response.json({ error: "Files must be 50 MB or smaller." }, { status: 413 });
   }
 
-  const key = await putStoredFile("course-materials", file, { contentType: file.type || "application/octet-stream", originalName: file.name });
+  const key = await putStoredFile("course-materials", file, { contentType: file.type || "application/octet-stream", originalName: file.name, ownerEmail: account.profile.email, evidenceKind: "course-material" });
 
   return Response.json({
     key,
