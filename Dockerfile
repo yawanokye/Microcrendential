@@ -17,6 +17,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV HOSTNAME=0.0.0.0
 ENV PORT=10000
 ENV DATA_DIR=/var/data
+ENV SQLITE_PATH=/var/data/ucc-microcredentials.sqlite
 COPY --from=build /app/public ./public
 COPY --from=build /app/.next/standalone ./
 COPY --from=build /app/.next/static ./.next/static

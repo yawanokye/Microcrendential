@@ -1,6 +1,6 @@
 # UCC Microcredential Learning Platform — GitHub/Render Edition
 
-This package contains dedicated student, facilitator and system-administration portals; a separate student registration journey; course authoring and enrolment; identity verification; stackable learning pathways; a lifelong skills passport; assessments; mathematical whiteboard; YouTube transcript review; free Google Colab coding assignments; realistic interactive virtual laboratories; governed digital credentials; public credential verification; and institution-level learning analytics.
+This package contains dedicated student, facilitator and system-administration portals; a separate student registration journey; a commercial outcome-led Course Studio; structured syllabi; versioned drafts and academic release; protected PDF/Word/media content; readable-HTML conversion; identity verification; stackable learning pathways; a lifelong skills passport; assessments; mathematical whiteboard; YouTube transcript review; free Google Colab coding assignments; realistic interactive virtual laboratories; governed UCC digital certificates with scannable verification QR codes; public credential verification; and institution-level learning analytics.
 
 Each role has a separate operational experience:
 
@@ -12,9 +12,12 @@ Role separation is enforced by both the interface and the API. Hiding a navigati
 
 ## Contemporary microcredential capabilities
 
+- A six-stage **Commercial Course Studio** covers product blueprint, course objectives, measurable outcomes, skills, syllabus sections, content, authentic activities, assessment and quality review. Draft saves use optimistic version checks and only a 100% publish-ready submission can enter academic activation.
+- Facilitators can author text or sanitised HTML, upload protected files, or import a public link. `.PDF`, `.DOCX`, `.TXT`, `.MD`, `.HTML` and `.RTF` sources are converted to readable HTML where possible; the protected original remains available to authorised learners. Other Word, PowerPoint, image, audio and video files remain protected course attachments.
+- Every learning block records its section, unit, estimated time, source/licence, accessibility review and mapped learning outcomes. The learner course view presents the same structured syllabus, objectives, outcomes and authentic evidence requirements.
 - A dedicated four-step **Student Registration Portal** creates a secure account, captures learner and accessibility preferences, protects identity evidence, and assigns a unique student number.
 - A private **Skills Passport** combines earned credentials, assessed practical competencies and progress towards stackable discipline pathways. Students can export their private record as JSON.
-- Every issued certificate has a public, no-sign-in verification page at `/verify-credential`, with live active, expired or revoked status from the governed credential register.
+- A **University of Cape Coast digital certificate** is issued only when the learner identity is verified, the scored course assessment is passed and every activity marked required has passed evidence. The audit snapshot is stored with the award. Its genuine QR code opens the no-sign-in `/verify-credential` record, which checks live active, expired or revoked status.
 - Facilitators receive governed **cohort intelligence** for only their own courses, including participation, completion, average scores, pass rates and evidence queues.
 - Administrators receive institution-wide analytics plus a searchable **Credential Registry** with a recorded reason for every revocation and a controlled restoration action.
 - Commercial role-selection, sign-in, registration, learner, educator, administrator and verifier experiences share one responsive product design and remain usable on desktop, tablet and mobile.
@@ -37,6 +40,25 @@ The package is adapted for Render. It uses:
 - SQLite for application records
 - protected filesystem storage for uploaded course and identity files
 - a Render persistent disk mounted at `/var/data`
+
+## Commercial course design and content workflow
+
+1. In **Facilitator Portal → Course Studio**, define the market-facing title, code, category, level, delivery pattern, expected hours, language, audience, prerequisites, accessibility commitment, enrolment mode and optional price marker.
+2. Add at least two objectives and measurable outcomes. Each outcome must name its related skill and assessment method. Create one or more learner-facing syllabus sections.
+3. Add learning blocks by writing/pasting text, supplying reviewed HTML, uploading a document/media file, converting a public web link, or keeping a link as a sandboxed embed. Map each block to a section and one or more outcomes.
+4. Add required or optional Colab and virtual-lab evidence activities, then author scored assessment questions and map them to outcomes.
+5. Save freely as a draft. The quality screen checks course identity, audience, objectives, outcomes, structure, outcome alignment, accessibility and assessment. Only a complete version can be submitted.
+6. A system administrator reviews the submitted version and activates it. Learners see only active versions.
+
+Automatic PDF extraction is best effort because PDFs may contain scanned pages, custom fonts or protected encodings. A low-text PDF is retained as the original and clearly flagged for facilitator correction or an accessible alternative. Modern `.DOCX` files can be converted; legacy binary `.DOC` files are retained as attachments and should be re-saved as `.DOCX` when readable conversion is required.
+
+Public-link imports reject private, loopback and internal-network addresses, validate redirects, use time and size limits, remove executable markup and require the facilitator to confirm licence and attribution before publication.
+
+## UCC certificate and QR verification lifecycle
+
+The completion engine evaluates four governed evidence classes: active verified learner identity, a passing course assessment, every required virtual practical, and every required Colab notebook activity. Optional activities do not delay issuance. When all configured requirements pass, the enrolment is marked complete and one certificate is issued for that learner/course pair.
+
+The certificate records the issuer as **University of Cape Coast**, the learner and course, the requirements snapshot, issue time and live governance status. Its QR encodes the full public verification URL using a standards-based QR matrix with error correction. Administrators can revoke or restore the record, and a scan always reflects the current registry status rather than a static image claim.
 
 ## 1. Upload to GitHub
 
@@ -121,6 +143,7 @@ Learners may attach an optional video, image or PDF evidence file up to 25 MB. O
 | `AUTH_SECRET` | Yes | Signs secure login cookies; use at least 32 random characters |
 | `INITIAL_ADMIN_EMAIL` | Yes | Email promoted to the first system administrator |
 | `DATA_DIR` | Yes on Render | Database and protected-upload directory; configured as `/var/data` |
+| `SQLITE_PATH` | Yes on Render | Explicit persistent database path; configured as `/var/data/ucc-microcredentials.sqlite` |
 | `PORT` | Render-managed | HTTP listening port; the Blueprint uses `10000` |
 
 ## Data persistence and backups
