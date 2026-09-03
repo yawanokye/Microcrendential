@@ -16,7 +16,6 @@ class BoundStatement {
 class RenderDatabase {
   constructor(private readonly database: DatabaseSync) {}
   prepare(sql: string) { return new BoundStatement(this.database.prepare(sql)); }
-  exec(sql: string) { this.database.exec(sql); }
 }
 
 const schema = `
@@ -49,6 +48,9 @@ CREATE TABLE IF NOT EXISTS course_drafts (
   activated_at TEXT,
   version_number INTEGER NOT NULL DEFAULT 1,
   submitted_at TEXT,
+  review_comment TEXT,
+  reviewed_by_email TEXT,
+  reviewed_at TEXT,
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -185,14 +187,6 @@ CREATE TABLE IF NOT EXISTS virtual_lab_submissions (
 );
 CREATE INDEX IF NOT EXISTS virtual_lab_practical_idx ON virtual_lab_submissions(practical_id);
 CREATE INDEX IF NOT EXISTS virtual_lab_learner_idx ON virtual_lab_submissions(learner_email);
-CREATE TABLE IF NOT EXISTS admin_audit_log (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  admin_email TEXT NOT NULL,
-  action TEXT NOT NULL,
-  details_json TEXT NOT NULL DEFAULT '{}',
-  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-CREATE INDEX IF NOT EXISTS admin_audit_log_admin_idx ON admin_audit_log(admin_email);
 `;
 
 const globalForDatabase = globalThis as typeof globalThis & {
@@ -218,6 +212,9 @@ export function getRawDb() {
   ensureColumn("course_drafts", "version_number", "INTEGER NOT NULL DEFAULT 1");
   ensureColumn("course_drafts", "submitted_at", "TEXT");
   ensureColumn("course_drafts", "updated_at", "TEXT");
+  ensureColumn("course_drafts", "review_comment", "TEXT");
+  ensureColumn("course_drafts", "reviewed_by_email", "TEXT");
+  ensureColumn("course_drafts", "reviewed_at", "TEXT");
   ensureColumn("users", "student_number", "TEXT");
   ensureColumn("users", "education_level", "TEXT");
   ensureColumn("users", "occupation", "TEXT");

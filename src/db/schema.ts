@@ -21,6 +21,9 @@ export const courseDrafts = sqliteTable("course_drafts", {
   activatedAt: text("activated_at"),
   versionNumber: integer("version_number").notNull().default(1),
   submittedAt: text("submitted_at"),
+  reviewComment: text("review_comment"),
+  reviewedByEmail: text("reviewed_by_email"),
+  reviewedAt: text("reviewed_at"),
   updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
@@ -161,11 +164,3 @@ export const virtualLabSubmissions = sqliteTable("virtual_lab_submissions", {
   index("virtual_lab_practical_idx").on(table.practicalId),
   index("virtual_lab_learner_idx").on(table.learnerEmail),
 ]);
-
-export const adminAuditLog = sqliteTable("admin_audit_log", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  adminEmail: text("admin_email").notNull(),
-  action: text("action").notNull(),
-  detailsJson: text("details_json").notNull().default("{}"),
-  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
-}, (table) => [index("admin_audit_log_admin_idx").on(table.adminEmail)]);

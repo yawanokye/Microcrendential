@@ -1,4 +1,4 @@
-import { mkdir, readFile, readdir, unlink, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve, sep } from "node:path";
 
 export type StoredMetadata = { contentType: string; originalName: string; ownerEmail?: string; evidenceKind?: string };
@@ -24,52 +24,4 @@ export async function getStoredFile(key: string) {
 export async function getStoredMetadata(key: string) {
   const target = safePath(key);
   return JSON.parse(await readFile(`${target}.json`, "utf8")) as StoredMetadata;
-}
-
-const removeIfPresent = async (path: string) => {
-  try {
-    await unlink(path);
-    return true;
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return false;
-    throw error;
-  }
-};
-
-export async function deleteStoredFile(key: string) {
-  const target = safePath(key);
-  const [removedFile, removedMetadata] = await Promise.all([
-    removeIfPresent(target),
-    removeIfPresent(`${target}.json`),
-  ]);
-  return removedFile || removedMetadata;
-}
-
-export async function deleteIdentityFilesOwnedBy(emails: string[]) {
-  const owners = new Set(emails.map((email) => email.trim().toLowerCase()).filter(Boolean));
-  if (!owners.size) return 0;
-  let removed = 0;
-  for (const kind of ["national-id", "selfie"] as const) {
-    const prefix = `identity-verification/${kind}`;
-    const directory = safePath(prefix);
-    let entries;
-    try {
-      entries = await readdir(directory, { withFileTypes: true });
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === "ENOENT") continue;
-      throw error;
-    }
-    for (const entry of entries) {
-      if (!entry.isFile() || !entry.name.endsWith(".json")) continue;
-      const key = `${prefix}/${entry.name.slice(0, -5)}`;
-      try {
-        const metadata = await getStoredMetadata(key);
-        if (metadata.evidenceKind !== kind || !metadata.ownerEmail || !owners.has(metadata.ownerEmail.toLowerCase())) continue;
-        if (await deleteStoredFile(key)) removed += 1;
-      } catch (error) {
-        if ((error as NodeJS.ErrnoException).code !== "ENOENT" && !(error instanceof SyntaxError)) throw error;
-      }
-    }
-  }
-  return removed;
 }
