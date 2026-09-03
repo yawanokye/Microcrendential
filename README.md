@@ -10,16 +10,26 @@ Each role has a separate operational experience:
 
 Role separation is enforced by both the interface and the API. Hiding a navigation item is never treated as authorisation.
 
+The public selector now sends each role through a dedicated gateway:
+
+- Student sign-in: `/student-signin`
+- Facilitator sign-in and invitation activation: `/facilitator-signin`
+- System-administrator sign-in and first-admin setup: `/admin-signin`
+
+The requested portal role is validated before a session is issued. A learner credential submitted to the facilitator or administration gateway—and the equivalent cross-role attempts for staff—is rejected with a role-bound access error.
+
 ## Contemporary microcredential capabilities
 
 - A six-stage **Commercial Course Studio** covers product blueprint, course objectives, measurable outcomes, skills, syllabus sections, content, authentic activities, assessment and quality review. Draft saves use optimistic version checks and only a 100% publish-ready submission can enter academic activation.
 - Facilitators can author text or sanitised HTML, upload protected files, or import a public link. `.PDF`, `.DOCX`, `.TXT`, `.MD`, `.HTML` and `.RTF` sources are converted to readable HTML where possible; the protected original remains available to authorised learners. Other Word, PowerPoint, image, audio and video files remain protected course attachments.
 - Every learning block records its section, unit, estimated time, source/licence, accessibility review and mapped learning outcomes. The learner course view presents the same structured syllabus, objectives, outcomes and authentic evidence requirements.
 - A dedicated four-step **Student Registration Portal** creates a secure account, captures learner and accessibility preferences, protects identity evidence, and assigns a unique student number.
+- The identity-document control supports device selection and drag-and-drop, validates the actual JPG/PNG/PDF file signature even when a scanner supplies a generic MIME type, and shows the attached filename, size and secured status. Learners can replace or remove the scan before submission.
 - A private **Skills Passport** combines earned credentials, assessed practical competencies and progress towards stackable discipline pathways. Students can export their private record as JSON.
 - A **University of Cape Coast digital certificate** is issued only when the learner identity is verified, the scored course assessment is passed and every activity marked required has passed evidence. The audit snapshot is stored with the award. Its genuine QR code opens the no-sign-in `/verify-credential` record, which checks live active, expired or revoked status.
 - Facilitators receive governed **cohort intelligence** for only their own courses, including participation, completion, average scores, pass rates and evidence queues.
 - Administrators receive institution-wide analytics plus a searchable **Credential Registry** with a recorded reason for every revocation and a controlled restoration action.
+- The administrator **Restricted Danger Zone** previews the exact account-reset scope and requires both an acknowledgement and the typed phrase `DELETE ALL REGISTERED ACCOUNTS`. It permanently removes learner/facilitator profiles, non-admin sign-ins, identity evidence and personal learning/credential records; preserves administrator accounts and institutional course content; revokes deleted users' sessions; and records the action in the administrator audit log.
 - Commercial role-selection, sign-in, registration, learner, educator, administrator and verifier experiences share one responsive product design and remain usable on desktop, tablet and mobile.
 - Virtual laboratories use recognisable workbenches, apparatus, instrument panels, clinical stations, observations and practical reports so the learner experience resembles a real guided laboratory workflow.
 
