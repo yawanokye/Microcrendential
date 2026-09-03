@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { getRawDb } from "@/db/raw";
 
 export type ChatGPTUser = { displayName: string; email: string; fullName: string | null };
 type SessionPayload = { email: string; fullName: string; expiresAt: number };
@@ -34,7 +35,10 @@ function verifySessionToken(token: string | undefined): SessionPayload | null {
 export async function getChatGPTUser(): Promise<ChatGPTUser | null> {
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
   const payload = verifySessionToken(token);
-  return payload ? { displayName: payload.fullName, email: payload.email, fullName: payload.fullName } : null;
+  if (!payload) return null;
+  const account = await getRawDb().prepare("SELECT email, full_name FROM auth_accounts WHERE email = ? LIMIT 1").bind(payload.email).first<{ email: string; full_name: string }>();
+  if (!account) return null;
+  return { displayName: account.full_name, email: account.email, fullName: account.full_name };
 }
 
 export async function requireChatGPTUser(returnTo: string): Promise<ChatGPTUser> {

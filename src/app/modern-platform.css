@@ -338,7 +338,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .interest-picker button.selected { color: #056f67; background: #e6f6f3; border-color: #8fd0c6; }
 .interest-picker button svg { width: 13px; }
 .registration-evidence { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
-.registration-upload-card { min-height: 155px; position: relative; display: grid; place-content: center; justify-items: center; gap: 8px; padding: 20px; text-align: center; color: #16475a; background: #f4f9fa; border: 1px dashed #8dafbb; border-radius: 12px; cursor: pointer; }
+.registration-upload-card { min-height: 155px; position: relative; display: grid; place-content: center; justify-items: center; gap: 8px; padding: 20px; text-align: center; color: #16475a; background: #f4f9fa; border: 1px dashed #8dafbb; border-radius: 12px; }
 .registration-upload-card.ready { color: #076f67; background: #eaf7f4; border-style: solid; border-color: #86cbbf; }
 .registration-upload-card > svg { width: 31px; height: 31px; padding: 6px; color: #14778a; background: #e2f0f4; border-radius: 9px; }
 .registration-upload-card.ready > svg { color: #087c74; background: #d5f0ea; }
@@ -350,6 +350,16 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .registration-upload-card > input, .registration-upload-card > label input { position: absolute; width: 1px; height: 1px; opacity: 0; }
 .registration-upload-card > label { color: #597580; font-size: 7px; font-weight: 700; text-decoration: underline; cursor: pointer; }
 .registration-upload-card > em { color: #a34339; font-size: 7px; font-style: normal; }
+.registration-file-receipt { width: min(310px, 100%); display: grid; grid-template-columns: 27px minmax(0, 1fr); gap: 8px; align-items: center; padding: 9px 10px; text-align: left; color: #1d5561; background: #fff; border: 1px solid #bfd8dd; border-radius: 9px; }
+.registration-file-receipt.attached { color: #086c64; border-color: #82c7ba; box-shadow: 0 4px 13px rgba(11, 106, 96, .08); }
+.registration-file-receipt > svg { width: 20px; color: #15897e; }
+.registration-file-receipt b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 8px; }
+.registration-file-receipt span { margin-top: 3px; color: #70858e; font-size: 7px; }
+.registration-upload-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 7px; }
+.registration-upload-actions .upload-action, .registration-upload-actions .upload-remove { min-height: 33px; display: inline-flex; align-items: center; justify-content: center; gap: 5px; padding: 0 11px; border-radius: 7px; font-size: 8px; font-weight: 800; cursor: pointer; }
+.registration-upload-actions .upload-action { color: #fff; background: #07536c; border: 1px solid #07536c; }
+.registration-upload-actions .upload-remove { color: #8d392f; background: #fff; border: 1px solid #dda9a2; }
+.registration-upload-actions button:disabled { opacity: .55; cursor: not-allowed; }
 .registration-camera { width: 100%; display: grid; gap: 8px; }
 .registration-camera video, .registration-camera img { width: 100%; height: 190px; object-fit: cover; background: #0c2e3d; border-radius: 9px; transform: scaleX(-1); }
 .registration-camera > div { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
@@ -696,6 +706,112 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .registry-action, .registry-action.restore { align-items: stretch; flex-direction: column; }
   .registry-action label { width: 100%; }
   .registration-handoff-features { grid-template-columns: 1fr; }
+}
+
+.student-login-shell { min-height: 100vh; display: grid; grid-template-columns: minmax(0, 1.12fr) minmax(420px, .88fr); color: #fff; background: #f6fafb; }
+.student-login-product { position: relative; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; min-height: 100vh; padding: 44px clamp(38px, 6vw, 88px); background: radial-gradient(circle at 88% 13%, rgba(91, 218, 199, .24), transparent 25rem), radial-gradient(circle at 8% 90%, rgba(244, 188, 72, .2), transparent 23rem), linear-gradient(145deg, #03283d, #075c69 64%, #08766c); }
+.student-login-product::after { content: ""; position: absolute; right: -150px; bottom: -175px; width: 440px; height: 440px; border: 65px solid rgba(255,255,255,.045); border-radius: 50%; }
+.student-login-product > * { position: relative; z-index: 1; }
+.student-login-product > header { display: flex; align-items: center; justify-content: space-between; gap: 18px; }
+.student-login-brand { display: flex; align-items: center; gap: 12px; color: #fff; text-decoration: none; }
+.student-login-brand > svg { width: 43px; height: 43px; padding: 10px; color: #082f40; background: linear-gradient(145deg, #ffdf8d, #efb33c); border-radius: 50%; box-shadow: 0 0 0 5px rgba(255,255,255,.1); }
+.student-login-brand b, .student-login-brand span { display: block; }
+.student-login-brand b { font-size: 13px; }
+.student-login-brand span { margin-top: 3px; color: #b8d6dc; font-size: 7px; letter-spacing: .12em; text-transform: uppercase; }
+.student-login-role { display: flex; align-items: center; gap: 6px; padding: 7px 10px; color: #d9f4ef; background: rgba(255,255,255,.09); border: 1px solid rgba(255,255,255,.13); border-radius: 18px; font-size: 8px; font-weight: 800; text-transform: uppercase; letter-spacing: .07em; }
+.student-login-role svg { width: 14px; }
+.student-login-copy { max-width: 680px; margin: 70px 0 28px; }
+.student-login-copy .eyebrow { color: #70ded0!important; }
+.student-login-copy h1 { margin: 11px 0 18px; color: #fff; font-size: clamp(38px, 5.3vw, 66px); line-height: 1.01; letter-spacing: -.055em; }
+.student-login-copy > p:not(.eyebrow) { max-width: 610px; margin: 0; color: #cce3e8; font-size: 12px; line-height: 1.75; }
+.student-path-preview { width: min(620px, 100%); padding: 17px; background: rgba(255,255,255,.09); border: 1px solid rgba(255,255,255,.15); border-radius: 17px; box-shadow: 0 25px 50px rgba(0, 24, 35, .18); backdrop-filter: blur(12px); }
+.student-path-preview > div { display: grid; grid-template-columns: 39px 1fr auto; gap: 10px; align-items: center; padding-bottom: 14px; border-bottom: 1px solid rgba(255,255,255,.12); }
+.student-path-preview > div > span { width: 37px; height: 37px; display: grid; place-items: center; color: #092f3c; background: #f3bd4d; border-radius: 10px; }
+.student-path-preview > div svg { width: 19px; }
+.student-path-preview small, .student-path-preview b { display: block; }
+.student-path-preview small { color: #a9cbd2; font-size: 7px; letter-spacing: .08em; }
+.student-path-preview b { margin-top: 4px; font-size: 10px; }
+.student-path-preview em { padding: 5px 8px; color: #aef0e5; background: rgba(66, 211, 190, .13); border-radius: 13px; font-size: 7px; font-style: normal; font-weight: 800; }
+.student-path-preview ol { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; margin: 14px 0 0; padding: 0; list-style: none; }
+.student-path-preview li { display: grid; grid-template-columns: 25px 1fr; gap: 7px; align-items: center; padding: 8px; background: rgba(255,255,255,.055); border-radius: 8px; }
+.student-path-preview li > svg { width: 18px; color: #9ac9d0; }
+.student-path-preview li.complete > svg { color: #5ee0ce; }
+.student-path-preview li b { font-size: 8px; }
+.student-path-preview li small { margin-top: 3px; font-size: 6px; line-height: 1.35; letter-spacing: 0; }
+.student-login-product > footer { display: flex; align-items: center; gap: 8px; margin-top: 30px; color: #aacbd2; font-size: 7px; }
+.student-login-product > footer svg { width: 15px; color: #6fe0d0; }
+.student-login-card { display: flex; flex-direction: column; justify-content: center; padding: 55px clamp(38px, 6vw, 78px); color: #173743; background: #fff; }
+.student-login-card .signin-back { margin-bottom: 42px; }
+.student-welcome-icon { width: 54px; height: 54px; display: grid; place-items: center; margin-bottom: 20px; color: #fff; background: linear-gradient(145deg, #075a6d, #0a8a7e); border-radius: 15px; box-shadow: 0 11px 24px rgba(7, 104, 106, .22); }
+.student-welcome-icon svg { width: 25px; }
+.student-login-card > .eyebrow { color: #087a70!important; }
+.student-login-card > h2 { margin: 7px 0 9px; color: #123541; font-size: clamp(27px, 3vw, 35px); letter-spacing: -.04em; }
+.student-login-card > p:not(.eyebrow) { margin: 0 0 25px; color: #6a8088; font-size: 10px; line-height: 1.65; }
+.student-login-card .render-auth-form { display: grid; gap: 15px; }
+.student-login-card .render-auth-form label { display: grid; gap: 7px; color: #244b58; font-size: 9px; font-weight: 800; }
+.student-login-card .render-auth-form input { width: 100%; min-height: 49px; padding: 0 13px; color: #153945; background: #f9fcfd; border: 1px solid #c7dade; border-radius: 10px; outline: none; font: inherit; font-size: 11px; }
+.student-login-card .render-auth-form input:focus { background: #fff; border-color: #148d80; box-shadow: 0 0 0 4px rgba(20, 141, 128, .1); }
+.student-login-card .render-auth-form label > span { color: #87989e; font-size: 7px; font-weight: 600; }
+.student-login-card .access-primary { min-height: 49px; margin-top: 3px; border: 0; font-size: 9px; }
+.student-register-prompt.commercial { margin-top: 23px; background: #eef8f6; border-color: #cee7e2; }
+.student-register-prompt.commercial a { display: flex; align-items: center; gap: 4px; }
+.student-register-prompt.commercial svg { width: 14px; }
+.portal-boundary-note { display: flex; gap: 8px; align-items: flex-start; margin-top: 18px; padding-top: 17px; color: #788d94; border-top: 1px solid #e1eaec; font-size: 7px; line-height: 1.55; }
+.portal-boundary-note svg { flex: 0 0 auto; width: 14px; color: #258c83; }
+.portal-boundary-note a { color: #08786f; font-weight: 800; }
+
+.account-reset-panel { overflow: hidden; border-color: #e8c2bd; }
+.account-reset-heading { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; gap: 13px; align-items: center; padding: 20px; background: linear-gradient(135deg, #fff8f6, #fff); border-bottom: 1px solid #f0d4d0; }
+.account-reset-heading > span { width: 42px; height: 42px; display: grid; place-items: center; color: #a33c32; background: #ffe8e4; border-radius: 11px; }
+.account-reset-heading > span svg { width: 21px; }
+.account-reset-heading h2 { margin: 3px 0 5px; color: #5e2723; font-size: 17px; }
+.account-reset-heading p:not(.eyebrow) { margin: 0; color: #80635f; font-size: 9px; line-height: 1.5; }
+.account-reset-heading > button { min-height: 38px; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 0 13px; color: #8d342d; background: #fff; border: 1px solid #d9a6a0; border-radius: 8px; font-size: 8px; font-weight: 900; }
+.account-reset-heading > button svg { width: 15px; }
+.account-reset-heading > button:disabled { opacity: .46; cursor: not-allowed; }
+.account-reset-metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: #efdad7; border-bottom: 1px solid #efdad7; }
+.account-reset-metrics span { display: grid; gap: 3px; padding: 14px 16px; color: #866763; background: #fffdfd; font-size: 8px; }
+.account-reset-metrics b { color: #5f2d28; font-size: 18px; }
+.account-reset-confirm { display: grid; gap: 13px; padding: 20px; background: #fffafa; }
+.account-reset-warning { display: grid; grid-template-columns: 26px 1fr; gap: 10px; padding: 13px; color: #71342e; background: #ffefec; border: 1px solid #efc2bc; border-radius: 9px; }
+.account-reset-warning svg { width: 20px; color: #b04438; }
+.account-reset-warning p { margin: 0; font-size: 8px; line-height: 1.6; }
+.account-reset-warning b { display: block; margin-bottom: 2px; font-size: 9px; }
+.account-reset-note { margin: 0; padding: 9px 11px; color: #725f3e; background: #fff7df; border-radius: 7px; font-size: 8px; }
+.account-reset-acknowledgement { display: flex; gap: 9px; align-items: flex-start; color: #644945; font-size: 8px; line-height: 1.5; }
+.account-reset-acknowledgement input { flex: 0 0 auto; margin-top: 1px; accent-color: #9d382e; }
+.account-reset-phrase { display: grid; gap: 7px; color: #613d38; font-size: 8px; font-weight: 800; }
+.account-reset-phrase code { width: max-content; padding: 3px 6px; color: #8d3028; background: #ffe9e5; border-radius: 4px; font-size: 8px; }
+.account-reset-phrase input { width: 100%; min-height: 42px; padding: 0 12px; color: #542f2b; background: #fff; border: 1px solid #d9aba5; border-radius: 8px; outline: none; font: 800 9px ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .02em; }
+.account-reset-phrase input:focus { border-color: #ad453b; box-shadow: 0 0 0 4px rgba(173, 69, 59, .1); }
+.account-reset-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.account-reset-actions button { min-height: 39px; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 0 13px; border-radius: 8px; font-size: 8px; font-weight: 900; }
+.account-reset-actions button.cancel { color: #5f7077; background: #fff; border: 1px solid #c7d4d8; }
+.account-reset-actions button.delete { color: #fff; background: #a23830; border: 1px solid #a23830; box-shadow: 0 7px 16px rgba(144, 45, 38, .18); }
+.account-reset-actions button svg { width: 15px; }
+.account-reset-actions button:disabled { opacity: .48; cursor: not-allowed; box-shadow: none; }
+
+@media (max-width: 980px) {
+  .student-login-shell { grid-template-columns: 1fr; }
+  .student-login-product { min-height: auto; padding-bottom: 40px; }
+  .student-login-card { min-height: auto; }
+}
+
+@media (max-width: 760px) {
+  .student-login-shell { grid-template-columns: 1fr; }
+  .student-login-product { min-height: auto; padding: 28px 21px 32px; }
+  .student-login-role { display: none; }
+  .student-login-copy { margin: 50px 0 24px; }
+  .student-login-copy h1 { font-size: 38px; }
+  .student-path-preview ol { grid-template-columns: 1fr; }
+  .student-login-product > footer { display: none; }
+  .student-login-card { padding: 38px 21px 45px; }
+  .student-login-card .signin-back { margin-bottom: 28px; }
+  .account-reset-heading { grid-template-columns: 42px 1fr; }
+  .account-reset-heading > button { grid-column: 1/-1; width: 100%; }
+  .account-reset-metrics { grid-template-columns: 1fr 1fr; }
+  .account-reset-actions { flex-direction: column-reverse; }
+  .account-reset-actions button { width: 100%; }
 }
 
 @media (prefers-reduced-motion: reduce) {

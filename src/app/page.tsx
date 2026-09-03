@@ -3,9 +3,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import {
-  Activity, Award, Beaker, Bell, BookOpen, CalendarDays, CheckCircle2, ChevronRight, CirclePlay, ClipboardCheck, Clock3,
+  Activity, AlertTriangle, Award, Beaker, Bell, BookOpen, CalendarDays, CheckCircle2, ChevronRight, CirclePlay, ClipboardCheck, Clock3,
   Code2, Eye, FileCheck2, FileText, FlaskConical, Gauge, GraduationCap, GripVertical, HeartPulse, LayoutDashboard, Menu,
-  MessageSquareText, Microscope, Pencil, QrCode, RotateCcw, Search, Settings, ShieldCheck, Sigma, Stethoscope, Undo2, Upload, Users, Video, Wrench, X,
+  MessageSquareText, Microscope, Pencil, QrCode, RotateCcw, Search, Settings, ShieldCheck, Sigma, Stethoscope, Trash2, Undo2, Upload, Users, Video, Wrench, X,
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -163,12 +163,10 @@ export default function Home() {
 
   if (!account) return <PortalLoading />;
   if (!account.authenticated) return <PortalAccess inviteToken={inviteToken} />;
-  if (!account.profile && requestedPortal === "admin") return <PortalRoleMismatch requestedRole="admin" email={account.identity?.email ?? ""} />;
-  if (!account.profile && requestedPortal === "facilitator" && !inviteToken) return <PortalRoleMismatch requestedRole="facilitator" email={account.identity?.email ?? ""} />;
+  if (!account.profile && requestedPortal && requestedPortal !== "learner") return <PortalRoleMismatch requestedRole={requestedPortal} email={account.identity?.email ?? ""} />;
   if (!account.profile) return <StudentRegistrationHandoff email={account.identity?.email ?? ""} />;
+  if (requestedPortal && account.profile.role !== requestedPortal) return <PortalRoleMismatch requestedRole={requestedPortal} email={account.profile.email} actualRole={account.profile.role} />;
   if (account.profile.role === "facilitator" && account.profile.status === "pending_setup") return <IdentityRegistration role="facilitator" initialName={account.profile.fullName} email={account.profile.email} inviteToken={inviteToken} onComplete={(profile) => setAccount((current) => ({ authenticated: true, identity: current?.identity, profile, enrollments: [] }))} />;
-  if (requestedPortal === "admin" && account.profile.role !== "admin") return <PortalRoleMismatch requestedRole="admin" email={account.profile.email} />;
-  if (requestedPortal === "facilitator" && account.profile.role !== "facilitator" && account.profile.role !== "admin") return <PortalRoleMismatch requestedRole="facilitator" email={account.profile.email} />;
   if (account.profile.status === "pending_verification") return <VerificationPending role={account.profile.role} email={account.profile.email} />;
   if (account.profile.status !== "active") return <SuspendedAccess email={account.profile.email} status={account.profile.status} />;
   const displayName = account.profile.fullName;
@@ -478,16 +476,21 @@ function PortalLoading() {
 
 function PortalAccess({ inviteToken }: { inviteToken: string }) {
   const signInUrl = (portal: PortalRole) => {
-    const returnTo = inviteToken ? `/?invite=${encodeURIComponent(inviteToken)}` : `/?portal=${portal}`;
-    return `/signin-with-chatgpt?return_to=${encodeURIComponent(returnTo)}`;
+    if (portal === "learner") return "/student-signin";
+    if (portal === "admin") return "/admin-signin";
+    return inviteToken ? `/facilitator-signin?invite=${encodeURIComponent(inviteToken)}` : "/facilitator-signin";
   };
   return <main className="access-shell commercial-access"><section className="access-card access-selector"><div className="access-brand"><div className="brand-mark"><GraduationCap size={28} /></div><div><strong>UCC Microcredentials</strong><span>University of Cape Coast</span></div></div><div className="access-product-heading"><div><p className="eyebrow">SECURE ROLE PORTALS</p><h1>{inviteToken ? "Complete your facilitator invitation." : "One platform. Three focused workspaces."}</h1><p>{inviteToken ? "Sign in with the exact institutional email invited by the system administrator, then complete permanent biodata and identity verification." : "Students learn and earn. Facilitators design and assess. Administrators govern quality and trust."}</p></div>{!inviteToken && <a href="/verify-credential"><QrCode /> Verify a credential</a>}</div>{inviteToken ? <a className="portal-access-card facilitator invited" href={signInUrl("facilitator")} target="_top"><span className="portal-access-icon"><ShieldCheck /></span><span><b>Complete facilitator setup</b><small>Use the institutional email address named in your invitation.</small></span><ChevronRight /></a> : <div className="commercial-role-grid"><article className="commercial-role-card student"><header><span><BookOpen /></span><em>FOR LEARNERS</em></header><h2>Student Portal</h2><p>Discover courses, complete authentic assessments, build a private skills passport and share verified credentials.</p><ul><li><CheckCircle2 /> Stackable microcredentials</li><li><CheckCircle2 /> Virtual labs and Colab</li><li><CheckCircle2 /> Portable credential wallet</li></ul><div><a className="role-primary" href="/student-registration">Register as a student <ChevronRight /></a><a className="role-secondary" href={signInUrl("learner")}>Student sign in</a></div></article><article className="commercial-role-card facilitator"><header><span><ShieldCheck /></span><em>FOR EDUCATORS</em></header><h2>Facilitator Portal</h2><p>Author quality-assured programmes, facilitate cohorts and assess authentic evidence in one workspace.</p><ul><li><CheckCircle2 /> Course and activity studio</li><li><CheckCircle2 /> Marking and competency decisions</li><li><CheckCircle2 /> Cohort intelligence</li></ul><div><a className="role-primary" href={signInUrl("facilitator")}>Facilitator sign in <ChevronRight /></a><small>Administrator invitation required</small></div></article><article className="commercial-role-card admin"><header><span><Users /></span><em>FOR GOVERNANCE</em></header><h2>System Administration</h2><p>Control identities, academic approvals, credential status and institutional performance.</p><ul><li><CheckCircle2 /> User and access governance</li><li><CheckCircle2 /> Credential registry</li><li><CheckCircle2 /> Platform analytics</li></ul><div><a className="role-primary" href={signInUrl("admin")}>Administrator sign in <ChevronRight /></a><small>Restricted system role</small></div></article></div>}<footer className="access-trust"><ShieldCheck /><span>Role permissions are enforced after sign-in. Portal selection never grants access.</span></footer></section></main>;
 }
 
-function PortalRoleMismatch({ requestedRole, email }: { requestedRole: "facilitator" | "admin"; email: string }) {
-  const title = requestedRole === "admin" ? "System administrator access required." : "Facilitator access required.";
-  const guidance = requestedRole === "admin" ? "This email is not assigned to an active system-administrator account. Sign out and use the administrator email configured for this platform." : "This email is not assigned to an active facilitator account. Ask a system administrator to create your facilitator account and send the setup link.";
-  return <main className="access-shell"><section className="access-card role-mismatch"><div className="pending-ring"><ShieldCheck /></div><p className="eyebrow">ROLE-PROTECTED PORTAL</p><h1>{title}</h1><p>{guidance}</p><div className="signed-email"><b>Signed-in email</b><span>{email || "Unavailable"}</span></div><a className="access-primary" href="/signout-with-chatgpt?return_to=%2F">Sign out and use another account</a><a className="access-secondary" href="/">Return to portal selection</a></section></main>;
+function PortalRoleMismatch({ requestedRole, email, actualRole }: { requestedRole: PortalRole; email: string; actualRole?: PortalRole }) {
+  const requestedLabel = requestedRole === "admin" ? "Administration" : requestedRole === "facilitator" ? "Facilitator" : "Student";
+  const actualLabel = actualRole === "admin" ? "Administration" : actualRole === "facilitator" ? "Facilitator" : actualRole === "learner" ? "Student" : "another";
+  const retryPath = requestedRole === "admin" ? "/admin-signin" : requestedRole === "facilitator" ? "/facilitator-signin" : "/student-signin";
+  const guidance = actualRole
+    ? `This email belongs to the ${actualLabel} Portal. For privacy and role separation, it cannot open the ${requestedLabel} Portal.`
+    : `This email is not assigned to an active ${requestedLabel} Portal account.`;
+  return <main className="access-shell"><section className="access-card role-mismatch"><div className="pending-ring"><ShieldCheck /></div><p className="eyebrow">ROLE-BOUND GATEWAY</p><h1>{requestedLabel} Portal access denied.</h1><p>{guidance}</p><div className="signed-email"><b>Signed-in email</b><span>{email || "Unavailable"}</span></div><a className="access-primary" href={`/signout-with-chatgpt?return_to=${encodeURIComponent(retryPath)}`}>Sign out and use the correct account</a><a className="access-secondary" href="/">Return to all role portals</a></section></main>;
 }
 
 function StudentRegistrationHandoff({ email }: { email: string }) {
@@ -591,6 +594,7 @@ function OpenCourseCatalog({ courses: catalogue, enrolledCodes, query, onEnrol, 
 type FacilitatorRecord = { email: string; full_name: string; status: string; identity_status: string; created_at: string };
 type VerificationRecord = { email: string; full_name: string; role: string; date_of_birth: string; gender: string; nationality: string; phone: string; address?: string; id_type: string; id_last4: string; status: string; verifier_email?: string | null; created_at: string };
 type ReviewerRecord = { email: string; full_name: string; role: string };
+type AccountResetScope = { registeredAccounts: number; learners: number; facilitators: number; incompleteRegistrations: number; pendingVerification: number; linkedRecords: number; preservedAdmins: number; confirmationPhrase: string };
 type CourseReviewRecord = { id: number; code: string; title: string; discipline: string; description: string; design: CourseDesign; materials: CourseMaterial[]; assessmentConfig?: { questions?: AssessmentQuestion[] }; status: string; facilitatorName: string; questionLimit: number; certificateEnabled: boolean; activities?: CourseActivity[]; versionNumber: number; submittedAt?: string | null };
 
 type CohortAnalyticsData = { role: PortalRole; totals: { courses: number; enrolled: number; completed: number; pendingEvidence: number }; courses: { code: string; title: string; discipline: string; status: string; enrolled: number; activeLearners: number; completed: number; averageScore: number | null; passRate: number | null; pendingEvidence: number }[] };
@@ -631,6 +635,11 @@ function AdminPortal({ onOpenRegister }: { onOpenRegister: () => void }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [invite, setInvite] = useState<{ url: string; email: string; expiresAt: string } | null>(null);
+  const [resetScope, setResetScope] = useState<AccountResetScope | null>(null);
+  const [resetOpen, setResetOpen] = useState(false);
+  const [resetConfirmation, setResetConfirmation] = useState("");
+  const [resetAcknowledged, setResetAcknowledged] = useState(false);
+  const [resetting, setResetting] = useState(false);
   const load = async () => {
     setLoading(true);
     try {
@@ -638,6 +647,10 @@ function AdminPortal({ onOpenRegister }: { onOpenRegister: () => void }) {
       const result = await response.json() as { facilitators?: FacilitatorRecord[]; verifications?: VerificationRecord[]; reviewers?: ReviewerRecord[]; counts?: Record<string, number>; error?: string };
       if (!response.ok) throw new Error(result.error ?? "Could not load administrator records.");
       setFacilitators(result.facilitators ?? []); setVerifications(result.verifications ?? []); setReviewers(result.reviewers ?? []); setCounts(result.counts ?? {});
+      const resetResponse = await fetch("/api/admin/accounts/reset", { cache: "no-store" });
+      const resetResult = await resetResponse.json() as { scope?: AccountResetScope; error?: string };
+      if (!resetResponse.ok || !resetResult.scope) throw new Error(resetResult.error ?? "Could not load the account-deletion scope.");
+      setResetScope(resetResult.scope);
     } catch (error) { toast.error(error instanceof Error ? error.message : "Could not load administrator records."); }
     finally { setLoading(false); }
   };
@@ -663,7 +676,143 @@ function AdminPortal({ onOpenRegister }: { onOpenRegister: () => void }) {
     if (!response.ok) return toast.error(result.error ?? "The reviewer could not be assigned.");
     toast.success("Identity case assigned"); await load();
   };
-  return <div className="admin-layout"><div className="admin-main-stack"><section className="page-panel"><div className="page-title"><div><p className="eyebrow">SYSTEM ADMINISTRATION</p><h2>User and access management</h2><p>Learners submit identity evidence. Facilitators begin with a one-time administrator invitation.</p></div><span className="access-badge"><ShieldCheck /> Admin protected</span></div><div className="admin-stats"><article><Users /><div><b>{counts.learner ?? 0}</b><span>Learners</span></div></article><article><ShieldCheck /><div><b>{counts.facilitator ?? 0}</b><span>Facilitators</span></div></article><article><FileCheck2 /><div><b>{verifications.length}</b><span>Pending ID reviews</span></div></article></div><div className="admin-table"><div className="admin-table-head"><span>Facilitator</span><span>Status</span><span>Created</span></div>{loading && <div className="empty-state">Loading facilitator accounts…</div>}{!loading && facilitators.map((facilitator) => <article key={facilitator.email}><div><b>{facilitator.full_name}</b><span>{facilitator.email}</span></div><em>{facilitator.status.replaceAll("_", " ")}</em><time>{new Date(facilitator.created_at).toLocaleDateString()}</time></article>)}{!loading && facilitators.length === 0 && <div className="empty-state">No facilitator accounts have been created yet.</div>}</div></section><section className="page-panel verification-panel"><div className="page-title"><div><p className="eyebrow">VERIFICATION ASSIGNMENTS</p><h2>Assign each identity case</h2><p>Only the assigned facilitator—and system administrators—can open the protected ID and live photo.</p></div></div><div className="verification-queue assignment-queue">{verifications.map((record) => <article key={record.email}><div className="verification-person"><span>{record.full_name.split(/\s+/).map((part) => part[0]).slice(0,2).join("")}</span><div><b>{record.full_name}</b><p>{record.role} · {record.email}</p><small>{record.id_type} ending {record.id_last4}</small></div></div><label className="reviewer-select">Assigned reviewer<select value={record.verifier_email ?? ""} onChange={(event) => assign(record.email, event.target.value)}><option value="">Select administrator or facilitator</option>{reviewers.map((reviewer) => <option key={reviewer.email} value={reviewer.email}>{reviewer.full_name} · {reviewer.role}</option>)}</select></label><button className="open-register" onClick={onOpenRegister}><FileCheck2 /> Open identity register</button></article>)}{!loading && verifications.length === 0 && <div className="empty-state">No identity submissions are awaiting assignment.</div>}</div></section></div><aside className="admin-create"><p className="eyebrow">INVITE FACILITATOR</p><h2>Create one-time setup link</h2><p>The facilitator must sign in with this exact email, complete permanent biodata, and submit ID plus a live photo.</p><label>Full name<input value={fullName} onChange={(event) => setFullName(event.target.value)} placeholder="e.g. Dr. Esi Mensah" /></label><label>Institutional email<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@ucc.edu.gh" /></label><div className="registration-rule"><ShieldCheck /><p><b>Secure sign-in</b>Password and recovery remain with the verified sign-in provider; no readable password is stored here.</p></div><button className="dialog-primary" disabled={saving} onClick={createFacilitator}><Users /> {saving ? "Creating invitation…" : "Create setup invitation"}</button>{invite && <div className="invite-result"><CheckCircle2 /><div><b>Invitation ready for {invite.email}</b><span>Expires {new Date(invite.expiresAt).toLocaleString()}</span></div><button onClick={copyInvite}>Copy link</button><a href={`mailto:${encodeURIComponent(invite.email)}?subject=${encodeURIComponent("UCC Microcredentials facilitator setup")}&body=${encodeURIComponent(`Complete your permanent facilitator profile using this one-time link:\n\n${invite.url}`)}`}>Email link</a></div>}</aside></div>;
+  const deleteAllRegisteredAccounts = async () => {
+    if (!resetScope || resetConfirmation !== resetScope.confirmationPhrase || !resetAcknowledged) return;
+    setResetting(true);
+    try {
+      const response = await fetch("/api/admin/accounts/reset", { method: "DELETE", headers: { "content-type": "application/json" }, body: JSON.stringify({ confirmation: resetConfirmation, acknowledged: resetAcknowledged }) });
+      const result = await response.json() as { deleted?: boolean; deletion?: { profiles?: number; signIns?: number }; warning?: string; error?: string };
+      if (!response.ok || !result.deleted) throw new Error(result.error ?? "Registered accounts could not be deleted.");
+      setResetOpen(false); setResetConfirmation(""); setResetAcknowledged(false); setInvite(null);
+      toast.success("Registered learner and facilitator accounts deleted", { description: `${result.deletion?.profiles ?? 0} profiles and ${result.deletion?.signIns ?? 0} sign-in accounts removed. Administrator accounts and institutional course content were preserved.` });
+      if (result.warning) toast.warning("Private-file cleanup needs review", { description: result.warning });
+      await load();
+    } catch (error) { toast.error(error instanceof Error ? error.message : "Registered accounts could not be deleted."); }
+    finally { setResetting(false); }
+  };
+  return (
+    <div className="admin-layout">
+      <div className="admin-main-stack">
+        <section className="page-panel">
+          <div className="page-title">
+            <div>
+              <p className="eyebrow">SYSTEM ADMINISTRATION</p>
+              <h2>User and access management</h2>
+              <p>Learners submit identity evidence. Facilitators begin with a one-time administrator invitation.</p>
+            </div>
+            <span className="access-badge"><ShieldCheck /> Admin protected</span>
+          </div>
+          <div className="admin-stats">
+            <article><Users /><div><b>{counts.learner ?? 0}</b><span>Learners</span></div></article>
+            <article><ShieldCheck /><div><b>{counts.facilitator ?? 0}</b><span>Facilitators</span></div></article>
+            <article><FileCheck2 /><div><b>{verifications.length}</b><span>Pending ID reviews</span></div></article>
+          </div>
+          <div className="admin-table">
+            <div className="admin-table-head"><span>Facilitator</span><span>Status</span><span>Created</span></div>
+            {loading && <div className="empty-state">Loading facilitator accounts…</div>}
+            {!loading && facilitators.map((facilitator) => (
+              <article key={facilitator.email}>
+                <div><b>{facilitator.full_name}</b><span>{facilitator.email}</span></div>
+                <em>{facilitator.status.replaceAll("_", " ")}</em>
+                <time>{new Date(facilitator.created_at).toLocaleDateString()}</time>
+              </article>
+            ))}
+            {!loading && facilitators.length === 0 && <div className="empty-state">No facilitator accounts have been created yet.</div>}
+          </div>
+        </section>
+
+        <section className="page-panel verification-panel">
+          <div className="page-title">
+            <div>
+              <p className="eyebrow">VERIFICATION ASSIGNMENTS</p>
+              <h2>Assign each identity case</h2>
+              <p>Only the assigned facilitator—and system administrators—can open the protected ID and live photo.</p>
+            </div>
+          </div>
+          <div className="verification-queue assignment-queue">
+            {verifications.map((record) => (
+              <article key={record.email}>
+                <div className="verification-person">
+                  <span>{record.full_name.split(/\s+/).map((part) => part[0]).slice(0, 2).join("")}</span>
+                  <div><b>{record.full_name}</b><p>{record.role} · {record.email}</p><small>{record.id_type} ending {record.id_last4}</small></div>
+                </div>
+                <label className="reviewer-select">
+                  Assigned reviewer
+                  <select value={record.verifier_email ?? ""} onChange={(event) => assign(record.email, event.target.value)}>
+                    <option value="">Select administrator or facilitator</option>
+                    {reviewers.map((reviewer) => <option key={reviewer.email} value={reviewer.email}>{reviewer.full_name} · {reviewer.role}</option>)}
+                  </select>
+                </label>
+                <button className="open-register" onClick={onOpenRegister}><FileCheck2 /> Open identity register</button>
+              </article>
+            ))}
+            {!loading && verifications.length === 0 && <div className="empty-state">No identity submissions are awaiting assignment.</div>}
+          </div>
+        </section>
+
+        <section className="page-panel account-reset-panel">
+          <div className="account-reset-heading">
+            <span><AlertTriangle /></span>
+            <div>
+              <p className="eyebrow">RESTRICTED DANGER ZONE</p>
+              <h2>Delete registered accounts</h2>
+              <p>Use only for an authorised platform reset. Administrator access and institutional course designs are preserved.</p>
+            </div>
+            <button type="button" disabled={loading || !resetScope?.registeredAccounts || resetting} onClick={() => setResetOpen((current) => !current)}>
+              <Trash2 /> {resetOpen ? "Close reset" : "Review deletion"}
+            </button>
+          </div>
+          <div className="account-reset-metrics">
+            <span><b>{resetScope?.registeredAccounts ?? 0}</b>Registered accounts</span>
+            <span><b>{resetScope?.learners ?? 0}</b>Learner profiles</span>
+            <span><b>{resetScope?.facilitators ?? 0}</b>Facilitator profiles</span>
+            <span><b>{resetScope?.linkedRecords ?? 0}</b>Personal learning records</span>
+          </div>
+          {resetOpen && resetScope && (
+            <div className="account-reset-confirm">
+              <div className="account-reset-warning">
+                <AlertTriangle />
+                <p><b>This deletion is permanent.</b> It removes learner and facilitator profiles, non-administrator sign-ins, identity evidence, enrolments, attempts, submissions and issued learner credentials. {resetScope.preservedAdmins} administrator account{resetScope.preservedAdmins === 1 ? "" : "s"} and institutional course content remain.</p>
+              </div>
+              {resetScope.incompleteRegistrations > 0 && <p className="account-reset-note">{resetScope.incompleteRegistrations} incomplete sign-in registration{resetScope.incompleteRegistrations === 1 ? "" : "s"} will also be removed.</p>}
+              <label className="account-reset-acknowledgement">
+                <input type="checkbox" checked={resetAcknowledged} onChange={(event) => setResetAcknowledged(event.target.checked)} />
+                <span>I understand that deleted accounts, learner records and credentials cannot be restored from this screen.</span>
+              </label>
+              <label className="account-reset-phrase">
+                Type <code>{resetScope.confirmationPhrase}</code> to confirm
+                <input value={resetConfirmation} onChange={(event) => setResetConfirmation(event.target.value)} autoComplete="off" spellCheck={false} />
+              </label>
+              <div className="account-reset-actions">
+                <button type="button" className="cancel" disabled={resetting} onClick={() => { setResetOpen(false); setResetConfirmation(""); setResetAcknowledged(false); }}>Cancel</button>
+                <button type="button" className="delete" disabled={resetting || !resetAcknowledged || resetConfirmation !== resetScope.confirmationPhrase} onClick={deleteAllRegisteredAccounts}>
+                  <Trash2 /> {resetting ? "Deleting accounts…" : `Permanently delete ${resetScope.registeredAccounts} accounts`}
+                </button>
+              </div>
+            </div>
+          )}
+        </section>
+      </div>
+
+      <aside className="admin-create">
+        <p className="eyebrow">INVITE FACILITATOR</p>
+        <h2>Create one-time setup link</h2>
+        <p>The facilitator must sign in with this exact email, complete permanent biodata, and submit ID plus a live photo.</p>
+        <label>Full name<input value={fullName} onChange={(event) => setFullName(event.target.value)} placeholder="e.g. Dr. Esi Mensah" /></label>
+        <label>Institutional email<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@ucc.edu.gh" /></label>
+        <div className="registration-rule"><ShieldCheck /><p><b>Secure sign-in</b>Password and recovery remain with the verified sign-in provider; no readable password is stored here.</p></div>
+        <button className="dialog-primary" disabled={saving} onClick={createFacilitator}><Users /> {saving ? "Creating invitation…" : "Create setup invitation"}</button>
+        {invite && (
+          <div className="invite-result">
+            <CheckCircle2 />
+            <div><b>Invitation ready for {invite.email}</b><span>Expires {new Date(invite.expiresAt).toLocaleString()}</span></div>
+            <button onClick={copyInvite}>Copy link</button>
+            <a href={`mailto:${encodeURIComponent(invite.email)}?subject=${encodeURIComponent("UCC Microcredentials facilitator setup")}&body=${encodeURIComponent(`Complete your permanent facilitator profile using this one-time link:\n\n${invite.url}`)}`}>Email link</a>
+          </div>
+        )}
+      </aside>
+    </div>
+  );
 }
 
 function CourseRow({ course, onOpen }: { course: Course, onOpen: () => void }) { return <article className="course-row"><div className={`course-swatch ${course.accent}`}><BookOpen size={21} /></div><div className="course-copy"><span>{course.code}</span><h3>{course.title}</h3><small>{course.school}</small></div><div className="course-progress"><div><span>{course.modules}</span><b>{course.progress}%</b></div><Progress value={course.progress} /><button onClick={onOpen}>{course.next} <ChevronRight size={15} /></button></div></article>; }

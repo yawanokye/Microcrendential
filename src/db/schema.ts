@@ -161,3 +161,11 @@ export const virtualLabSubmissions = sqliteTable("virtual_lab_submissions", {
   index("virtual_lab_practical_idx").on(table.practicalId),
   index("virtual_lab_learner_idx").on(table.learnerEmail),
 ]);
+
+export const adminAuditLog = sqliteTable("admin_audit_log", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  adminEmail: text("admin_email").notNull(),
+  action: text("action").notNull(),
+  detailsJson: text("details_json").notNull().default("{}"),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [index("admin_audit_log_admin_idx").on(table.adminEmail)]);
