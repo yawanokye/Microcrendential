@@ -32,6 +32,7 @@ export async function GET() {
 export async function DELETE(request: Request) {
   const account = await requireActiveProfile(["admin"]);
   if (account.error || !account.profile) return account.error;
+
   const payload = await request.json().catch(() => null) as { confirmation?: string; acknowledged?: boolean } | null;
   if (payload?.confirmation !== CONFIRMATION_PHRASE || payload.acknowledged !== true) {
     return Response.json({ error: `Type ${CONFIRMATION_PHRASE} and acknowledge the permanent deletion to continue.` }, { status: 400 });

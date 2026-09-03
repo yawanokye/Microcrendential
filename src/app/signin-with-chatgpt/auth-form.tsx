@@ -4,9 +4,11 @@ import { useState } from "react";
 import { ArrowLeft, BookOpen, GraduationCap, ShieldCheck, Users } from "lucide-react";
 
 type AuthMode = "login" | "admin_setup";
+type AuthPortal = "admin" | "facilitator" | "learner";
+type AuthFormProps = { returnTo: string; portal?: AuthPortal; inviteToken?: string };
 
-export default function AuthForm({ returnTo }: { returnTo: string }) {
-  const portal = (() => {
+export default function AuthForm({ returnTo, portal: requestedPortal, inviteToken = "" }: AuthFormProps) {
+  const portal = requestedPortal ?? (() => {
     try {
       const value = new URL(returnTo, "https://app.local").searchParams.get("portal");
       return value === "admin" || value === "facilitator" || value === "learner" ? value : "learner";
@@ -27,7 +29,7 @@ export default function AuthForm({ returnTo }: { returnTo: string }) {
   const submit = async (event: React.FormEvent) => {
     event.preventDefault(); setError(""); setLoading(true);
     try {
-      const response = await fetch("/api/render-auth", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ mode, fullName, email, password, returnTo }) });
+      const response = await fetch("/api/render-auth", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ mode, fullName, email, password, returnTo, inviteToken: inviteToken || undefined }) });
       const result = await response.json() as { error?: string; returnTo?: string };
       if (!response.ok) throw new Error(result.error ?? "Authentication failed.");
       window.location.assign(result.returnTo ?? "/");
