@@ -6,7 +6,7 @@ import { plainTextFromHtml, sanitizeReadableHtml } from "@/lib/document-content"
 type CourseRow = {
   id: number; code: string; title: string; discipline: string; description: string; materials_json: string; activities_json: string; assessment_modes_json: string;
   assessment_config_json: string; design_json: string; gate_required: number; question_limit: number; certificate_enabled: number; status: string;
-  created_by_email: string; facilitator_name: string | null; activated_at: string | null; submitted_at: string | null; version_number: number; updated_at: string | null; created_at: string;
+  created_by_email: string; facilitator_name: string | null; activated_at: string | null; submitted_at: string | null; review_comment: string | null; reviewed_by_email: string | null; reviewed_at: string | null; version_number: number; updated_at: string | null; created_at: string;
 };
 
 const parseJson = <T>(value: string, fallback: T) => { try { return JSON.parse(value || "") as T; } catch { return fallback; } };
@@ -51,6 +51,7 @@ function present(row: CourseRow) {
     design: normalizeCourseDesign(parseJson(row.design_json, {})), gateRequired: Boolean(row.gate_required), questionLimit: row.question_limit,
     certificateEnabled: Boolean(row.certificate_enabled), status: row.status, createdByEmail: row.created_by_email,
     facilitatorName: row.facilitator_name ?? row.created_by_email, activatedAt: row.activated_at, submittedAt: row.submitted_at,
+    reviewComment: row.review_comment, reviewedByEmail: row.reviewed_by_email, reviewedAt: row.reviewed_at,
     versionNumber: row.version_number || 1, updatedAt: row.updated_at ?? row.created_at, createdAt: row.created_at,
   };
 }
@@ -121,8 +122,8 @@ export async function PUT(request: Request) {
   const submissionMode = payload.submissionMode === "review" ? "review" : "draft";
   if (submissionMode === "review") { const error = validateForReview(course); if (error) return Response.json({ error, quality: course.quality }, { status: 400 }); }
   const status = submissionMode === "review" ? "pending_review" : "draft";
-  const result = await db.prepare("UPDATE course_drafts SET code = ?, title = ?, discipline = ?, description = ?, materials_json = ?, activities_json = ?, assessment_modes_json = ?, assessment_config_json = ?, design_json = ?, gate_required = ?, question_limit = ?, certificate_enabled = ?, status = ?, version_number = version_number + 1, submitted_at = CASE WHEN ? = 'pending_review' THEN CURRENT_TIMESTAMP ELSE submitted_at END, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND version_number = ?")
-    .bind(course.code, course.title, course.discipline, course.description, JSON.stringify(course.materials), JSON.stringify(course.activities), JSON.stringify(course.assessmentModes), JSON.stringify(course.assessmentConfig), JSON.stringify(course.design), payload.gateRequired === false ? 0 : 1, course.questionLimit, payload.certificateEnabled === false ? 0 : 1, status, status, id, expectedVersion).run();
+  const result = await db.prepare("UPDATE course_drafts SET code = ?, title = ?, discipline = ?, description = ?, materials_json = ?, activities_json = ?, assessment_modes_json = ?, assessment_config_json = ?, design_json = ?, gate_required = ?, question_limit = ?, certificate_enabled = ?, status = ?, version_number = version_number + 1, submitted_at = CASE WHEN ? = 'pending_review' THEN CURRENT_TIMESTAMP ELSE submitted_at END, review_comment = CASE WHEN ? = 'pending_review' THEN NULL ELSE review_comment END, reviewed_by_email = CASE WHEN ? = 'pending_review' THEN NULL ELSE reviewed_by_email END, reviewed_at = CASE WHEN ? = 'pending_review' THEN NULL ELSE reviewed_at END, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND version_number = ?")
+    .bind(course.code, course.title, course.discipline, course.description, JSON.stringify(course.materials), JSON.stringify(course.activities), JSON.stringify(course.assessmentModes), JSON.stringify(course.assessmentConfig), JSON.stringify(course.design), payload.gateRequired === false ? 0 : 1, course.questionLimit, payload.certificateEnabled === false ? 0 : 1, status, status, status, status, status, id, expectedVersion).run();
   if (!result.meta.changes) return Response.json({ error: "The draft version changed before it could be saved." }, { status: 409 });
   return Response.json({ course: { id, code: course.code, title: course.title, status, versionNumber: expectedVersion + 1 }, quality: course.quality });
 }
@@ -130,8 +131,10 @@ export async function PUT(request: Request) {
 export async function PATCH(request: Request) {
   const account = await requireActiveProfile(["admin"]);
   if (account.error || !account.profile) return account.error;
-  const payload = await request.json() as { id?: number; status?: "active" | "pending_review" | "rejected" };
+  const payload = await request.json() as { id?: number; status?: "active" | "pending_review" | "rejected"; comment?: string };
   if (!payload.id || !["active", "pending_review", "rejected"].includes(payload.status ?? "")) return Response.json({ error: "Choose a course and valid review decision." }, { status: 400 });
+  const reviewComment = String(payload.comment ?? "").trim().slice(0, 4000);
+  if (payload.status === "rejected" && !reviewComment) return Response.json({ error: "Add a review comment explaining what the facilitator must change before returning the course." }, { status: 400 });
   const active = payload.status === "active"; const db = getRawDb();
   const course = await db.prepare("SELECT code, title, description, design_json, materials_json, activities_json, assessment_config_json, created_by_email, status FROM course_drafts WHERE id = ? LIMIT 1").bind(payload.id).first<{ code: string; title: string; description: string; design_json: string; materials_json: string; activities_json: string; assessment_config_json: string; created_by_email: string; status: string }>();
   if (!course) return Response.json({ error: "Course was not found." }, { status: 404 });
@@ -141,8 +144,8 @@ export async function PATCH(request: Request) {
     const quality = evaluateCourseQuality({ title: course.title, description: course.description, design, materials, questionCount: assessment.questions?.length ?? 0 });
     if (course.status !== "pending_review" || !quality.ready) return Response.json({ error: "Only a complete course submitted for review can be activated.", quality }, { status: 409 });
   }
-  const result = await db.prepare("UPDATE course_drafts SET status = ?, activated_by_email = ?, activated_at = CASE WHEN ? = 1 THEN CURRENT_TIMESTAMP ELSE NULL END, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
-    .bind(payload.status, account.profile.email, active ? 1 : 0, payload.id).run();
+  const result = await db.prepare("UPDATE course_drafts SET status = ?, activated_by_email = ?, activated_at = CASE WHEN ? = 1 THEN CURRENT_TIMESTAMP ELSE NULL END, review_comment = ?, reviewed_by_email = ?, reviewed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+    .bind(payload.status, account.profile.email, active ? 1 : 0, reviewComment || (active ? "Approved for publication." : null), account.profile.email, payload.id).run();
   if (!result.meta.changes) return Response.json({ error: "Course was not found." }, { status: 404 });
   if (active) {
     let activities: { id?: string; kind?: string; title?: string; instructions?: string; notebookKey?: string; notebookFileName?: string; templateUrl?: string; rubric?: string; maxMark?: number; passMark?: number; attemptsAllowed?: number; dueAt?: string }[] = [];

@@ -28,8 +28,8 @@ export async function POST(request: Request) {
   } catch {
     return Response.json({ error: "An account already exists for this email address." }, { status: 409 });
   }
-  // Keep invitations on the dedicated facilitator gateway and return a
-  // relative URL so the public deployment hostname is always retained.
-  const invitePath = `/facilitator-signin?invite=${encodeURIComponent(token)}`;
+  // Return an application-relative URL so the browser uses the public Render
+  // hostname instead of the container's internal 0.0.0.0 address.
+  const invitePath = `/?invite=${encodeURIComponent(token)}`;
   return Response.json({ facilitator: { email, fullName, status: "pending_setup" }, inviteUrl: invitePath, expiresAt }, { status: 201 });
 }
