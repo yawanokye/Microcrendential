@@ -30,6 +30,6 @@ export async function POST(request: Request) {
   }
   // Return an application-relative URL so the browser uses the public Render
   // hostname instead of the container's internal 0.0.0.0 address.
-  const invitePath = `/?invite=${encodeURIComponent(token)}`;
+  const invitePath = `/facilitator-signin?invite=${encodeURIComponent(token)}`;
   return Response.json({ facilitator: { email, fullName, status: "pending_setup" }, inviteUrl: invitePath, expiresAt }, { status: 201 });
 }
