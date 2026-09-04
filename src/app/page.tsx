@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import {
-  Activity, AlertTriangle, Award, Beaker, Bell, BookOpen, CalendarDays, CheckCircle2, ChevronRight, CirclePlay, ClipboardCheck, Clock3,
+  Activity, AlertTriangle, Award, Beaker, Bell, BookOpen, CalendarDays, CheckCircle2, ChevronDown, ChevronRight, CirclePlay, ClipboardCheck, Clock3,
   Code2, Eye, FileCheck2, FileText, FlaskConical, Gauge, GraduationCap, GripVertical, HeartPulse, LayoutDashboard, Menu,
   MessageSquareText, Microscope, Pencil, QrCode, RotateCcw, Search, Settings, ShieldCheck, Sigma, Stethoscope, Undo2, Upload, Users, Video, Wrench, X,
 } from "lucide-react";
@@ -28,6 +28,41 @@ type LabObservation = { trial: string; input: number; result: number; note: stri
 type PortalRole = "learner" | "facilitator" | "admin";
 
 const disciplines = ["Education", "Humanities & Social Sciences", "Business & Management", "Science", "Technology & Engineering", "Health Sciences", "Agriculture & Natural Resources", "Creative Arts & Design", "Interdisciplinary"];
+
+const outcomeCapabilityOptions = [
+  "Conceptual understanding",
+  "Applied problem-solving",
+  "Critical thinking",
+  "Data literacy",
+  "Digital capability",
+  "Professional communication",
+  "Research and inquiry",
+  "Ethical decision-making",
+  "Collaboration and leadership",
+];
+
+const outcomeAssessmentOptions = [
+  "Objective knowledge check",
+  "Applied assignment or practical evidence",
+  "Case analysis",
+  "Portfolio evidence",
+  "Project or capstone",
+  "Presentation or demonstration",
+  "Reflective journal",
+  "Observed practical assessment",
+  "Oral assessment",
+];
+
+const recommendedSkillTags = [
+  { name: "Critical thinking", detail: "Evaluate evidence and reach defensible conclusions." },
+  { name: "Digital literacy", detail: "Use digital tools safely, effectively and responsibly." },
+  { name: "Evidence-based decision-making", detail: "Apply credible evidence to practical choices." },
+  { name: "Applied problem-solving", detail: "Resolve authentic professional or community problems." },
+  { name: "Communication", detail: "Present ideas and evidence clearly for an audience." },
+  { name: "Collaboration", detail: "Work productively with others toward shared outcomes." },
+  { name: "Data literacy", detail: "Interpret, question and communicate with data." },
+  { name: "Research and inquiry", detail: "Frame questions and investigate them systematically." },
+];
 
 const courses: Course[] = [
   { code: "UCC-MC 204", title: "Digital Pedagogy for Flexible Learning", school: "College of Education Studies", discipline: "Education", progress: 68, modules: "8 of 12 modules", accent: "gold", next: "Complete Module 9" },
@@ -438,14 +473,16 @@ function VideoTranscriptDialog({ material, onClose }: { material: CourseMaterial
   const showTranscript = Boolean(material.transcript && material.transcriptPublished !== false);
   const protectedFile = material.fileKey ? `/api/course-materials?key=${encodeURIComponent(material.fileKey)}` : "";
   const isMediaFile = Boolean(protectedFile && /^(video|audio)\//.test(material.mimeType ?? ""));
+  const isPdfFile = Boolean(protectedFile && (material.mimeType === "application/pdf" || material.fileName?.toLowerCase().endsWith(".pdf")));
   return <Dialog open onOpenChange={(open) => !open && onClose()}><DialogContent className="video-transcript-dialog commercial-content-dialog"><DialogHeader><p className="eyebrow">{material.kind.toUpperCase()} · {material.sectionTitle ?? "COURSE CONTENT"}</p><DialogTitle>{material.title}</DialogTitle><DialogDescription>{material.source} · {material.estimatedMinutes ?? 5} estimated minutes · {material.license ?? "Course material"}</DialogDescription></DialogHeader>
     <div className={showTranscript ? "video-transcript-layout" : "video-transcript-layout video-only"}>
       <div className="commercial-content-body">
-        {material.readableHtml ? <article className="readable-course-document" dangerouslySetInnerHTML={{ __html: material.readableHtml }} /> : null}
-        {!material.readableHtml && material.kind === "Watch" && material.url ? <div className="transcript-video"><iframe src={material.url} title={material.title} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen /></div> : null}
-        {!material.readableHtml && isMediaFile ? material.mimeType?.startsWith("audio/") ? <audio controls src={protectedFile} /> : <video controls src={protectedFile} /> : null}
-        {!material.readableHtml && material.kind === "Embed" && material.url ? <iframe className="sandboxed-resource" src={material.url} title={material.title} sandbox="allow-scripts allow-same-origin allow-forms allow-popups" /> : null}
-        {!material.readableHtml && !isMediaFile && protectedFile ? <div className="download-material"><FileText /><h3>{material.fileName ?? material.title}</h3><p>Open or download the protected original supplied for this course.</p><a href={protectedFile} target="_blank" rel="noreferrer">Open original file</a></div> : null}
+        {isPdfFile ? <div className="protected-pdf-viewer"><header><div><FileText /><span><b>Protected PDF lesson</b><small>Original layout · searchable and zoomable when supported by your browser</small></span></div><a href={protectedFile} target="_blank" rel="noreferrer">Open full screen</a></header><iframe src={`${protectedFile}#toolbar=1&navpanes=0&view=FitH`} title={`${material.title} PDF`} loading="lazy" /></div> : null}
+        {!isPdfFile && material.readableHtml ? <article className="readable-course-document" dangerouslySetInnerHTML={{ __html: material.readableHtml }} /> : null}
+        {!isPdfFile && !material.readableHtml && material.kind === "Watch" && material.url ? <div className="transcript-video"><iframe src={material.url} title={material.title} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen /></div> : null}
+        {!isPdfFile && !material.readableHtml && isMediaFile ? material.mimeType?.startsWith("audio/") ? <audio controls src={protectedFile} /> : <video controls src={protectedFile} /> : null}
+        {!isPdfFile && !material.readableHtml && material.kind === "Embed" && material.url ? <iframe className="sandboxed-resource" src={material.url} title={material.title} sandbox="allow-scripts allow-same-origin allow-forms allow-popups" /> : null}
+        {!isPdfFile && !material.readableHtml && !isMediaFile && protectedFile ? <div className="download-material"><FileText /><h3>{material.fileName ?? material.title}</h3><p>Open or download the protected original supplied for this course.</p><a href={protectedFile} target="_blank" rel="noreferrer">Open original file</a></div> : null}
         {material.externalUrl ? <a className="frame-fallback" href={material.externalUrl} target="_blank" rel="noreferrer">Open cited source in a new tab</a> : null}
       </div>
       {showTranscript && <section className="learner-transcript"><header><div><FileText /><b>Facilitator-reviewed transcript</b></div><span>{material.transcript?.split(/\s+/).filter(Boolean).length ?? 0} words</span></header><pre>{material.transcript}</pre></section>}
@@ -977,6 +1014,61 @@ function Discussions() {
   return <div className="page-panel"><div className="page-title"><div><p className="eyebrow">LEARNING COMMUNITY</p><h2>Discussions</h2><p>Continue course conversations with facilitators and peers.</p></div><button className="primary-action" onClick={() => toast.success("Discussion composer opened", { description: "Your draft is ready for a title and message." })}><MessageSquareText size={17} /> New post</button></div><div className="discussion-list">{posts.map((item) => <button key={item[0]} onClick={() => toast.info(item[0], { description: `${item[2]} · ${item[1]}` })}><span className="avatar">{item[3][0]}</span><div><h3>{item[0]}</h3><p>{item[1]} · Started by {item[3]}</p></div><b>{item[2]}</b><ChevronRight size={18} /></button>)}</div></div>;
 }
 
+function OutcomeDesignEditor({ design, onChange }: { design: CourseDesign; onChange: (updater: (current: CourseDesign) => CourseDesign) => void }) {
+  const [openPanels, setOpenPanels] = useState(() => new Set(["outcomes"]));
+  const [customSkill, setCustomSkill] = useState("");
+  const setPanelOpen = (panel: string, open: boolean) => setOpenPanels((current) => {
+    const next = new Set(current);
+    if (open) next.add(panel); else next.delete(panel);
+    return next;
+  });
+  const updateOutcome = (id: string, patch: Partial<CourseDesign["outcomes"][number]>) => onChange((current) => ({
+    ...current,
+    outcomes: current.outcomes.map((item) => item.id === id ? { ...item, ...patch } : item),
+  }));
+  const hasSkill = (skill: string) => design.skills.some((item) => item.trim().toLowerCase() === skill.toLowerCase());
+  const toggleSkill = (skill: string) => onChange((current) => ({
+    ...current,
+    skills: current.skills.some((item) => item.trim().toLowerCase() === skill.toLowerCase())
+      ? current.skills.filter((item) => item.trim().toLowerCase() !== skill.toLowerCase())
+      : [...current.skills.filter((item) => item.trim()), skill],
+  }));
+  const addCustomSkill = () => {
+    const skill = customSkill.trim();
+    if (!skill) return;
+    if (!hasSkill(skill)) onChange((current) => ({ ...current, skills: [...current.skills.filter((item) => item.trim()), skill] }));
+    setCustomSkill("");
+  };
+  const objectiveComplete = design.objectives.filter((item) => item.trim()).length;
+  const outcomeComplete = design.outcomes.filter((item) => item.statement.trim() && item.skill.trim() && item.assessmentMethod.trim()).length;
+
+  return <div className="blueprint-accordion-stack">
+    <details className="blueprint-accordion objective-builder" open={openPanels.has("objectives")} onToggle={(event) => setPanelOpen("objectives", event.currentTarget.open)}>
+      <summary><span className="blueprint-accordion-icon"><ClipboardCheck /></span><div><b>Course objectives</b><small>Define what the course is designed to accomplish.</small></div><span className="blueprint-accordion-count">{objectiveComplete}/{design.objectives.length} complete</span><ChevronDown /></summary>
+      <div className="blueprint-panel-body"><header><p>Use concise statements beginning with verbs such as build, develop, enable or strengthen.</p><button type="button" onClick={() => onChange((current) => ({ ...current, objectives: [...current.objectives, ""] }))}>Add objective</button></header><div className="blueprint-item-list">{design.objectives.map((objective, index) => <article className="objective-card" key={index}><span>{index + 1}</span><label><b>Objective {index + 1}</b><textarea value={objective} onChange={(event) => onChange((current) => ({ ...current, objectives: current.objectives.map((item, itemIndex) => itemIndex === index ? event.target.value : item) }))} placeholder="Build, develop or enable…" /></label><button type="button" className="blueprint-remove" aria-label={`Remove objective ${index + 1}`} onClick={() => onChange((current) => ({ ...current, objectives: current.objectives.filter((_, itemIndex) => itemIndex !== index) }))}><X /> Remove</button></article>)}</div></div>
+    </details>
+
+    <details className="blueprint-accordion outcome-builder" open={openPanels.has("outcomes")} onToggle={(event) => setPanelOpen("outcomes", event.currentTarget.open)}>
+      <summary><span className="blueprint-accordion-icon"><CheckCircle2 /></span><div><b>Measurable course outcomes</b><small>Connect observable achievement to a capability and its evidence.</small></div><span className="blueprint-accordion-count">{outcomeComplete}/{design.outcomes.length} complete</span><ChevronDown /></summary>
+      <div className="blueprint-panel-body"><header><p>Write what learners will be able to demonstrate, then choose the closest capability and assessment method.</p><button type="button" onClick={() => onChange((current) => ({ ...current, outcomes: [...current.outcomes, { id: crypto.randomUUID(), statement: "", assessmentMethod: "", skill: "" }] }))}>Add outcome</button></header><div className="blueprint-item-list">{design.outcomes.map((outcome, index) => {
+        const customCapability = !outcomeCapabilityOptions.includes(outcome.skill);
+        const customAssessment = !outcomeAssessmentOptions.includes(outcome.assessmentMethod);
+        return <article className="outcome-card" key={outcome.id}><header><span>{index + 1}</span><div><b>Learning outcome {index + 1}</b><small>{outcome.statement.trim() && outcome.skill.trim() && outcome.assessmentMethod.trim() ? "Outcome definition complete" : "Complete all three fields"}</small></div><button type="button" className="blueprint-remove" aria-label={`Remove learning outcome ${index + 1}`} onClick={() => onChange((current) => ({ ...current, outcomes: current.outcomes.filter((item) => item.id !== outcome.id) }))}><X /> Remove</button></header><label className="outcome-statement-field"><b>Observable outcome statement</b><textarea value={outcome.statement} onChange={(event) => updateOutcome(outcome.id, { statement: event.target.value })} placeholder="By the end of this course, learners can analyse…" /></label><div className="outcome-evidence-grid"><label><b>Skill / capability</b><select value={customCapability ? "__custom" : outcome.skill} onChange={(event) => updateOutcome(outcome.id, { skill: event.target.value === "__custom" ? "" : event.target.value })}>{outcomeCapabilityOptions.map((option) => <option key={option} value={option}>{option}</option>)}<option value="__custom">Other / custom capability…</option></select>{customCapability && <input value={outcome.skill} onChange={(event) => updateOutcome(outcome.id, { skill: event.target.value })} placeholder="Type a custom capability" />}</label><label><b>Assessment method</b><select value={customAssessment ? "__custom" : outcome.assessmentMethod} onChange={(event) => updateOutcome(outcome.id, { assessmentMethod: event.target.value === "__custom" ? "" : event.target.value })}>{outcomeAssessmentOptions.map((option) => <option key={option} value={option}>{option}</option>)}<option value="__custom">Other / custom assessment…</option></select>{customAssessment && <input value={outcome.assessmentMethod} onChange={(event) => updateOutcome(outcome.id, { assessmentMethod: event.target.value })} placeholder="Type a custom assessment method" />}</label></div></article>;
+      })}</div></div>
+    </details>
+
+    <details className="blueprint-accordion skill-builder" open={openPanels.has("skills")} onToggle={(event) => setPanelOpen("skills", event.currentTarget.open)}>
+      <summary><span className="blueprint-accordion-icon"><Gauge /></span><div><b>Skills tags</b><small>Select discoverable capability tags using checkboxes.</small></div><span className="blueprint-accordion-count">{design.skills.filter((item) => item.trim()).length} selected</span><ChevronDown /></summary>
+      <div className="blueprint-panel-body"><header><p>Choose all that apply. These tags improve catalogue discovery and the learner skills passport.</p></header><div className="skill-check-grid">{recommendedSkillTags.map((skill) => <label key={skill.name} className={hasSkill(skill.name) ? "selected" : ""}><input type="checkbox" checked={hasSkill(skill.name)} onChange={() => toggleSkill(skill.name)} /><span><b>{skill.name}</b><small>{skill.detail}</small></span></label>)}</div><div className="custom-skill-adder"><label><b>Add another skill</b><input value={customSkill} onChange={(event) => setCustomSkill(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addCustomSkill(); } }} placeholder="Type a specialist or discipline-specific skill" /></label><button type="button" onClick={addCustomSkill}>Add skill</button></div>{design.skills.some((item) => item.trim()) && <div className="selected-skill-chips">{design.skills.filter((item) => item.trim()).map((skill, index) => <span key={`${skill}-${index}`}>{skill}<button type="button" aria-label={`Remove ${skill}`} onClick={() => toggleSkill(skill)}><X /></button></span>)}</div>}</div>
+    </details>
+
+    <details className="blueprint-accordion section-builder" open={openPanels.has("sections")} onToggle={(event) => setPanelOpen("sections", event.currentTarget.open)}>
+      <summary><span className="blueprint-accordion-icon"><BookOpen /></span><div><b>Course sections</b><small>Organise the learner journey into a clear syllabus.</small></div><span className="blueprint-accordion-count">{design.sections.length} section{design.sections.length === 1 ? "" : "s"}</span><ChevronDown /></summary>
+      <div className="blueprint-panel-body"><header><p>Each learning block will be placed under one of these sections in the next step.</p><button type="button" onClick={() => onChange((current) => ({ ...current, sections: [...current.sections, { id: crypto.randomUUID(), title: "New section", description: "" }] }))}>Add section</button></header><div className="blueprint-item-list">{design.sections.map((section, index) => <article className="section-card" key={section.id}><header><span>{index + 1}</span><div><b>Section {index + 1}</b><small>{section.title || "Untitled syllabus section"}</small></div><button type="button" className="blueprint-remove" aria-label={`Remove section ${index + 1}`} onClick={() => onChange((current) => ({ ...current, sections: current.sections.filter((item) => item.id !== section.id) }))}><X /> Remove</button></header><div><label><b>Section title</b><input value={section.title} onChange={(event) => onChange((current) => ({ ...current, sections: current.sections.map((item) => item.id === section.id ? { ...item, title: event.target.value } : item) }))} placeholder="For example, Orientation and foundations" /></label><label><b>Purpose</b><textarea value={section.description} onChange={(event) => onChange((current) => ({ ...current, sections: current.sections.map((item) => item.id === section.id ? { ...item, description: event.target.value } : item) }))} placeholder="Explain what learners will cover in this section." /></label></div></article>)}</div></div>
+    </details>
+  </div>;
+}
+
 function FacilitatorStudio({ email, query, setQuery }: { email: string; query: string, setQuery: (value: string) => void }) {
   type Material = CourseMaterial;
   type StudioDraft = { id: number; code: string; title: string; discipline: string; description: string; design: CourseDesign; materials: Material[]; activities: CourseActivity[]; assessmentModes: string[]; assessmentConfig: { passMark?: number; attempts?: string; questions?: AssessmentQuestion[]; questionFiles?: { name: string; size: string; type: string }[] }; gateRequired: boolean; questionLimit: number; certificateEnabled: boolean; status: string; createdByEmail: string; versionNumber: number; updatedAt?: string; reviewComment?: string | null; reviewedAt?: string | null };
@@ -1266,20 +1358,17 @@ function FacilitatorStudio({ email, query, setQuery }: { email: string; query: s
 
       {step === "outcomes" && <div className="outcome-authoring">
         <div className="studio-section-heading"><div><p className="eyebrow">OUTCOME-LED DESIGN</p><h3>Connect purpose, evidence and curriculum</h3><p>Every outcome carries a skill and assessment method, then maps to learning blocks in the next step.</p></div><ShieldCheck /></div>
-        <section className="objective-builder"><header><div><h3>Course objectives</h3><p>What the course is designed to accomplish.</p></div><button onClick={() => setDesign((current) => ({ ...current, objectives: [...current.objectives, ""] }))}>Add objective</button></header>{design.objectives.map((objective, index) => <article key={index}><span>{index + 1}</span><textarea value={objective} onChange={(event) => setDesign((current) => ({ ...current, objectives: current.objectives.map((item, itemIndex) => itemIndex === index ? event.target.value : item) }))} placeholder="Build, develop or enable…" /><button onClick={() => setDesign((current) => ({ ...current, objectives: current.objectives.filter((_, itemIndex) => itemIndex !== index) }))}>Remove</button></article>)}</section>
-        <section className="outcome-builder"><header><div><h3>Measurable course outcomes</h3><p>Use observable verbs and name the evidence that proves achievement.</p></div><button onClick={() => setDesign((current) => ({ ...current, outcomes: [...current.outcomes, { id: crypto.randomUUID(), statement: "", assessmentMethod: "", skill: "" }] }))}>Add outcome</button></header>{design.outcomes.map((outcome, index) => <article key={outcome.id}><span>{index + 1}</span><div><label>Outcome statement<textarea value={outcome.statement} onChange={(event) => setDesign((current) => ({ ...current, outcomes: current.outcomes.map((item) => item.id === outcome.id ? { ...item, statement: event.target.value } : item) }))} placeholder="By the end, learners can…" /></label><div><label>Skill / capability<input value={outcome.skill} onChange={(event) => setDesign((current) => ({ ...current, outcomes: current.outcomes.map((item) => item.id === outcome.id ? { ...item, skill: event.target.value } : item) }))} /></label><label>Assessment method<input value={outcome.assessmentMethod} onChange={(event) => setDesign((current) => ({ ...current, outcomes: current.outcomes.map((item) => item.id === outcome.id ? { ...item, assessmentMethod: event.target.value } : item) }))} /></label></div></div><button onClick={() => setDesign((current) => ({ ...current, outcomes: current.outcomes.filter((item) => item.id !== outcome.id) }))}>Remove</button></article>)}</section>
-        <section className="skill-builder"><header><h3>Skills tags</h3><button onClick={() => setDesign((current) => ({ ...current, skills: [...current.skills, ""] }))}>Add skill</button></header><div>{design.skills.map((skill, index) => <label key={index}><input value={skill} onChange={(event) => setDesign((current) => ({ ...current, skills: current.skills.map((item, itemIndex) => itemIndex === index ? event.target.value : item) }))} /><button onClick={() => setDesign((current) => ({ ...current, skills: current.skills.filter((_, itemIndex) => itemIndex !== index) }))}><X /></button></label>)}</div></section>
-        <section className="section-builder"><header><div><h3>Course sections</h3><p>Organise the learner journey into clear syllabus sections.</p></div><button onClick={() => setDesign((current) => ({ ...current, sections: [...current.sections, { id: crypto.randomUUID(), title: "New section", description: "" }] }))}>Add section</button></header>{design.sections.map((section, index) => <article key={section.id}><span>{index + 1}</span><label>Section title<input value={section.title} onChange={(event) => setDesign((current) => ({ ...current, sections: current.sections.map((item) => item.id === section.id ? { ...item, title: event.target.value } : item) }))} /></label><label>Purpose<input value={section.description} onChange={(event) => setDesign((current) => ({ ...current, sections: current.sections.map((item) => item.id === section.id ? { ...item, description: event.target.value } : item) }))} /></label><button onClick={() => setDesign((current) => ({ ...current, sections: current.sections.filter((item) => item.id !== section.id) }))}>Remove</button></article>)}</section>
+        <OutcomeDesignEditor design={design} onChange={setDesign} />
         <button className="dialog-primary align-right" onClick={() => { if (!design.sections.some((item) => item.id === contentSectionId)) setContentSectionId(design.sections[0]?.id ?? "section-1"); setStep("content"); }}>Build learning content <ChevronRight /></button>
       </div>}
 
       {step === "content" && <div className="content-authoring commercial-content-authoring">
-        <section className="content-ingestion-studio"><div className="studio-section-heading"><div><p className="eyebrow">MULTI-FORMAT CONTENT INGESTION</p><h3>Turn sources into readable learning blocks</h3><p>Author text, upload protected originals or import a public link. PDF, DOCX, HTML, Markdown, TXT and RTF sources are converted to learner-readable HTML where possible.</p></div><FileText /></div>
+        <section className="content-ingestion-studio"><div className="studio-section-heading"><div><p className="eyebrow">MULTI-FORMAT CONTENT INGESTION</p><h3>Turn sources into readable learning blocks</h3><p>Author text, upload protected originals or import a public link. PDFs retain their original layout in a secure viewer; supported documents become learner-readable HTML when extraction is reliable.</p></div><FileText /></div>
           <div className="content-mode-tabs">{(["text", "file", "url"] as const).map((mode) => <button key={mode} className={contentMode === mode ? "active" : ""} onClick={() => setContentMode(mode)}>{mode === "text" ? <Pencil /> : mode === "file" ? <Upload /> : <Search />}<span>{mode === "text" ? "Write or paste" : mode === "file" ? "Upload document" : "Import public link"}</span></button>)}</div>
           <div className="content-placement-grid"><label>Learning-block title<input value={contentTitle} onChange={(event) => setContentTitle(event.target.value)} placeholder="A concise learner-facing title" /></label><label>Course section<select value={contentSectionId} onChange={(event) => setContentSectionId(event.target.value)}>{design.sections.map((section) => <option value={section.id} key={section.id}>{section.title}</option>)}</select></label><label>Unit / lesson label<input value={contentUnitTitle} onChange={(event) => setContentUnitTitle(event.target.value)} /></label><label>Author or source<input value={contentSource} onChange={(event) => setContentSource(event.target.value)} /></label><label>Licence / rights note<input value={contentLicense} onChange={(event) => setContentLicense(event.target.value)} /></label></div>
           <div className="outcome-mapping"><b>Align to learning outcomes</b><div>{design.outcomes.map((outcome, index) => <label key={outcome.id} className={contentOutcomeIds.includes(outcome.id) ? "selected" : ""}><input type="checkbox" checked={contentOutcomeIds.includes(outcome.id)} onChange={() => setContentOutcomeIds((items) => items.includes(outcome.id) ? items.filter((id) => id !== outcome.id) : [...items, outcome.id])} /><span>LO {index + 1}</span>{outcome.statement}</label>)}</div></div>
           {contentMode === "text" && <div className="text-content-editor"><label>Input format<select value={contentFormat} onChange={(event) => setContentFormat(event.target.value as "text" | "html")}><option value="text">Plain text / Markdown-style</option><option value="html">Sanitised HTML</option></select></label><label>Lesson content<textarea value={contentText} onChange={(event) => setContentText(event.target.value)} placeholder="# Lesson heading&#10;&#10;Paste or write the complete lesson. Headings, lists and emphasis become readable HTML." /></label></div>}
-          {contentMode === "file" && <label className="upload-zone commercial-single-upload"><Upload /><b>{contentFile?.name ?? "Choose PDF, DOCX or learning media"}</b><span>Protected original · automatic readable-text conversion where supported · 25 MB maximum</span><input type="file" accept=".pdf,.doc,.docx,.txt,.md,.html,.htm,.rtf,.ppt,.pptx,.csv,.jpg,.jpeg,.png,.webp,.mp3,.wav,.mp4,.webm" onChange={(event) => setContentFile(event.target.files?.[0] ?? null)} /></label>}
+          {contentMode === "file" && <label className="upload-zone commercial-single-upload"><Upload /><b>{contentFile?.name ?? "Choose PDF, DOCX or learning media"}</b><span>Protected original · secure PDF viewer · reliable readable-text conversion · 25 MB maximum</span><input type="file" accept=".pdf,.doc,.docx,.txt,.md,.html,.htm,.rtf,.ppt,.pptx,.csv,.jpg,.jpeg,.png,.webp,.mp3,.wav,.mp4,.webm" onChange={(event) => setContentFile(event.target.files?.[0] ?? null)} /></label>}
           {contentMode === "url" && <div className="url-content-import"><label>Public source URL<input type="url" value={contentUrl} onChange={(event) => setContentUrl(event.target.value)} placeholder="https://…" /></label><label className="embed-choice"><Switch checked={contentEmbedOnly} onCheckedChange={setContentEmbedOnly} /><span><b>Embed rather than convert</b>Use for interactive tools or pages whose content should remain at the source.</span></label></div>}
           <button className="dialog-primary" disabled={importingContent || contentOutcomeIds.length === 0} onClick={() => void importCourseContent()}><FileText /> {importingContent ? "Building readable lesson…" : "Add learning block to course"}</button>
         </section>

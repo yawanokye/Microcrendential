@@ -1,6 +1,11 @@
-UCC MICRO-CREDENTIAL PLATFORM — APPROVE & PUBLISH FIX
+UCC MICRO-CREDENTIAL PLATFORM — FACILITATOR STUDIO AND PDF PREVIEW UPDATE
 
-IMPORTANT: upload this update from the ROOT of the GitHub repository.
+This is a cumulative update. It includes the earlier governed
+Approve & Publish correction as well as the redesigned outcome editor
+and protected PDF learner preview.
+
+UPLOAD LOCATION
+Upload from the ROOT of the GitHub repository.
 
 The GitHub breadcrumb must show:
   Microcrendential
@@ -9,24 +14,30 @@ It must NOT show:
   Microcrendential / src
   Microcrendential / src / app
 
-Steps
+STEPS
 1. Extract this ZIP on your computer.
 2. Open https://github.com/yawanokye/Microcrendential
 3. Select Add file > Upload files.
 4. Drag the extracted "src" folder into the upload area.
 5. Confirm that GitHub lists these exact destinations:
      src/app/page.tsx
-     src/app/api/courses/route.ts
+     src/app/commercial-course-studio.css
      src/app/modern-platform.css
+     src/app/api/content/ingest/route.ts
+     src/app/api/courses/route.ts
+     src/lib/document-content.ts
 6. Commit with this message:
-     Enable governed course approval and publication
+     Improve facilitator outcome design and PDF learner preview
 7. Allow Render to deploy the new commit.
 
-After deployment
-- Open Administration Portal > Course approvals.
-- A complete course awaiting review can be approved normally.
-- For a returned or incomplete course, enter an administrator justification.
-- Select "Approve & publish". The justification is retained in the review record.
+WHAT CHANGES AFTER DEPLOYMENT
+- Objectives, outcomes, skills and sections appear in compact dropdown panels.
+- Outcome capability and assessment method use structured drop-down menus.
+- Skills use a multi-select checkbox menu and still support custom skills.
+- The layout is responsive and prevents labels and fields from overlapping.
+- Uploaded PDFs open in a protected, searchable original-layout viewer.
+- Unreliable binary PDF extraction is never displayed as learner-readable text.
+- Administrators retain the governed approval and publication correction.
 
 Do not create src/app/app. If GitHub shows a destination beginning with
 src/app/app, cancel the upload and return to the repository root first.
