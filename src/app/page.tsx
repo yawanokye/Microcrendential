@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import {
-  Activity, Award, Beaker, Bell, BookOpen, CalendarDays, CheckCircle2, ChevronRight, CirclePlay, ClipboardCheck, Clock3,
+  Activity, AlertTriangle, Award, Beaker, Bell, BookOpen, CalendarDays, CheckCircle2, ChevronRight, CirclePlay, ClipboardCheck, Clock3,
   Code2, Eye, FileCheck2, FileText, FlaskConical, Gauge, GraduationCap, GripVertical, HeartPulse, LayoutDashboard, Menu,
   MessageSquareText, Microscope, Pencil, QrCode, RotateCcw, Search, Settings, ShieldCheck, Sigma, Stethoscope, Undo2, Upload, Users, Video, Wrench, X,
 } from "lucide-react";
@@ -628,11 +628,61 @@ function CredentialRegistry() {
 }
 
 function CourseApprovalPanel() {
-  const [items, setItems] = useState<CourseReviewRecord[]>([]); const [loading, setLoading] = useState(true); const [comments, setComments] = useState<Record<number,string>>({});
-  const load = async () => { setLoading(true); try { const response = await fetch("/api/courses"); const result = await response.json() as { courses?: CourseReviewRecord[]; error?: string }; if (!response.ok) throw new Error(result.error ?? "Courses could not be loaded."); setItems(result.courses ?? []); setComments(Object.fromEntries((result.courses ?? []).map((course) => [course.id, course.reviewComment ?? ""]))); } catch (error) { toast.error(error instanceof Error ? error.message : "Courses could not be loaded."); } finally { setLoading(false); } };
-  useEffect(() => { load(); }, []);
-  const review = async (id: number, status: "active" | "rejected") => { const comment = comments[id]?.trim() ?? ""; if (status === "rejected" && !comment) return toast.error("Add comments explaining the required changes before returning the course."); const response = await fetch("/api/courses", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ id, status, comment }) }); const result = await response.json() as { error?: string }; if (!response.ok) return toast.error(result.error ?? "The course decision could not be saved."); toast.success(status === "active" ? "Course activated and now live for learner discovery" : "Course returned with comments to the facilitator"); await load(); };
-  return <section className="page-panel course-approval-panel"><div className="page-title"><div><p className="eyebrow">ACADEMIC ACTIVATION</p><h2>Facilitator course approvals</h2><p>Review the learner experience, outcomes, accessibility and assessment. Returned courses require comments so the facilitator knows exactly what to revise.</p></div><span className="access-badge"><BookOpen /> {items.filter((course) => course.status === "pending_review").length} pending</span></div>{loading && <div className="empty-state">Loading facilitator courses…</div>}<div className="course-approval-list commercial-approval-list">{items.map((course) => { const quality = evaluateCourseQuality({ title: course.title, description: course.description, design: course.design ?? defaultCourseDesign(), materials: course.materials ?? [], questionCount: course.assessmentConfig?.questions?.length ?? 0 }); return <article key={course.id}><div><span>{course.code} · {course.discipline} · version {course.versionNumber} · {course.status.replaceAll("_", " ")}</span><h3>{course.title}</h3><p>{course.facilitatorName} · {course.design?.outcomes?.length ?? 0} outcomes · {course.materials?.length ?? 0} learning blocks · {course.activities?.length ?? 0} applied activities</p><div className="admin-quality-meter"><Progress value={quality.score} /><b>{quality.score}% quality readiness</b></div><div className="admin-course-facts"><span>{course.design?.expectedHours ?? 0} hours</span><span>{course.design?.level ?? "level not set"}</span><span>{course.certificateEnabled ? "UCC QR certificate" : "certificate disabled"}</span></div>{course.reviewComment && course.status !== "pending_review" && <p className="admin-existing-comment"><MessageSquareText /> {course.reviewComment}</p>}</div><div className="approval-decision"><label>Review comments<textarea value={comments[course.id] ?? ""} onChange={(event) => setComments((current) => ({ ...current, [course.id]: event.target.value }))} placeholder="Required when returning. Optional approval note when activating." /></label><div><button className="reject" disabled={course.status === "active"} onClick={() => review(course.id, "rejected")}>Return with comments</button><button className="approve" disabled={course.status !== "pending_review" || !quality.ready} onClick={() => review(course.id, "active")}><CheckCircle2 /> Approve & publish</button></div></div></article>; })}{!loading && items.length === 0 && <div className="empty-state">No facilitator courses have been submitted.</div>}</div></section>;
+  const [items, setItems] = useState<CourseReviewRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [comments, setComments] = useState<Record<number, string>>({});
+  const [savingId, setSavingId] = useState<number | null>(null);
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await fetch("/api/courses");
+      const result = await response.json() as { courses?: CourseReviewRecord[]; error?: string };
+      if (!response.ok) throw new Error(result.error ?? "Courses could not be loaded.");
+      const courses = result.courses ?? [];
+      setItems(courses);
+      setComments(Object.fromEntries(courses.map((course) => [course.id, ""])));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Courses could not be loaded.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+  useEffect(() => { void load(); }, [load]);
+
+  const review = async (course: CourseReviewRecord, status: "active" | "rejected", quality: ReturnType<typeof evaluateCourseQuality>) => {
+    const comment = comments[course.id]?.trim() ?? "";
+    const administrativeOverride = status === "active" && (course.status === "rejected" || !quality.ready);
+    if (status === "rejected" && !comment) return toast.error("Add comments explaining the required changes before returning the course.");
+    if (administrativeOverride && !comment) return toast.error("Add an approval justification before publishing this course as an administrative exception.");
+    setSavingId(course.id);
+    try {
+      const response = await fetch("/api/courses", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ id: course.id, status, comment, administrativeOverride }),
+      });
+      const result = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(result.error ?? "The course decision could not be saved.");
+      toast.success(status === "active" ? "Course approved and published" : "Course returned with comments to the facilitator", {
+        description: administrativeOverride ? "The quality exception and administrator justification were recorded." : undefined,
+      });
+      await load();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "The course decision could not be saved.");
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const pendingCount = items.filter((course) => course.status === "pending_review").length;
+  const returnedCount = items.filter((course) => course.status === "rejected").length;
+  return <section className="page-panel course-approval-panel"><div className="page-title"><div><p className="eyebrow">ACADEMIC ACTIVATION</p><h2>Facilitator course approvals</h2><p>Review the learner experience, outcomes, accessibility and assessment. Returned courses can be published only through a recorded administrator exception.</p></div><span className="access-badge"><BookOpen /> {pendingCount} pending{returnedCount ? ` · ${returnedCount} returned` : ""}</span></div>{loading && <div className="empty-state">Loading facilitator courses…</div>}<div className="course-approval-list commercial-approval-list">{items.map((course) => {
+    const quality = evaluateCourseQuality({ title: course.title, description: course.description, design: course.design ?? defaultCourseDesign(), materials: course.materials ?? [], questionCount: course.assessmentConfig?.questions?.length ?? 0 });
+    const missingChecks = quality.checks.filter((check) => !check.passed);
+    const actionable = course.status === "pending_review" || course.status === "rejected";
+    const requiresException = actionable && (course.status === "rejected" || !quality.ready);
+    return <article key={course.id}><div><span>{course.code} · {course.discipline} · version {course.versionNumber} · {course.status.replaceAll("_", " ")}</span><h3>{course.title}</h3><p>{course.facilitatorName} · {course.design?.outcomes?.length ?? 0} outcomes · {course.materials?.length ?? 0} learning blocks · {course.activities?.length ?? 0} applied activities</p><div className="admin-quality-meter"><Progress value={quality.score} /><b>{quality.score}% quality readiness</b></div><div className="admin-course-facts"><span>{course.design?.expectedHours ?? 0} hours</span><span>{course.design?.level ?? "level not set"}</span><span>{course.certificateEnabled ? "UCC QR certificate" : "certificate disabled"}</span></div>{course.reviewComment && course.status !== "pending_review" && <p className="admin-existing-comment"><MessageSquareText /> {course.reviewComment}</p>}{requiresException && <div className="approval-exception-note"><AlertTriangle /><div><b>Administrator exception required</b><span>{course.status === "rejected" ? "This course was previously returned. " : ""}{missingChecks.length ? `Outstanding checks: ${missingChecks.map((check) => check.label).join(", ")}. ` : ""}Enter a justification before approving publication.</span></div></div>}</div><div className="approval-decision"><label>{requiresException ? "Administrator justification" : "Review comments"}<textarea value={comments[course.id] ?? ""} onChange={(event) => setComments((current) => ({ ...current, [course.id]: event.target.value }))} placeholder={requiresException ? "Required: explain why this course may be published as an exception." : "Required when returning. Optional approval note when activating."} /></label><div><button className="reject" disabled={course.status === "active" || savingId === course.id} onClick={() => review(course, "rejected", quality)}>Return with comments</button><button className="approve" disabled={!actionable || savingId === course.id} title={!actionable ? "Only pending or returned courses can be published." : requiresException ? "Enter an administrator justification, then approve publication." : "Approve and publish this course."} onClick={() => review(course, "active", quality)}><CheckCircle2 /> {savingId === course.id ? "Saving…" : "Approve & publish"}</button></div></div></article>;
+  })}{!loading && items.length === 0 && <div className="empty-state">No facilitator courses have been submitted.</div>}</div></section>;
 }
 
 function AdminPortal({ onOpenRegister }: { onOpenRegister: () => void }) {

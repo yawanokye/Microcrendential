@@ -1,0 +1,32 @@
+UCC MICRO-CREDENTIAL PLATFORM — APPROVE & PUBLISH FIX
+
+IMPORTANT: upload this update from the ROOT of the GitHub repository.
+
+The GitHub breadcrumb must show:
+  Microcrendential
+
+It must NOT show:
+  Microcrendential / src
+  Microcrendential / src / app
+
+Steps
+1. Extract this ZIP on your computer.
+2. Open https://github.com/yawanokye/Microcrendential
+3. Select Add file > Upload files.
+4. Drag the extracted "src" folder into the upload area.
+5. Confirm that GitHub lists these exact destinations:
+     src/app/page.tsx
+     src/app/api/courses/route.ts
+     src/app/modern-platform.css
+6. Commit with this message:
+     Enable governed course approval and publication
+7. Allow Render to deploy the new commit.
+
+After deployment
+- Open Administration Portal > Course approvals.
+- A complete course awaiting review can be approved normally.
+- For a returned or incomplete course, enter an administrator justification.
+- Select "Approve & publish". The justification is retained in the review record.
+
+Do not create src/app/app. If GitHub shows a destination beginning with
+src/app/app, cancel the upload and return to the repository root first.
