@@ -120,6 +120,12 @@ There is no compulsory Colab charge for ordinary CPU notebook work; learners nee
 
 On Render, notebook templates and learner notebook submissions are stored below `DATA_DIR/uploads/colab-templates/` and `DATA_DIR/uploads/colab-submissions/` on the persistent disk.
 
+## Facilitator Course Studio tutorial and illustrative course
+
+Open **Facilitator Portal → Course Studio** and select **Load complete example** to populate a safe, unsaved model course. It fills all six stages and demonstrates required fields, optional enhancements, accessible HTML/PDF/Word/video learning blocks, outcome mapping, Colab and virtual-lab activities, 13 question formats, rubrics, progression rules and the QR-certificate gate. Nothing is saved until the facilitator selects **Save draft**.
+
+The Studio also provides an on-screen annotated tutorial and downloadable PDF/Word guides. Worked assets are stored in `public/tutorials/` and `public/examples/`. They are examples for study and must be adapted, checked and approved before live delivery. See `ILLUSTRATIVE_COURSE_RELEASE_2026-09-05.md` for the full release inventory.
+
 ### Add Colab and virtual-lab activities while designing a programme
 
 The Facilitator Studio includes a dedicated **Programme activities** stage between learning materials and assessment. A facilitator can add an uploaded Colab notebook or an approved interactive virtual practical directly to the course sequence, then set whether it is required, its instructions, pass mark, permitted attempts, maximum mark, deadline and grading rubric.
