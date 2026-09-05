@@ -188,21 +188,6 @@ function pdfToText(buffer: Buffer) {
   return sources.map(stringsFromPdfOperators).join("\n").replace(/[^\x09\x0A\x0D\x20-\x7E\u00A0-\uFFFF]/g, " ").replace(/\n{3,}/g, "\n\n").trim();
 }
 
-function hasPlausiblePdfText(value: string) {
-  const text = value.replace(/\s+/g, " ").trim();
-  if (text.length < 80 || text.startsWith("%PDF-")) return false;
-  const tokens = text.split(" ").filter(Boolean);
-  const naturalWords = tokens.filter((token) => {
-    const letters = Array.from(token).filter((character) => /\p{L}/u.test(character));
-    return letters.length >= 2 && letters.length / Math.max(1, Array.from(token).length) >= 0.65;
-  });
-  const noisySymbols = Array.from(text).filter((character) => /[¤¦¨©ª«¬®¯°±²³´µ¶·¸¹º»¼½¾¿×÷�]/.test(character)).length;
-  const mojibakeMarkers = (text.match(/[ÃÂÐÑØÞðþÿ]/g) ?? []).length;
-  return naturalWords.length / Math.max(1, tokens.length) >= 0.55
-    && noisySymbols / text.length < 0.02
-    && mojibakeMarkers / text.length < 0.015;
-}
-
 function rtfToText(value: string) {
   return value
     .replace(/\\par[d]?\b/g, "\n")
@@ -220,13 +205,8 @@ export function extractReadableContent(buffer: Buffer, fileName: string, mimeTyp
   if (extension === "docx" || mimeType.includes("wordprocessingml")) html = docxToReadableHtml(buffer);
   else if (extension === "pdf" || mimeType === "application/pdf") {
     const text = pdfToText(buffer);
-    if (hasPlausiblePdfText(text)) {
-      html = textToReadableHtml(text);
-      note = "Readable text was extracted from the PDF. The original-layout PDF remains available in the protected learner viewer.";
-    } else {
-      html = "";
-      note = "The PDF uses a scanned or encoded layout, so it will open in the protected original-layout viewer instead of showing unreliable extracted text.";
-    }
+    html = textToReadableHtml(text);
+    if (plainTextFromHtml(html).length < 80) note = "The PDF appears scanned or uses an unsupported text encoding. Keep the original file available and add or correct the readable text before publishing.";
   } else if (extension === "html" || extension === "htm" || mimeType.includes("text/html")) html = sanitizeReadableHtml(buffer.toString("utf8"));
   else if (extension === "rtf" || mimeType.includes("rtf")) html = textToReadableHtml(rtfToText(buffer.toString("latin1")));
   else html = textToReadableHtml(buffer.toString("utf8"));

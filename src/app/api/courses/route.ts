@@ -131,43 +131,21 @@ export async function PUT(request: Request) {
 export async function PATCH(request: Request) {
   const account = await requireActiveProfile(["admin"]);
   if (account.error || !account.profile) return account.error;
-  const payload = await request.json() as {
-    id?: number;
-    status?: "active" | "pending_review" | "rejected";
-    comment?: string;
-    administrativeOverride?: boolean;
-  };
+  const payload = await request.json() as { id?: number; status?: "active" | "pending_review" | "rejected"; comment?: string };
   if (!payload.id || !["active", "pending_review", "rejected"].includes(payload.status ?? "")) return Response.json({ error: "Choose a course and valid review decision." }, { status: 400 });
   const reviewComment = String(payload.comment ?? "").trim().slice(0, 4000);
   if (payload.status === "rejected" && !reviewComment) return Response.json({ error: "Add a review comment explaining what the facilitator must change before returning the course." }, { status: 400 });
   const active = payload.status === "active"; const db = getRawDb();
   const course = await db.prepare("SELECT code, title, description, design_json, materials_json, activities_json, assessment_config_json, created_by_email, status FROM course_drafts WHERE id = ? LIMIT 1").bind(payload.id).first<{ code: string; title: string; description: string; design_json: string; materials_json: string; activities_json: string; assessment_config_json: string; created_by_email: string; status: string }>();
   if (!course) return Response.json({ error: "Course was not found." }, { status: 404 });
-  let administrativeOverride = false;
   if (active) {
     const design = normalizeCourseDesign(parseJson(course.design_json, {})); const materials = normalizeMaterials(parseJson(course.materials_json, []));
     const assessment = parseJson<{ questions?: unknown[] }>(course.assessment_config_json, {});
     const quality = evaluateCourseQuality({ title: course.title, description: course.description, design, materials, questionCount: assessment.questions?.length ?? 0 });
-    const reviewable = course.status === "pending_review" || course.status === "rejected";
-    if (!reviewable) {
-      return Response.json({ error: "Only a course awaiting review or a returned course can be published.", quality }, { status: 409 });
-    }
-    const standardApproval = course.status === "pending_review" && quality.ready;
-    administrativeOverride = !standardApproval;
-    if (administrativeOverride && payload.administrativeOverride !== true) {
-      return Response.json({
-        error: "This course requires a recorded administrator exception before it can be published.",
-        quality,
-        requiresAdministrativeOverride: true,
-      }, { status: 409 });
-    }
-    if (administrativeOverride && !reviewComment) {
-      return Response.json({ error: "Add an administrator justification before publishing this course as an exception.", quality }, { status: 400 });
-    }
+    if (course.status !== "pending_review" || !quality.ready) return Response.json({ error: "Only a complete course submitted for review can be activated.", quality }, { status: 409 });
   }
-  const decisionComment = reviewComment || (active ? "Approved for publication." : null);
   const result = await db.prepare("UPDATE course_drafts SET status = ?, activated_by_email = ?, activated_at = CASE WHEN ? = 1 THEN CURRENT_TIMESTAMP ELSE NULL END, review_comment = ?, reviewed_by_email = ?, reviewed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
-    .bind(payload.status, account.profile.email, active ? 1 : 0, decisionComment, account.profile.email, payload.id).run();
+    .bind(payload.status, account.profile.email, active ? 1 : 0, reviewComment || (active ? "Approved for publication." : null), account.profile.email, payload.id).run();
   if (!result.meta.changes) return Response.json({ error: "Course was not found." }, { status: 404 });
   if (active) {
     let activities: { id?: string; kind?: string; title?: string; instructions?: string; notebookKey?: string; notebookFileName?: string; templateUrl?: string; rubric?: string; maxMark?: number; passMark?: number; attemptsAllowed?: number; dueAt?: string }[] = [];
@@ -179,5 +157,5 @@ export async function PATCH(request: Request) {
         .bind(course.code, activity.title ?? "Colab coding activity", activity.instructions ?? "Complete the notebook in free Google Colab and submit your evidence.", activity.notebookKey, activity.notebookFileName, activity.templateUrl || null, activity.rubric ?? "Assess correctness, interpretation and reproducibility.", Math.min(1000, Math.max(1, Number(activity.maxMark) || 100)), Math.min(100, Math.max(1, Number(activity.passMark) || 60)), Math.min(10, Math.max(1, Number(activity.attemptsAllowed) || 2)), activity.dueAt || null, course.created_by_email).run();
     }
   }
-  return Response.json({ updated: true, status: payload.status, administrativeOverride });
+  return Response.json({ updated: true, status: payload.status });
 }

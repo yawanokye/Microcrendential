@@ -45,61 +45,6 @@
 .skill-builder > div svg { width:15px; }
 .section-builder > article { display:grid; grid-template-columns:34px 1fr 1.4fr auto; align-items:end; gap:10px; padding:11px 0; border-top:1px solid #e9eff2; }
 .section-builder > article:first-of-type { border-top:0; }
-
-/* Compact outcome-design accordion */
-.blueprint-accordion-stack { display:grid; gap:12px; margin-bottom:18px; }
-.blueprint-accordion { padding:0; margin:0; overflow:hidden; border-radius:16px; box-shadow:0 5px 18px rgba(7,48,68,.04); }
-.blueprint-accordion > summary { display:grid; grid-template-columns:42px minmax(0,1fr) auto 20px; align-items:center; gap:12px; min-height:76px; padding:14px 17px; background:#fff; color:#123f52; cursor:pointer; list-style:none; user-select:none; }
-.blueprint-accordion > summary::-webkit-details-marker { display:none; }
-.blueprint-accordion > summary:focus-visible { outline:3px solid rgba(21,151,125,.22); outline-offset:-3px; }
-.blueprint-accordion[open] > summary { background:linear-gradient(110deg,#f2faf8,#f8fbfc); border-bottom:1px solid #dce8eb; }
-.blueprint-accordion > summary > div { display:grid; gap:4px; min-width:0; }
-.blueprint-accordion > summary > div > b { font-size:16px; }
-.blueprint-accordion > summary small { color:#6b808a; font-size:11px; font-weight:500; line-height:1.4; }
-.blueprint-accordion > summary > svg { width:18px; color:#54727f; transition:transform .2s ease; }
-.blueprint-accordion[open] > summary > svg { transform:rotate(180deg); }
-.blueprint-accordion-icon { display:grid; place-items:center; width:40px; height:40px; border-radius:12px; background:#e3f4ef; color:#087563; }
-.blueprint-accordion-icon svg { width:20px; }
-.blueprint-accordion-count { padding:6px 9px; border-radius:999px; background:#edf3f5; color:#4f6974; font-size:10px; font-weight:850; white-space:nowrap; }
-.blueprint-panel-body { padding:17px; background:#fbfdfd; }
-.blueprint-panel-body > header { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:13px; }
-.blueprint-panel-body > header p { max-width:680px; margin:0; color:#6b7f88; font-size:12px; line-height:1.5; }
-.blueprint-panel-body > header > button,.custom-skill-adder > button { flex:none; border:0; border-radius:10px; background:#082f44; color:#fff; padding:10px 14px; font-weight:800; }
-.blueprint-item-list { display:grid; gap:11px; }
-.objective-card,.outcome-card,.section-card { min-width:0; border:1px solid #dce7eb; border-radius:14px; background:#fff; box-shadow:0 3px 12px rgba(10,59,78,.035); }
-.objective-card { display:grid; grid-template-columns:34px minmax(0,1fr) auto; align-items:start; gap:11px; padding:13px; }
-.objective-card > span,.outcome-card > header > span,.section-card > header > span { display:grid; place-items:center; width:32px; height:32px; border-radius:10px; background:#e7f5f1; color:#087662; font-weight:900; }
-.objective-card > label,.outcome-card label,.section-card label,.custom-skill-adder > label { display:grid; gap:6px; min-width:0; color:#274b5b; font-size:11px; }
-.objective-card textarea,.outcome-card textarea,.outcome-card select,.outcome-card input,.section-card input,.section-card textarea,.custom-skill-adder input { width:100%; min-width:0; padding:10px 11px; border:1px solid #cad9df; border-radius:9px; outline:0; background:#fff; color:#203b47; font:inherit; font-size:12px; line-height:1.45; }
-.objective-card textarea,.outcome-card textarea,.section-card textarea { resize:vertical; }
-.objective-card textarea { min-height:70px; }
-.outcome-card textarea { min-height:84px; }
-.section-card textarea { min-height:72px; }
-.objective-card textarea:focus,.outcome-card textarea:focus,.outcome-card select:focus,.outcome-card input:focus,.section-card input:focus,.section-card textarea:focus,.custom-skill-adder input:focus { border-color:#15977d; box-shadow:0 0 0 3px rgba(21,151,125,.1); }
-.blueprint-remove,.objective-builder article > button.blueprint-remove,.outcome-builder article > button.blueprint-remove,.section-builder article > button.blueprint-remove { display:flex; align-items:center; gap:4px; padding:6px 7px; border:0; border-radius:8px; background:transparent; color:#a34843; font-size:10px; font-weight:800; }
-.blueprint-remove:hover { background:#fff0ee !important; }
-.blueprint-remove svg { width:14px; }
-.outcome-card > header,.section-card > header { display:grid; grid-template-columns:34px minmax(0,1fr) auto; align-items:center; gap:10px; padding:12px 13px; border-bottom:1px solid #e5ecef; }
-.outcome-card > header > div,.section-card > header > div { display:grid; gap:3px; min-width:0; }
-.outcome-card > header small,.section-card > header small { overflow:hidden; color:#71858e; font-size:10px; text-overflow:ellipsis; white-space:nowrap; }
-.outcome-statement-field { padding:13px 13px 0; }
-.outcome-evidence-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; padding:12px 13px 14px; }
-.outcome-evidence-grid label { align-content:start; }
-.outcome-evidence-grid input { margin-top:1px; background:#f9fbfc; }
-.skill-check-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:9px; }
-.skill-check-grid > label { display:grid; grid-template-columns:20px minmax(0,1fr); align-items:start; gap:9px; padding:11px; border:1px solid #dce6ea; border-radius:11px; background:#fff; color:#345563; cursor:pointer; }
-.skill-check-grid > label.selected { border-color:#50ae9c; background:#ecf8f5; box-shadow:0 0 0 2px rgba(21,151,125,.06); }
-.skill-check-grid input { width:16px; height:16px; margin-top:2px; accent-color:#0a8771; }
-.skill-check-grid span { display:grid; gap:3px; }
-.skill-check-grid b { color:#214857; font-size:11px; }
-.skill-check-grid small { color:#72858e; font-size:10px; line-height:1.4; }
-.custom-skill-adder { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:end; gap:10px; margin-top:13px; padding-top:13px; border-top:1px solid #e2eaed; }
-.skill-builder .custom-skill-adder input { width:100%; border:1px solid #cad9df; background:#fff; }
-.selected-skill-chips { display:flex; flex-wrap:wrap; gap:7px; margin-top:12px; }
-.skill-builder .selected-skill-chips > span { display:flex; align-items:center; gap:5px; padding:6px 8px 6px 10px; border-radius:999px; background:#e8f4f1; color:#176958; font-size:10px; font-weight:800; }
-.skill-builder .selected-skill-chips button { display:grid; place-items:center; padding:2px; border:0; background:transparent; color:#8f4944; }
-.skill-builder .selected-skill-chips svg { width:12px; }
-.section-card > div { display:grid; grid-template-columns:minmax(180px,.75fr) minmax(0,1.25fr); gap:12px; padding:13px; }
 .content-mode-tabs { display:grid; grid-template-columns:repeat(3,1fr); gap:9px; margin-bottom:16px; }
 .content-mode-tabs button { display:flex; align-items:center; justify-content:center; gap:8px; border:1px solid #d4e0e5; border-radius:12px; background:#f8fafb; padding:13px; color:#4d6875; font-weight:800; }
 .content-mode-tabs button.active { background:#e6f6f2; border-color:#15977d; color:#076a59; box-shadow:0 0 0 2px rgba(21,151,125,.08); }
@@ -195,15 +140,6 @@
 .certificate-gate-note p { margin:0; color:#6c6657; line-height:1.45; }
 .commercial-content-dialog { max-width:min(1120px,95vw) !important; }
 .commercial-content-body { min-height:220px; }
-.protected-pdf-viewer { overflow:hidden; border:1px solid #cfdde2; border-radius:14px; background:#eef3f5; }
-.protected-pdf-viewer > header { display:flex; align-items:center; justify-content:space-between; gap:14px; padding:11px 13px; background:#f8fbfc; border-bottom:1px solid #d7e3e7; }
-.protected-pdf-viewer > header > div { display:flex; align-items:center; gap:9px; min-width:0; }
-.protected-pdf-viewer > header svg { flex:none; width:20px; color:#0b7c69; }
-.protected-pdf-viewer > header span { display:grid; gap:2px; min-width:0; }
-.protected-pdf-viewer > header b { color:#123f51; font-size:11px; }
-.protected-pdf-viewer > header small { overflow:hidden; color:#6d818a; font-size:9px; text-overflow:ellipsis; white-space:nowrap; }
-.protected-pdf-viewer > header a { flex:none; padding:8px 11px; border-radius:8px; background:#0a675f; color:#fff; font-size:10px; font-weight:800; text-decoration:none; }
-.protected-pdf-viewer > iframe { display:block; width:100%; height:min(72vh,850px); min-height:520px; border:0; background:#dfe6e9; }
 .readable-course-document { max-height:66vh; overflow:auto; padding:25px clamp(18px,5vw,58px); border:1px solid #e0e7ea; border-radius:14px; background:#fff; color:#253f4a; line-height:1.72; font-size:15px; }
 .readable-course-document h1,.readable-course-document h2,.readable-course-document h3 { color:#092f44; line-height:1.25; margin:1.25em 0 .55em; }
 .readable-course-document p,.readable-course-document li { max-width:78ch; }
@@ -239,7 +175,6 @@
   .commercial-steps { grid-template-columns:repeat(3,1fr) !important; }
   .content-placement-grid { grid-template-columns:repeat(2,1fr); }
   .quality-score-card { grid-template-columns:140px minmax(0,1fr) auto; }
-  .skill-check-grid { grid-template-columns:1fr; }
 }
 @media (max-width:760px) {
   .commercial-studio-title > div:last-child { justify-content:flex-start; }
@@ -257,18 +192,4 @@
   .learner-course-hero > svg { display:none; }
   .required-course-work > header { align-items:flex-start; flex-direction:column; }
   .certificate-qr { width:124px !important; height:124px !important; }
-  .protected-pdf-viewer > header { align-items:stretch; flex-direction:column; }
-  .protected-pdf-viewer > header a { text-align:center; }
-  .protected-pdf-viewer > iframe { min-height:460px; }
-  .blueprint-accordion > summary { grid-template-columns:38px minmax(0,1fr) 18px; padding:12px; }
-  .blueprint-accordion-count { grid-column:2; width:max-content; }
-  .blueprint-accordion > summary > svg { grid-column:3; grid-row:1 / span 2; }
-  .blueprint-panel-body { padding:12px; }
-  .blueprint-panel-body > header { align-items:stretch; flex-direction:column; }
-  .blueprint-panel-body > header > button { width:100%; justify-content:center; }
-  .objective-card { grid-template-columns:32px minmax(0,1fr); }
-  .objective-card > .blueprint-remove { grid-column:2; justify-self:start; }
-  .outcome-evidence-grid,.section-card > div { grid-template-columns:1fr; }
-  .custom-skill-adder { grid-template-columns:1fr; }
-  .custom-skill-adder > button { width:100%; }
 }
