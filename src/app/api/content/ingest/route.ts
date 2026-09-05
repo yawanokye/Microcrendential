@@ -37,14 +37,15 @@ export async function POST(request: Request) {
     if (file.size > 25 * 1024 * 1024) return Response.json({ error: "Course content files must be 25 MB or smaller." }, { status: 413 });
     const extension = file.name.toLowerCase().split(".").pop() ?? "";
     if (!allowedExtensions.has(extension)) return Response.json({ error: "Use PDF, DOCX, text, HTML, RTF, PowerPoint, CSV, image, audio or video content." }, { status: 415 });
-    const fileKey = await putStoredFile("course-materials", file, { contentType: file.type || "application/octet-stream", originalName: file.name, ownerEmail: account.profile.email, evidenceKind: "course-material" });
+    const mimeType = extension === "pdf" ? "application/pdf" : file.type || "application/octet-stream";
+    const fileKey = await putStoredFile("course-materials", file, { contentType: mimeType, originalName: file.name, ownerEmail: account.profile.email, evidenceKind: "course-material" });
     let readableHtml = ""; let plainText = ""; let note = "The original file is available to authorised course learners.";
     if (convertibleExtensions.has(extension)) {
       try { const extracted = extractReadableContent(Buffer.from(await file.arrayBuffer()), file.name, file.type); readableHtml = extracted.html; plainText = extracted.text; note = extracted.note; }
       catch (reason) { note = reason instanceof Error ? reason.message : "Automatic readable-text conversion was not available for this document."; }
     }
-    const kind = readableHtml ? "Read" : file.type.startsWith("video/") || file.type.startsWith("audio/") ? "Watch" : "Download";
-    material = { id: crypto.randomUUID(), title: requestedTitle || file.name.replace(/\.[^.]+$/, ""), kind, source: sourceLabel, fileKey, fileName: file.name, mimeType: file.type || "application/octet-stream", readableHtml: readableHtml || undefined, plainText: plainText || undefined, estimatedMinutes: Math.max(1, Math.ceil((plainText.split(/\s+/).filter(Boolean).length || 200) / 200)), accessibilityChecked: plainText.length >= 80, license: clean(form, "license", 200) || "Institution-supplied learning material", ...location };
+    const kind = extension === "pdf" || readableHtml ? "Read" : file.type.startsWith("video/") || file.type.startsWith("audio/") ? "Watch" : "Download";
+    material = { id: crypto.randomUUID(), title: requestedTitle || file.name.replace(/\.[^.]+$/, ""), kind, source: sourceLabel, fileKey, fileName: file.name, mimeType, readableHtml: readableHtml || undefined, plainText: plainText || undefined, estimatedMinutes: Math.max(1, Math.ceil((plainText.split(/\s+/).filter(Boolean).length || 200) / 200)), accessibilityChecked: plainText.length >= 80, license: clean(form, "license", 200) || "Institution-supplied learning material", ...location };
     return Response.json({ material, conversionNote: note }, { status: 201 });
   } else if (mode === "url") {
     const rawUrl = clean(form, "url", 3000); if (!rawUrl) return Response.json({ error: "Paste a public learning-resource link." }, { status: 400 });

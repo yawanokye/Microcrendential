@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import {
-  Activity, Award, Beaker, Bell, BookOpen, CalendarDays, CheckCircle2, ChevronRight, CirclePlay, ClipboardCheck, Clock3,
+  Activity, AlertTriangle, ArrowLeft, Award, Beaker, Bell, BookOpen, CalendarDays, CheckCircle2, ChevronDown, ChevronRight, CirclePlay, ClipboardCheck, Clock3,
   Code2, Eye, FileCheck2, FileText, FlaskConical, Gauge, GraduationCap, GripVertical, HeartPulse, LayoutDashboard, Menu,
   MessageSquareText, Microscope, Pencil, QrCode, RotateCcw, Search, Settings, ShieldCheck, Sigma, Stethoscope, Undo2, Upload, Users, Video, Wrench, X,
 } from "lucide-react";
@@ -26,8 +26,44 @@ type ColabSubmission = { id: number; assignmentId: number; assignmentTitle: stri
 type VirtualLabSubmission = { id: number; practicalId: string; discipline: string; practicalTitle: string; learnerEmail: string; learnerName: string; attemptNumber: number; observations: { trial?: string; input?: number; result?: number; note?: string }[]; answers: Record<string, unknown>; report: string; evidenceFileName?: string | null; status: string; mark?: number | null; passed: boolean; feedback: string; competencyNote: string; submittedAt: string; assessedAt?: string | null };
 type LabObservation = { trial: string; input: number; result: number; note: string };
 type PortalRole = "learner" | "facilitator" | "admin";
+type StudioStepId = "details" | "outcomes" | "content" | "activities" | "assessment" | "review";
 
 const disciplines = ["Education", "Humanities & Social Sciences", "Business & Management", "Science", "Technology & Engineering", "Health Sciences", "Agriculture & Natural Resources", "Creative Arts & Design", "Interdisciplinary"];
+
+const outcomeCapabilityOptions = [
+  "Conceptual understanding",
+  "Applied problem-solving",
+  "Critical thinking",
+  "Data literacy",
+  "Digital capability",
+  "Professional communication",
+  "Research and inquiry",
+  "Ethical decision-making",
+  "Collaboration and leadership",
+];
+
+const outcomeAssessmentOptions = [
+  "Objective knowledge check",
+  "Applied assignment or practical evidence",
+  "Case analysis",
+  "Portfolio evidence",
+  "Project or capstone",
+  "Presentation or demonstration",
+  "Reflective journal",
+  "Observed practical assessment",
+  "Oral assessment",
+];
+
+const recommendedSkillTags = [
+  { name: "Critical thinking", detail: "Evaluate evidence and reach defensible conclusions." },
+  { name: "Digital literacy", detail: "Use digital tools safely, effectively and responsibly." },
+  { name: "Evidence-based decision-making", detail: "Apply credible evidence to practical choices." },
+  { name: "Applied problem-solving", detail: "Resolve authentic professional or community problems." },
+  { name: "Communication", detail: "Present ideas and evidence clearly for an audience." },
+  { name: "Collaboration", detail: "Work productively with others toward shared outcomes." },
+  { name: "Data literacy", detail: "Interpret, question and communicate with data." },
+  { name: "Research and inquiry", detail: "Frame questions and investigate them systematically." },
+];
 
 const courses: Course[] = [
   { code: "UCC-MC 204", title: "Digital Pedagogy for Flexible Learning", school: "College of Education Studies", discipline: "Education", progress: 68, modules: "8 of 12 modules", accent: "gold", next: "Complete Module 9" },
@@ -119,6 +155,7 @@ export default function Home() {
   const [account, setAccount] = useState<AccountSession | undefined>(undefined);
   const [inviteToken, setInviteToken] = useState("");
   const [requestedPortal, setRequestedPortal] = useState<PortalRole | null>(null);
+  const [dedicatedStudio, setDedicatedStudio] = useState(false);
   const [active, setActive] = useState("overview");
   const [query, setQuery] = useState("");
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -134,9 +171,11 @@ export default function Home() {
   const [utility, setUtility] = useState<"notifications" | "support" | "preferences" | "profile" | "assessment" | null>(null);
   useEffect(() => {
     const parameters = new URLSearchParams(window.location.search);
+    const isDedicatedStudio = window.location.pathname === "/facilitator-studio";
+    setDedicatedStudio(isDedicatedStudio);
     setInviteToken(parameters.get("invite") ?? "");
     const portal = parameters.get("portal");
-    setRequestedPortal(portal === "learner" || portal === "facilitator" || portal === "admin" ? portal : null);
+    setRequestedPortal(isDedicatedStudio ? "facilitator" : portal === "learner" || portal === "facilitator" || portal === "admin" ? portal : null);
     fetch("/api/auth/session").then((response) => response.json()).then((data: AccountSession) => setAccount(data)).catch(() => setAccount({ authenticated: false }));
   }, []);
   const role: PortalRole = account?.profile?.role ?? "learner";
@@ -152,7 +191,13 @@ export default function Home() {
   const allCourses = publishedCourses;
   const visibleCourses = role === "learner" ? allCourses.filter((course) => enrolledCodes.includes(course.code)) : allCourses;
   const filteredCourses = visibleCourses.filter((course) => `${course.title} ${course.code}`.toLowerCase().includes(query.toLowerCase()));
-  const selectView = (id: string) => { setActive(id); setMobileOpen(false); };
+  const selectView = (id: string) => {
+    if (role === "facilitator" && id === "facilitator") {
+      window.location.assign("/facilitator-studio");
+      return;
+    }
+    setActive(id); setMobileOpen(false);
+  };
   const enrolCourse = async (courseCode: string) => {
     const response = await fetch("/api/enrollments", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ courseCode }) });
     const result = await response.json() as { error?: string };
@@ -162,17 +207,19 @@ export default function Home() {
   };
 
   if (!account) return <PortalLoading />;
-  if (!account.authenticated) return <PublicLanding inviteToken={inviteToken} />;
+  if (!account.authenticated) return dedicatedStudio ? <FacilitatorStudioAccessRequired /> : <PublicLanding inviteToken={inviteToken} />;
   if (!account.profile && requestedPortal === "admin") return <PortalRoleMismatch requestedRole="admin" email={account.identity?.email ?? ""} />;
   if (!account.profile && requestedPortal === "facilitator" && !inviteToken) return <PortalRoleMismatch requestedRole="facilitator" email={account.identity?.email ?? ""} />;
   if (!account.profile) return <StudentRegistrationHandoff email={account.identity?.email ?? ""} />;
   if (account.profile.role === "facilitator" && account.profile.status === "pending_setup") return <IdentityRegistration role="facilitator" initialName={account.profile.fullName} email={account.profile.email} inviteToken={inviteToken} onComplete={(profile) => setAccount((current) => ({ authenticated: true, identity: current?.identity, profile, enrollments: [] }))} />;
   if (requestedPortal === "admin" && account.profile.role !== "admin") return <PortalRoleMismatch requestedRole="admin" email={account.profile.email} />;
   if (requestedPortal === "facilitator" && account.profile.role !== "facilitator" && account.profile.role !== "admin") return <PortalRoleMismatch requestedRole="facilitator" email={account.profile.email} />;
+  if (dedicatedStudio && account.profile.role !== "facilitator") return <PortalRoleMismatch requestedRole="facilitator" email={account.profile.email} />;
   if (account.profile.status === "pending_verification") return <VerificationPending role={account.profile.role} email={account.profile.email} />;
   if (account.profile.status !== "active") return <SuspendedAccess email={account.profile.email} status={account.profile.status} />;
   const displayName = account.profile.fullName;
   const initials = displayName.split(/\s+/).slice(0, 2).map((part) => part[0]).join("").toUpperCase();
+  if (dedicatedStudio) return <DedicatedFacilitatorStudio profile={account.profile} query={resourceQuery} setQuery={setResourceQuery} initials={initials} />;
   const navigationGroups = roleNavigation[role];
   const allowedNav = navigationGroups.flatMap((group) => group.items);
   const todayLabel = new Intl.DateTimeFormat("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(new Date());
@@ -219,7 +266,7 @@ export default function Home() {
           <TabsContent value="colab"><ColabWorkspace role={role} email={account.profile.email} /></TabsContent>
           <TabsContent value="virtual_labs"><VirtualLabsWorkspace role={role} /></TabsContent>
           {(role === "learner" || role === "facilitator") && <TabsContent value="discussions"><Discussions /></TabsContent>}
-          {role === "facilitator" && <TabsContent value="facilitator"><FacilitatorStudio email={account.profile.email} query={resourceQuery} setQuery={setResourceQuery} /></TabsContent>}
+          {role === "facilitator" && <TabsContent value="facilitator"><FacilitatorStudioLauncher /></TabsContent>}
           {role === "facilitator" && <TabsContent value="cohorts"><CohortAnalytics role="facilitator" /></TabsContent>}
           {(role === "facilitator" || role === "admin") && <TabsContent value="verification"><IdentityRegister /></TabsContent>}
           {role === "admin" && <TabsContent value="admin"><AdminPortal onOpenRegister={() => selectView("verification")} /></TabsContent>}
@@ -255,6 +302,47 @@ export default function Home() {
       </section>
     </main>
   );
+}
+
+function FacilitatorStudioAccessRequired() {
+  return <main className="studio-access-required">
+    <section>
+      <span className="studio-access-icon"><ShieldCheck /></span>
+      <p className="eyebrow">FACILITATOR-ONLY WORKSPACE</p>
+      <h1>Course Studio requires facilitator access</h1>
+      <p>Sign in through the dedicated Facilitator Portal. Student and administrator sessions cannot enter this authoring workspace.</p>
+      <div><a className="dialog-primary" href="/facilitator-signin">Open facilitator sign in <ChevronRight /></a><a className="secondary-action" href="/"><ArrowLeft /> Return to public website</a></div>
+    </section>
+  </main>;
+}
+
+function DedicatedFacilitatorStudio({ profile, query, setQuery, initials }: { profile: AccountProfile; query: string; setQuery: (value: string) => void; initials: string }) {
+  return <main className="dedicated-studio-portal">
+    <header className="studio-portal-header">
+      <a className="studio-portal-brand" href="/"><span><GraduationCap /></span><div><b>UCC Microcredentials</b><small>Facilitator Course Studio</small></div></a>
+      <nav aria-label="Facilitator studio actions"><a href="/"><ArrowLeft /> Teaching portal</a><span className="studio-role-lock"><ShieldCheck /> Facilitator only</span><span className="studio-profile"><i>{initials || "UC"}</i><b>{profile.fullName}</b></span><a className="studio-signout" href="/signout-with-chatgpt?return_to=%2Ffacilitator-signin">Sign out</a></nav>
+    </header>
+    <section className="studio-portal-intro">
+      <div><p className="eyebrow">DEDICATED AUTHORING PORTAL</p><h1>Build a quality-assured microcredential</h1><p>Follow the six stages in order. Completion checks update automatically and show exactly what remains before academic submission.</p></div>
+      <div className="studio-intro-signals"><span><CheckCircle2 /><b>Automatic checks</b><small>No guessing when a stage is complete</small></span><span><Eye /><b>Learner preview</b><small>Test the experience before review</small></span><span><ShieldCheck /><b>Governed release</b><small>Submit a controlled version to UCC</small></span></div>
+    </section>
+    <section className="dedicated-studio-body"><FacilitatorStudio email={profile.email} query={query} setQuery={setQuery} /></section>
+    <Toaster position="top-right" richColors />
+  </main>;
+}
+
+function FacilitatorStudioLauncher() {
+  return <section className="studio-launcher page-panel">
+    <div className="studio-launcher-copy"><span><BookOpen /></span><p className="eyebrow">DEDICATED AUTHORING WORKSPACE</p><h2>Course Studio now opens in a full-page portal</h2><p>The editor has been separated from teaching navigation so you have more room to design. Each stage includes automatic completion checks, focused forms and a learner preview.</p><a className="dialog-primary" href="/facilitator-studio">Open full Course Studio <ChevronRight /></a></div>
+    <div className="studio-launcher-journey">{[
+      ["1", "Blueprint", "Define the offer and audience"],
+      ["2", "Outcomes", "Align purpose, skills and evidence"],
+      ["3", "Content", "Build accessible learning blocks"],
+      ["4", "Activities", "Add Colab or virtual practice"],
+      ["5", "Assessment", "Configure scored evidence"],
+      ["6", "Review", "Preview and submit to UCC"],
+    ].map(([number, title, detail]) => <article key={number}><span>{number}</span><div><b>{title}</b><p>{detail}</p></div><CheckCircle2 /></article>)}</div>
+  </section>;
 }
 
 function RoleOverview({ role, summary, courses: activeCourses, onNavigate, onCourse, onSession }: {
@@ -438,14 +526,16 @@ function VideoTranscriptDialog({ material, onClose }: { material: CourseMaterial
   const showTranscript = Boolean(material.transcript && material.transcriptPublished !== false);
   const protectedFile = material.fileKey ? `/api/course-materials?key=${encodeURIComponent(material.fileKey)}` : "";
   const isMediaFile = Boolean(protectedFile && /^(video|audio)\//.test(material.mimeType ?? ""));
+  const isPdfFile = Boolean(protectedFile && (material.mimeType === "application/pdf" || material.fileName?.toLowerCase().endsWith(".pdf")));
   return <Dialog open onOpenChange={(open) => !open && onClose()}><DialogContent className="video-transcript-dialog commercial-content-dialog"><DialogHeader><p className="eyebrow">{material.kind.toUpperCase()} · {material.sectionTitle ?? "COURSE CONTENT"}</p><DialogTitle>{material.title}</DialogTitle><DialogDescription>{material.source} · {material.estimatedMinutes ?? 5} estimated minutes · {material.license ?? "Course material"}</DialogDescription></DialogHeader>
     <div className={showTranscript ? "video-transcript-layout" : "video-transcript-layout video-only"}>
       <div className="commercial-content-body">
-        {material.readableHtml ? <article className="readable-course-document" dangerouslySetInnerHTML={{ __html: material.readableHtml }} /> : null}
-        {!material.readableHtml && material.kind === "Watch" && material.url ? <div className="transcript-video"><iframe src={material.url} title={material.title} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen /></div> : null}
-        {!material.readableHtml && isMediaFile ? material.mimeType?.startsWith("audio/") ? <audio controls src={protectedFile} /> : <video controls src={protectedFile} /> : null}
-        {!material.readableHtml && material.kind === "Embed" && material.url ? <iframe className="sandboxed-resource" src={material.url} title={material.title} sandbox="allow-scripts allow-same-origin allow-forms allow-popups" /> : null}
-        {!material.readableHtml && !isMediaFile && protectedFile ? <div className="download-material"><FileText /><h3>{material.fileName ?? material.title}</h3><p>Open or download the protected original supplied for this course.</p><a href={protectedFile} target="_blank" rel="noreferrer">Open original file</a></div> : null}
+        {isPdfFile ? <div className="protected-pdf-viewer"><header><div><FileText /><span><b>Protected PDF lesson</b><small>Original layout · searchable and zoomable when supported by your browser</small></span></div><a href={protectedFile} target="_blank" rel="noreferrer">Open full screen</a></header><iframe src={`${protectedFile}#toolbar=1&navpanes=0&view=FitH`} title={`${material.title} PDF`} loading="lazy" /></div> : null}
+        {!isPdfFile && material.readableHtml ? <article className="readable-course-document" dangerouslySetInnerHTML={{ __html: material.readableHtml }} /> : null}
+        {!isPdfFile && !material.readableHtml && material.kind === "Watch" && material.url ? <div className="transcript-video"><iframe src={material.url} title={material.title} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen /></div> : null}
+        {!isPdfFile && !material.readableHtml && isMediaFile ? material.mimeType?.startsWith("audio/") ? <audio controls src={protectedFile} /> : <video controls src={protectedFile} /> : null}
+        {!isPdfFile && !material.readableHtml && material.kind === "Embed" && material.url ? <iframe className="sandboxed-resource" src={material.url} title={material.title} sandbox="allow-scripts allow-same-origin allow-forms allow-popups" /> : null}
+        {!isPdfFile && !material.readableHtml && !isMediaFile && protectedFile ? <div className="download-material"><FileText /><h3>{material.fileName ?? material.title}</h3><p>Open or download the protected original supplied for this course.</p><a href={protectedFile} target="_blank" rel="noreferrer">Open original file</a></div> : null}
         {material.externalUrl ? <a className="frame-fallback" href={material.externalUrl} target="_blank" rel="noreferrer">Open cited source in a new tab</a> : null}
       </div>
       {showTranscript && <section className="learner-transcript"><header><div><FileText /><b>Facilitator-reviewed transcript</b></div><span>{material.transcript?.split(/\s+/).filter(Boolean).length ?? 0} words</span></header><pre>{material.transcript}</pre></section>}
@@ -628,11 +718,61 @@ function CredentialRegistry() {
 }
 
 function CourseApprovalPanel() {
-  const [items, setItems] = useState<CourseReviewRecord[]>([]); const [loading, setLoading] = useState(true); const [comments, setComments] = useState<Record<number,string>>({});
-  const load = async () => { setLoading(true); try { const response = await fetch("/api/courses"); const result = await response.json() as { courses?: CourseReviewRecord[]; error?: string }; if (!response.ok) throw new Error(result.error ?? "Courses could not be loaded."); setItems(result.courses ?? []); setComments(Object.fromEntries((result.courses ?? []).map((course) => [course.id, course.reviewComment ?? ""]))); } catch (error) { toast.error(error instanceof Error ? error.message : "Courses could not be loaded."); } finally { setLoading(false); } };
-  useEffect(() => { load(); }, []);
-  const review = async (id: number, status: "active" | "rejected") => { const comment = comments[id]?.trim() ?? ""; if (status === "rejected" && !comment) return toast.error("Add comments explaining the required changes before returning the course."); const response = await fetch("/api/courses", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ id, status, comment }) }); const result = await response.json() as { error?: string }; if (!response.ok) return toast.error(result.error ?? "The course decision could not be saved."); toast.success(status === "active" ? "Course activated and now live for learner discovery" : "Course returned with comments to the facilitator"); await load(); };
-  return <section className="page-panel course-approval-panel"><div className="page-title"><div><p className="eyebrow">ACADEMIC ACTIVATION</p><h2>Facilitator course approvals</h2><p>Review the learner experience, outcomes, accessibility and assessment. Returned courses require comments so the facilitator knows exactly what to revise.</p></div><span className="access-badge"><BookOpen /> {items.filter((course) => course.status === "pending_review").length} pending</span></div>{loading && <div className="empty-state">Loading facilitator courses…</div>}<div className="course-approval-list commercial-approval-list">{items.map((course) => { const quality = evaluateCourseQuality({ title: course.title, description: course.description, design: course.design ?? defaultCourseDesign(), materials: course.materials ?? [], questionCount: course.assessmentConfig?.questions?.length ?? 0 }); return <article key={course.id}><div><span>{course.code} · {course.discipline} · version {course.versionNumber} · {course.status.replaceAll("_", " ")}</span><h3>{course.title}</h3><p>{course.facilitatorName} · {course.design?.outcomes?.length ?? 0} outcomes · {course.materials?.length ?? 0} learning blocks · {course.activities?.length ?? 0} applied activities</p><div className="admin-quality-meter"><Progress value={quality.score} /><b>{quality.score}% quality readiness</b></div><div className="admin-course-facts"><span>{course.design?.expectedHours ?? 0} hours</span><span>{course.design?.level ?? "level not set"}</span><span>{course.certificateEnabled ? "UCC QR certificate" : "certificate disabled"}</span></div>{course.reviewComment && course.status !== "pending_review" && <p className="admin-existing-comment"><MessageSquareText /> {course.reviewComment}</p>}</div><div className="approval-decision"><label>Review comments<textarea value={comments[course.id] ?? ""} onChange={(event) => setComments((current) => ({ ...current, [course.id]: event.target.value }))} placeholder="Required when returning. Optional approval note when activating." /></label><div><button className="reject" disabled={course.status === "active"} onClick={() => review(course.id, "rejected")}>Return with comments</button><button className="approve" disabled={course.status !== "pending_review" || !quality.ready} onClick={() => review(course.id, "active")}><CheckCircle2 /> Approve & publish</button></div></div></article>; })}{!loading && items.length === 0 && <div className="empty-state">No facilitator courses have been submitted.</div>}</div></section>;
+  const [items, setItems] = useState<CourseReviewRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [comments, setComments] = useState<Record<number, string>>({});
+  const [savingId, setSavingId] = useState<number | null>(null);
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await fetch("/api/courses");
+      const result = await response.json() as { courses?: CourseReviewRecord[]; error?: string };
+      if (!response.ok) throw new Error(result.error ?? "Courses could not be loaded.");
+      const courses = result.courses ?? [];
+      setItems(courses);
+      setComments(Object.fromEntries(courses.map((course) => [course.id, ""])));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Courses could not be loaded.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+  useEffect(() => { void load(); }, [load]);
+
+  const review = async (course: CourseReviewRecord, status: "active" | "rejected", quality: ReturnType<typeof evaluateCourseQuality>) => {
+    const comment = comments[course.id]?.trim() ?? "";
+    const administrativeOverride = status === "active" && (course.status === "rejected" || !quality.ready);
+    if (status === "rejected" && !comment) return toast.error("Add comments explaining the required changes before returning the course.");
+    if (administrativeOverride && !comment) return toast.error("Add an approval justification before publishing this course as an administrative exception.");
+    setSavingId(course.id);
+    try {
+      const response = await fetch("/api/courses", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ id: course.id, status, comment, administrativeOverride }),
+      });
+      const result = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(result.error ?? "The course decision could not be saved.");
+      toast.success(status === "active" ? "Course approved and published" : "Course returned with comments to the facilitator", {
+        description: administrativeOverride ? "The quality exception and administrator justification were recorded." : undefined,
+      });
+      await load();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "The course decision could not be saved.");
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const pendingCount = items.filter((course) => course.status === "pending_review").length;
+  const returnedCount = items.filter((course) => course.status === "rejected").length;
+  return <section className="page-panel course-approval-panel"><div className="page-title"><div><p className="eyebrow">ACADEMIC ACTIVATION</p><h2>Facilitator course approvals</h2><p>Review the learner experience, outcomes, accessibility and assessment. Returned courses can be published only through a recorded administrator exception.</p></div><span className="access-badge"><BookOpen /> {pendingCount} pending{returnedCount ? ` · ${returnedCount} returned` : ""}</span></div>{loading && <div className="empty-state">Loading facilitator courses…</div>}<div className="course-approval-list commercial-approval-list">{items.map((course) => {
+    const quality = evaluateCourseQuality({ title: course.title, description: course.description, design: course.design ?? defaultCourseDesign(), materials: course.materials ?? [], questionCount: course.assessmentConfig?.questions?.length ?? 0 });
+    const missingChecks = quality.checks.filter((check) => !check.passed);
+    const actionable = course.status === "pending_review" || course.status === "rejected";
+    const requiresException = actionable && (course.status === "rejected" || !quality.ready);
+    return <article key={course.id}><div><span>{course.code} · {course.discipline} · version {course.versionNumber} · {course.status.replaceAll("_", " ")}</span><h3>{course.title}</h3><p>{course.facilitatorName} · {course.design?.outcomes?.length ?? 0} outcomes · {course.materials?.length ?? 0} learning blocks · {course.activities?.length ?? 0} applied activities</p><div className="admin-quality-meter"><Progress value={quality.score} /><b>{quality.score}% quality readiness</b></div><div className="admin-course-facts"><span>{course.design?.expectedHours ?? 0} hours</span><span>{course.design?.level ?? "level not set"}</span><span>{course.certificateEnabled ? "UCC QR certificate" : "certificate disabled"}</span></div>{course.reviewComment && course.status !== "pending_review" && <p className="admin-existing-comment"><MessageSquareText /> {course.reviewComment}</p>}{requiresException && <div className="approval-exception-note"><AlertTriangle /><div><b>Administrator exception required</b><span>{course.status === "rejected" ? "This course was previously returned. " : ""}{missingChecks.length ? `Outstanding checks: ${missingChecks.map((check) => check.label).join(", ")}. ` : ""}Enter a justification before approving publication.</span></div></div>}</div><div className="approval-decision"><label>{requiresException ? "Administrator justification" : "Review comments"}<textarea value={comments[course.id] ?? ""} onChange={(event) => setComments((current) => ({ ...current, [course.id]: event.target.value }))} placeholder={requiresException ? "Required: explain why this course may be published as an exception." : "Required when returning. Optional approval note when activating."} /></label><div><button className="reject" disabled={course.status === "active" || savingId === course.id} onClick={() => review(course, "rejected", quality)}>Return with comments</button><button className="approve" disabled={!actionable || savingId === course.id} title={!actionable ? "Only pending or returned courses can be published." : requiresException ? "Enter an administrator justification, then approve publication." : "Approve and publish this course."} onClick={() => review(course, "active", quality)}><CheckCircle2 /> {savingId === course.id ? "Saving…" : "Approve & publish"}</button></div></div></article>;
+  })}{!loading && items.length === 0 && <div className="empty-state">No facilitator courses have been submitted.</div>}</div></section>;
 }
 
 function AdminPortal({ onOpenRegister }: { onOpenRegister: () => void }) {
@@ -927,10 +1067,72 @@ function Discussions() {
   return <div className="page-panel"><div className="page-title"><div><p className="eyebrow">LEARNING COMMUNITY</p><h2>Discussions</h2><p>Continue course conversations with facilitators and peers.</p></div><button className="primary-action" onClick={() => toast.success("Discussion composer opened", { description: "Your draft is ready for a title and message." })}><MessageSquareText size={17} /> New post</button></div><div className="discussion-list">{posts.map((item) => <button key={item[0]} onClick={() => toast.info(item[0], { description: `${item[2]} · ${item[1]}` })}><span className="avatar">{item[3][0]}</span><div><h3>{item[0]}</h3><p>{item[1]} · Started by {item[3]}</p></div><b>{item[2]}</b><ChevronRight size={18} /></button>)}</div></div>;
 }
 
+function OutcomeDesignEditor({ design, onChange }: { design: CourseDesign; onChange: (updater: (current: CourseDesign) => CourseDesign) => void }) {
+  type OutcomePanel = "objectives" | "outcomes" | "skills" | "sections";
+  const [openPanel, setOpenPanel] = useState<OutcomePanel | null>("outcomes");
+  const [customSkill, setCustomSkill] = useState("");
+  const togglePanel = (panel: OutcomePanel) => setOpenPanel((current) => current === panel ? null : panel);
+  const updateOutcome = (id: string, patch: Partial<CourseDesign["outcomes"][number]>) => onChange((current) => ({
+    ...current,
+    outcomes: current.outcomes.map((item) => item.id === id ? { ...item, ...patch } : item),
+  }));
+  const hasSkill = (skill: string) => design.skills.some((item) => item.trim().toLowerCase() === skill.toLowerCase());
+  const toggleSkill = (skill: string) => onChange((current) => ({
+    ...current,
+    skills: current.skills.some((item) => item.trim().toLowerCase() === skill.toLowerCase())
+      ? current.skills.filter((item) => item.trim().toLowerCase() !== skill.toLowerCase())
+      : [...current.skills.filter((item) => item.trim()), skill],
+  }));
+  const addCustomSkill = () => {
+    const skill = customSkill.trim();
+    if (!skill) return;
+    if (!hasSkill(skill)) onChange((current) => ({ ...current, skills: [...current.skills.filter((item) => item.trim()), skill] }));
+    setCustomSkill("");
+  };
+  const objectiveComplete = design.objectives.filter((item) => item.trim().length >= 10).length;
+  const outcomeComplete = design.outcomes.filter((item) => item.statement.trim().length >= 10 && item.skill.trim() && item.assessmentMethod.trim()).length;
+  const sectionComplete = design.sections.filter((item) => item.title.trim().length >= 3 && item.description.trim().length >= 10).length;
+  const outcomeGroupsComplete = [
+    design.objectives.length >= 2 && objectiveComplete === design.objectives.length,
+    design.outcomes.length >= 2 && outcomeComplete === design.outcomes.length,
+    design.skills.some((item) => item.trim()),
+    design.sections.length >= 1 && sectionComplete === design.sections.length,
+  ].filter(Boolean).length;
+
+  return <div className="blueprint-accordion-stack">
+    <div className="outcome-design-guide"><span><ShieldCheck /></span><div><b>Outcome design checklist</b><p>Work through the four sections below. Only one opens at a time so the page stays focused and easy to scan.</p></div><em>{outcomeGroupsComplete}/4 sections ready</em></div>
+
+    <details className="blueprint-accordion objective-builder" open={openPanel === "objectives"}>
+      <summary onClick={(event) => { event.preventDefault(); togglePanel("objectives"); }}><span className="blueprint-accordion-icon"><ClipboardCheck /></span><div><b>Course objectives</b><small>Define what the course is designed to accomplish.</small></div><span className={`blueprint-accordion-count ${design.objectives.length >= 2 && objectiveComplete === design.objectives.length ? "complete" : "pending"}`}>{objectiveComplete}/{design.objectives.length} complete</span><ChevronDown /></summary>
+      <div className="blueprint-panel-body"><header><p>Use concise statements beginning with verbs such as build, develop, enable or strengthen.</p><button type="button" onClick={() => onChange((current) => ({ ...current, objectives: [...current.objectives, ""] }))}>Add objective</button></header><div className="blueprint-item-list">{design.objectives.map((objective, index) => <article className="objective-card" key={index}><span>{index + 1}</span><label><b>Objective {index + 1}</b><textarea value={objective} onChange={(event) => onChange((current) => ({ ...current, objectives: current.objectives.map((item, itemIndex) => itemIndex === index ? event.target.value : item) }))} placeholder="Build, develop or enable…" /></label><button type="button" className="blueprint-remove" aria-label={`Remove objective ${index + 1}`} onClick={() => onChange((current) => ({ ...current, objectives: current.objectives.filter((_, itemIndex) => itemIndex !== index) }))}><X /> Remove</button></article>)}</div></div>
+    </details>
+
+    <details className="blueprint-accordion outcome-builder" open={openPanel === "outcomes"}>
+      <summary onClick={(event) => { event.preventDefault(); togglePanel("outcomes"); }}><span className="blueprint-accordion-icon"><CheckCircle2 /></span><div><b>Measurable course outcomes</b><small>Connect observable achievement to a capability and its evidence.</small></div><span className={`blueprint-accordion-count ${design.outcomes.length >= 2 && outcomeComplete === design.outcomes.length ? "complete" : "pending"}`}>{outcomeComplete}/{design.outcomes.length} complete</span><ChevronDown /></summary>
+      <div className="blueprint-panel-body"><header><p>Write what learners will be able to demonstrate, then choose the closest capability and assessment method.</p><button type="button" onClick={() => onChange((current) => ({ ...current, outcomes: [...current.outcomes, { id: crypto.randomUUID(), statement: "", assessmentMethod: "", skill: "" }] }))}>Add outcome</button></header><div className="blueprint-item-list">{design.outcomes.map((outcome, index) => {
+        const customCapability = !outcomeCapabilityOptions.includes(outcome.skill);
+        const customAssessment = !outcomeAssessmentOptions.includes(outcome.assessmentMethod);
+        return <article className="outcome-card" key={outcome.id}><header><span>{index + 1}</span><div><b>Learning outcome {index + 1}</b><small>{outcome.statement.trim() && outcome.skill.trim() && outcome.assessmentMethod.trim() ? "Outcome definition complete" : "Complete all three fields"}</small></div><button type="button" className="blueprint-remove" aria-label={`Remove learning outcome ${index + 1}`} onClick={() => onChange((current) => ({ ...current, outcomes: current.outcomes.filter((item) => item.id !== outcome.id) }))}><X /> Remove</button></header><label className="outcome-statement-field"><b>Observable outcome statement</b><textarea value={outcome.statement} onChange={(event) => updateOutcome(outcome.id, { statement: event.target.value })} placeholder="By the end of this course, learners can analyse…" /></label><div className="outcome-evidence-grid"><label><b>Skill / capability</b><select value={customCapability ? "__custom" : outcome.skill} onChange={(event) => updateOutcome(outcome.id, { skill: event.target.value === "__custom" ? "" : event.target.value })}>{outcomeCapabilityOptions.map((option) => <option key={option} value={option}>{option}</option>)}<option value="__custom">Other / custom capability…</option></select>{customCapability && <input value={outcome.skill} onChange={(event) => updateOutcome(outcome.id, { skill: event.target.value })} placeholder="Type a custom capability" />}</label><label><b>Assessment method</b><select value={customAssessment ? "__custom" : outcome.assessmentMethod} onChange={(event) => updateOutcome(outcome.id, { assessmentMethod: event.target.value === "__custom" ? "" : event.target.value })}>{outcomeAssessmentOptions.map((option) => <option key={option} value={option}>{option}</option>)}<option value="__custom">Other / custom assessment…</option></select>{customAssessment && <input value={outcome.assessmentMethod} onChange={(event) => updateOutcome(outcome.id, { assessmentMethod: event.target.value })} placeholder="Type a custom assessment method" />}</label></div></article>;
+      })}</div></div>
+    </details>
+
+    <details className="blueprint-accordion skill-builder" open={openPanel === "skills"}>
+      <summary onClick={(event) => { event.preventDefault(); togglePanel("skills"); }}><span className="blueprint-accordion-icon"><Gauge /></span><div><b>Skills tags</b><small>Select discoverable capability tags using checkboxes.</small></div><span className={`blueprint-accordion-count ${design.skills.some((item) => item.trim()) ? "complete" : "pending"}`}>{design.skills.filter((item) => item.trim()).length} selected</span><ChevronDown /></summary>
+      <div className="blueprint-panel-body"><header><p>Choose all that apply. These tags improve catalogue discovery and the learner skills passport.</p></header><div className="skill-check-grid">{recommendedSkillTags.map((skill) => <label key={skill.name} className={hasSkill(skill.name) ? "selected" : ""}><input type="checkbox" checked={hasSkill(skill.name)} onChange={() => toggleSkill(skill.name)} /><span><b>{skill.name}</b><small>{skill.detail}</small></span></label>)}</div><div className="custom-skill-adder"><label><b>Add another skill</b><input value={customSkill} onChange={(event) => setCustomSkill(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addCustomSkill(); } }} placeholder="Type a specialist or discipline-specific skill" /></label><button type="button" onClick={addCustomSkill}>Add skill</button></div>{design.skills.some((item) => item.trim()) && <div className="selected-skill-chips">{design.skills.filter((item) => item.trim()).map((skill, index) => <span key={`${skill}-${index}`}>{skill}<button type="button" aria-label={`Remove ${skill}`} onClick={() => toggleSkill(skill)}><X /></button></span>)}</div>}</div>
+    </details>
+
+    <details className="blueprint-accordion section-builder" open={openPanel === "sections"}>
+      <summary onClick={(event) => { event.preventDefault(); togglePanel("sections"); }}><span className="blueprint-accordion-icon"><BookOpen /></span><div><b>Course sections</b><small>Organise the learner journey into a clear syllabus.</small></div><span className={`blueprint-accordion-count ${design.sections.length >= 1 && sectionComplete === design.sections.length ? "complete" : "pending"}`}>{sectionComplete}/{design.sections.length} complete</span><ChevronDown /></summary>
+      <div className="blueprint-panel-body"><header><p>Each learning block will be placed under one of these sections in the next step.</p><button type="button" onClick={() => onChange((current) => ({ ...current, sections: [...current.sections, { id: crypto.randomUUID(), title: "New section", description: "" }] }))}>Add section</button></header><div className="blueprint-item-list">{design.sections.map((section, index) => <article className="section-card" key={section.id}><header><span>{index + 1}</span><div><b>Section {index + 1}</b><small>{section.title || "Untitled syllabus section"}</small></div><button type="button" className="blueprint-remove" aria-label={`Remove section ${index + 1}`} onClick={() => onChange((current) => ({ ...current, sections: current.sections.filter((item) => item.id !== section.id) }))}><X /> Remove</button></header><div><label><b>Section title</b><input value={section.title} onChange={(event) => onChange((current) => ({ ...current, sections: current.sections.map((item) => item.id === section.id ? { ...item, title: event.target.value } : item) }))} placeholder="For example, Orientation and foundations" /></label><label><b>Purpose</b><textarea value={section.description} onChange={(event) => onChange((current) => ({ ...current, sections: current.sections.map((item) => item.id === section.id ? { ...item, description: event.target.value } : item) }))} placeholder="Explain what learners will cover in this section." /></label></div></article>)}</div></div>
+    </details>
+  </div>;
+}
+
 function FacilitatorStudio({ email, query, setQuery }: { email: string; query: string, setQuery: (value: string) => void }) {
   type Material = CourseMaterial;
   type StudioDraft = { id: number; code: string; title: string; discipline: string; description: string; design: CourseDesign; materials: Material[]; activities: CourseActivity[]; assessmentModes: string[]; assessmentConfig: { passMark?: number; attempts?: string; questions?: AssessmentQuestion[]; questionFiles?: { name: string; size: string; type: string }[] }; gateRequired: boolean; questionLimit: number; certificateEnabled: boolean; status: string; createdByEmail: string; versionNumber: number; updatedAt?: string; reviewComment?: string | null; reviewedAt?: string | null };
-  const [step, setStep] = useState<"details" | "outcomes" | "content" | "activities" | "assessment" | "review">("details");
+  const [step, setStep] = useState<StudioStepId>("details");
+  const [portfolioOpen, setPortfolioOpen] = useState(false);
   const [courseTitle, setCourseTitle] = useState("Community Data Skills for Decision-Making");
   const [courseCode, setCourseCode] = useState("DRAFT-MC 001");
   const [description, setDescription] = useState("A practical microcredential that develops evidence-based decision skills through guided learning and authentic assessment.");
@@ -1030,7 +1232,7 @@ function FacilitatorStudio({ email, query, setQuery }: { email: string; query: s
     setDraftId(course.id); setDraftVersion(course.versionNumber); setDraftStatus(course.status); setCourseCode(course.code); setCourseTitle(course.title); setDiscipline(course.discipline); setDescription(course.description);
     setDesign(course.design ?? defaultCourseDesign()); setMaterials(course.materials ?? []); setCourseActivities(course.activities ?? []); setAssessmentModes(course.assessmentModes ?? []);
     setGateRequired(course.gateRequired); setQuestionLimit(course.questionLimit); setCertificateEnabled(course.certificateEnabled); setPassMark(course.assessmentConfig?.passMark ?? 70); setAttempts(course.assessmentConfig?.attempts ?? "3"); setQuestions(course.assessmentConfig?.questions ?? []); setQuestionFiles(course.assessmentConfig?.questionFiles ?? []);
-    setContentSectionId(course.design?.sections?.[0]?.id ?? "section-1"); setContentOutcomeIds(course.design?.outcomes?.[0]?.id ? [course.design.outcomes[0].id] : []); setStep("details");
+    setContentSectionId(course.design?.sections?.[0]?.id ?? "section-1"); setContentOutcomeIds(course.design?.outcomes?.[0]?.id ? [course.design.outcomes[0].id] : []); setStep("details"); setPortfolioOpen(false);
     toast.success(`Loaded version ${course.versionNumber}`, { description: course.title });
   };
   const importCourseContent = async () => {
@@ -1052,6 +1254,60 @@ function FacilitatorStudio({ email, query, setQuery }: { email: string; query: s
     finally { setImportingContent(false); }
   };
   const quality = evaluateCourseQuality({ title: courseTitle, description, design, materials, questionCount: questions.slice(0, questionLimit).length });
+  const sectionIds = new Set(design.sections.map((section) => section.id));
+  const mappedOutcomeIds = new Set(materials.flatMap((material) => material.outcomeIds ?? []));
+  const contentIsAccessible = materials.length > 0 && materials.every((material) => material.kind === "Watch" ? Boolean(material.transcriptPublished && material.transcript) : Boolean(material.accessibilityChecked));
+  const activityConfigurationValid = courseActivities.every((activity) => Boolean(activity.title.trim() && activity.instructions.trim() && activity.rubric?.trim() && activity.passMark >= 1 && activity.passMark <= 100 && activity.attemptsAllowed >= 1));
+  const studioSteps: { id: StudioStepId; number: number; label: string; description: string; guidance: string; checks: { label: string; passed: boolean; detail: string }[] }[] = [
+    {
+      id: "details", number: 1, label: "Blueprint", description: "Offer, audience and delivery", guidance: "Position the course clearly before you build curriculum or assessment.", checks: [
+        { label: "Course identity", passed: courseTitle.trim().length >= 8 && courseCode.trim().length >= 3 && Boolean(discipline), detail: "Add a specific title, unique code and discipline." },
+        { label: "Learner-facing description", passed: description.trim().length >= 80, detail: "Explain the value and evidence in at least 80 characters." },
+        { label: "Audience and entry guidance", passed: design.intendedAudience.trim().length >= 20 && design.prerequisites.trim().length >= 10, detail: "State who the offer serves and what they need before starting." },
+        { label: "Delivery and accessibility", passed: design.expectedHours >= 1 && Boolean(design.language.trim()) && design.accessibilityStatement.trim().length >= 20, detail: "Confirm workload, language and the accessibility commitment." },
+      ],
+    },
+    {
+      id: "outcomes", number: 2, label: "Outcomes", description: "Purpose, evidence and sections", guidance: "Write measurable outcomes, select skills and organise the syllabus.", checks: [
+        { label: "Course objectives", passed: design.objectives.length >= 2 && design.objectives.every((objective) => objective.trim().length >= 10), detail: "Provide at least two clear course objectives." },
+        { label: "Measurable outcomes", passed: design.outcomes.length >= 2 && design.outcomes.every((outcome) => outcome.statement.trim().length >= 10 && Boolean(outcome.skill) && Boolean(outcome.assessmentMethod)), detail: "Each outcome needs a statement, capability and assessment method." },
+        { label: "Skills selected", passed: design.skills.length >= 1, detail: "Select at least one skill tag." },
+        { label: "Syllabus sections", passed: design.sections.length >= 1 && design.sections.every((section) => section.title.trim().length >= 3 && section.description.trim().length >= 10), detail: "Give every section a title and clear purpose." },
+      ],
+    },
+    {
+      id: "content", number: 3, label: "Content", description: "Lessons, files and alignment", guidance: "Create readable learning blocks and map every outcome to the curriculum.", checks: [
+        { label: "Learning sequence", passed: materials.length >= 2, detail: "Add at least two learning blocks." },
+        { label: "Section placement", passed: materials.length > 0 && materials.every((material) => Boolean(material.sectionId && sectionIds.has(material.sectionId))), detail: "Place every learning block in a valid course section." },
+        { label: "Outcome coverage", passed: design.outcomes.length > 0 && design.outcomes.every((outcome) => mappedOutcomeIds.has(outcome.id)), detail: "Map at least one learning block to every outcome." },
+        { label: "Accessible content", passed: contentIsAccessible, detail: "Confirm accessibility for readings and publish reviewed transcripts for video." },
+      ],
+    },
+    {
+      id: "activities", number: 4, label: "Activities", description: "Colab and virtual practice", guidance: "Add authentic practice only when the course needs coding or practical evidence.", checks: [
+        { label: courseActivities.length ? "Programme activities selected" : "Programme activities considered", passed: true, detail: courseActivities.length ? `${courseActivities.length} programme ${courseActivities.length === 1 ? "activity" : "activities"} added.` : "Optional step: no separate Colab or virtual practical is required." },
+        { label: "Activity instructions and rubric", passed: activityConfigurationValid, detail: "Every activity needs instructions, a rubric, a valid pass mark and at least one attempt." },
+        { label: "Required evidence identified", passed: courseActivities.length === 0 || courseActivities.some((activity) => activity.required) || courseActivities.every((activity) => !activity.required), detail: "Confirm which activities form part of the certificate gate." },
+      ],
+    },
+    {
+      id: "assessment", number: 5, label: "Assessment", description: "Questions, feedback and gate", guidance: "Define the scored evidence that proves each learner achieved the outcomes.", checks: [
+        { label: "Evidence method selected", passed: assessmentModes.length >= 1, detail: "Select at least one assessment mode." },
+        { label: "Scored question authored", passed: questions.slice(0, questionLimit).length >= 1, detail: "Add at least one valid scored question." },
+        { label: "Progression rules", passed: passMark >= 1 && passMark <= 100 && Number(attempts) >= 1, detail: "Set a pass mark from 1–100 and allow at least one attempt." },
+        { label: "Outcome-linked assessment", passed: questions.length > 0 && questions.every((question) => (question.outcomeIds ?? []).length > 0), detail: "Map every assessment question to one or more outcomes." },
+      ],
+    },
+    {
+      id: "review", number: 6, label: "Quality & submit", description: "Preview, verify and submit", guidance: "Resolve every quality exception, preview the learner journey and submit a governed version.", checks: quality.checks.map((check) => ({ label: check.label, passed: check.passed, detail: check.detail })),
+    },
+  ];
+  const currentStepIndex = studioSteps.findIndex((item) => item.id === step);
+  const currentStudioStep = studioSteps[currentStepIndex] ?? studioSteps[0];
+  const stepComplete = (item: (typeof studioSteps)[number]) => item.checks.every((check) => check.passed);
+  const completedStudioSteps = studioSteps.filter(stepComplete).length;
+  const studioProgress = Math.round((completedStudioSteps / studioSteps.length) * 100);
+  const nextStudioStep = studioSteps[currentStepIndex + 1];
   const resources = onlineResources.filter((resource) => type === "All" || resource.type === type);
   const toggleMode = (mode: string) => setAssessmentModes((items) => items.includes(mode) ? items.filter((item) => item !== mode) : [...items, mode]);
   const selectActivityKind = (kind: "colab" | "virtual_lab") => { setActivityKind(kind); if (kind === "colab") { setActivityTitle("Guided Colab notebook activity"); setActivityInstructions("Open the notebook in free Google Colab, complete the required code and submit the notebook file or sharing link."); setActivityRubric("Assess correctness, reproducibility, interpretation, code quality and documentation."); } else { setActivityTitle("Guided virtual practical"); setActivityInstructions("Complete every guided stage, record observations and submit the practical report for facilitator assessment."); setActivityRubric("Assess completion, accuracy, interpretation, documentation and reflection."); } };
@@ -1077,6 +1333,67 @@ function FacilitatorStudio({ email, query, setQuery }: { email: string; query: s
     finally { setAddingActivity(false); }
   };
   const moveActivity = (index: number, direction: -1 | 1) => setCourseActivities((items) => { const target = index + direction; if (target < 0 || target >= items.length) return items; const next = [...items]; [next[index], next[target]] = [next[target], next[index]]; return next; });
+  const openColabPreview = async (activity: CourseActivity) => {
+    const directUrl = (() => {
+      if (!activity.templateUrl) return "https://colab.research.google.com/";
+      try {
+        const url = new URL(activity.templateUrl);
+        if (url.hostname === "colab.research.google.com") return url.toString();
+        if (url.hostname === "github.com" && url.pathname.toLowerCase().endsWith(".ipynb")) {
+          return `https://colab.research.google.com/github${url.pathname}${url.search}${url.hash}`;
+        }
+      } catch { /* The URL is validated before the activity is added. */ }
+      return "https://colab.research.google.com/";
+    })();
+
+    const colabWindow = window.open("about:blank", "_blank");
+    if (!colabWindow) {
+      toast.error("Colab could not open", { description: "Allow pop-ups for this UCC platform, then choose Open activity again." });
+      return;
+    }
+    colabWindow.opener = null;
+    colabWindow.location.href = directUrl;
+
+    if (activity.templateUrl) {
+      toast.success("Colab preview opened", { description: "The facilitator-provided notebook is opening in a separate tab." });
+      return;
+    }
+    if (!activity.notebookKey) {
+      toast.error("Notebook template unavailable", { description: "Return to Activities and upload the .ipynb template before testing the preview." });
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/uploads?key=${encodeURIComponent(activity.notebookKey)}`);
+      if (!response.ok) {
+        const result = await response.json().catch(() => ({})) as { error?: string };
+        throw new Error(result.error ?? "The notebook template could not be downloaded.");
+      }
+      const blobUrl = URL.createObjectURL(await response.blob());
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = activity.notebookFileName || "ucc-colab-template.ipynb";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(blobUrl), 1_000);
+      toast.info("Colab opened and notebook downloaded", { description: "In Colab, choose File → Upload notebook and select the downloaded .ipynb template." });
+    } catch (error) {
+      toast.error("Colab opened, but the notebook could not be downloaded", { description: error instanceof Error ? error.message : "Return to Activities and upload the notebook again." });
+    }
+  };
+  const openProgrammeActivityPreview = (activity: CourseActivity) => {
+    if (activity.kind === "colab") {
+      void openColabPreview(activity);
+      return;
+    }
+    const practical = virtualPracticals.find((item) => item.id === activity.practicalId);
+    if (!practical) {
+      toast.error("Virtual practical unavailable", { description: "Return to Activities and select an approved practical before testing the preview." });
+      return;
+    }
+    setPreviewPractical(practical);
+  };
   const openResourcePreview = (resource: LearningResource) => { setPreviewResource(resource); setResourceTranscript(resource.transcript ?? ""); setTranscriptLanguage(resource.transcriptLanguage ?? "English"); setTranscriptFileName(""); setTranscriptSource(resource.transcript ? "Supplied transcript" : ""); setPublishTranscript(true); };
   const addResource = (resource: LearningResource) => {
     const transcript = resourceTranscript.trim() || resource.transcript?.trim() || "";
@@ -1176,7 +1493,7 @@ function FacilitatorStudio({ email, query, setQuery }: { email: string; query: s
   };
   const saveCourse = async (submissionMode: "draft" | "review") => {
     if (!courseTitle.trim() || !courseCode.trim() || !discipline) return toast.error("Course title, code and discipline are required");
-    if (submissionMode === "review" && !quality.ready) return toast.error("Complete every publish-readiness check before submitting for academic review.");
+    if (submissionMode === "review" && completedStudioSteps !== studioSteps.length) return toast.error("Complete all six studio stages before submitting for academic review.");
     setSaving(true);
     try {
       const response = await fetch("/api/courses", {
@@ -1196,14 +1513,36 @@ function FacilitatorStudio({ email, query, setQuery }: { email: string; query: s
     }
   };
   const startNewCourse = () => {
-    const nextDesign = defaultCourseDesign(); setDraftId(null); setDraftVersion(1); setDraftStatus("new"); setCourseTitle(""); setCourseCode(""); setDescription(""); setDiscipline("Interdisciplinary"); setDesign(nextDesign); setMaterials([]); setCourseActivities([]); setQuestions([]); setQuestionFiles([]); setAssessmentModes(["Objective quiz"]); setContentSectionId(nextDesign.sections[0].id); setContentOutcomeIds([nextDesign.outcomes[0].id]); setStep("details");
+    const nextDesign = defaultCourseDesign(); setDraftId(null); setDraftVersion(1); setDraftStatus("new"); setCourseTitle(""); setCourseCode(""); setDescription(""); setDiscipline("Interdisciplinary"); setDesign(nextDesign); setMaterials([]); setCourseActivities([]); setQuestions([]); setQuestionFiles([]); setAssessmentModes(["Objective quiz"]); setContentSectionId(nextDesign.sections[0].id); setContentOutcomeIds([nextDesign.outcomes[0].id]); setStep("details"); setPortfolioOpen(false);
   };
 
   return <div className="authoring-shell">
     <section className="authoring-main page-panel">
-      <div className="page-title commercial-studio-title"><div><p className="eyebrow">UCC COMMERCIAL COURSE STUDIO</p><h2>Design an outcome-led microcredential</h2><p>Build a structured syllabus, convert source material into accessible lessons, align assessment and submit a governed version for publication.</p></div><div><span className={`draft-state ${draftStatus}`}>v{draftVersion} · {draftStatus.replaceAll("_", " ")}</span><button className="secondary-action" disabled={saving} onClick={() => void saveCourse("draft")}><FileCheck2 /> Save draft</button></div></div>
-      <section className="course-portfolio"><header><div><p className="eyebrow">MY COURSE PORTFOLIO</p><h3>Drafts, reviews and live offerings</h3></div><button onClick={startNewCourse}><BookOpen /> New course</button></header>{loadingDrafts ? <div className="empty-state">Loading course versions…</div> : <div>{drafts.map((course) => <article key={course.id} className={draftId === course.id ? "selected" : ""}><span className={`portfolio-status ${course.status}`}>{course.status.replaceAll("_", " ")}</span><div><b>{course.title}</b><small>{course.code} · version {course.versionNumber} · {course.updatedAt ? new Date(course.updatedAt).toLocaleDateString() : "recently updated"}</small></div><div className="portfolio-actions"><button onClick={() => loadDraft(course)}>{course.status === "active" ? "View status" : "Continue editing"}</button></div>{course.reviewComment && <p className="review-feedback"><MessageSquareText /> <span><b>{course.status === "rejected" ? "Changes requested" : "Review note"}</b>{course.reviewComment}</span></p>}</article>)}{drafts.length === 0 && <div className="empty-state">Your first commercial course draft will appear here after saving.</div>}</div>}</section>
-      <div className="authoring-steps commercial-steps">{[["details", "1", "Blueprint"], ["outcomes", "2", "Outcomes"], ["content", "3", "Content"], ["activities", "4", "Activities"], ["assessment", "5", "Assessment"], ["review", "6", "Quality & submit"]].map(([id, number, label]) => <button key={id} className={step === id ? "active" : ""} onClick={() => setStep(id as typeof step)}><span>{number}</span>{label}</button>)}</div>
+      <section className="studio-command-bar">
+        <div><p className="eyebrow">CURRENT COURSE</p><h2>{courseTitle || "New microcredential"}</h2><p>{courseCode || "Course code not set"} · Version {draftVersion}</p></div>
+        <div className="studio-command-actions"><span className={`draft-state ${draftStatus}`}>{draftStatus.replaceAll("_", " ")}</span><button className="secondary-action" onClick={() => setLearnerPreviewOpen(true)}><Eye /> Preview as student</button><button className="dialog-primary" disabled={saving} onClick={() => void saveCourse("draft")}><FileCheck2 /> {saving ? "Saving…" : "Save draft"}</button></div>
+      </section>
+
+      <section className={`course-portfolio compact ${portfolioOpen ? "open" : ""}`}>
+        <header><div><p className="eyebrow">MY COURSE PORTFOLIO</p><h3>Drafts, reviews and live offerings</h3></div><div className="portfolio-header-actions"><button className="portfolio-new" onClick={startNewCourse}><BookOpen /> New course</button><button className="portfolio-toggle" type="button" aria-expanded={portfolioOpen} onClick={() => setPortfolioOpen((open) => !open)}>{portfolioOpen ? "Hide courses" : `Open courses (${drafts.length})`} <ChevronDown /></button></div></header>
+        {portfolioOpen && (loadingDrafts ? <div className="empty-state">Loading course versions…</div> : <div>{drafts.map((course) => <article key={course.id} className={draftId === course.id ? "selected" : ""}><span className={`portfolio-status ${course.status}`}>{course.status.replaceAll("_", " ")}</span><div><b>{course.title}</b><small>{course.code} · version {course.versionNumber} · {course.updatedAt ? new Date(course.updatedAt).toLocaleDateString() : "recently updated"}</small></div><div className="portfolio-actions"><button onClick={() => loadDraft(course)}>{course.status === "active" ? "View status" : "Continue editing"}</button></div>{course.reviewComment && <p className="review-feedback"><MessageSquareText /> <span><b>{course.status === "rejected" ? "Changes requested" : "Review note"}</b>{course.reviewComment}</span></p>}</article>)}{drafts.length === 0 && <div className="empty-state">Your first course draft will appear here after saving.</div>}</div>)}
+      </section>
+
+      <section className="studio-roadmap" aria-label="Course creation progress">
+        <header><div><p className="eyebrow">GUIDED COURSE CREATION</p><h2>Six stages from idea to academic review</h2><p>Select a stage to edit it. Green ticks confirm that every check in that stage has passed.</p></div><span><b>{completedStudioSteps} of {studioSteps.length}</b> stages complete</span></header>
+        <div className="studio-progress-line"><Progress value={studioProgress} /><b>{studioProgress}% complete</b></div>
+        <nav className="studio-stepper">
+          {studioSteps.map((item) => {
+            const remaining = item.checks.filter((check) => !check.passed).length;
+            const complete = stepComplete(item);
+            return <button key={item.id} className={`${step === item.id ? "active" : ""} ${complete ? "complete" : "needs-attention"}`} onClick={() => setStep(item.id)} aria-current={step === item.id ? "step" : undefined}><span className="studio-step-number">{complete ? <CheckCircle2 /> : item.number}</span><span className="studio-step-copy"><b>{item.label}</b><small>{item.description}</small><em>{complete ? "Complete" : `${remaining} ${remaining === 1 ? "check" : "checks"} remaining`}</em></span><ChevronRight /></button>;
+          })}
+        </nav>
+      </section>
+
+      <section className={`studio-current-stage ${stepComplete(currentStudioStep) ? "complete" : "in-progress"}`}>
+        <span>STEP {currentStudioStep.number} OF {studioSteps.length}</span><div><b>{currentStudioStep.label}</b><p>{currentStudioStep.guidance}</p></div><em>{stepComplete(currentStudioStep) ? <><CheckCircle2 /> Stage complete</> : <><Clock3 /> In progress</>}</em>
+      </section>
 
       {step === "details" && <div className="authoring-form commercial-blueprint-form">
         <div className="studio-section-heading"><div><p className="eyebrow">PRODUCT BLUEPRINT</p><h3>Position the learning offer</h3><p>Define the audience, workload, access model and institutional promise before authoring content.</p></div><Gauge /></div>
@@ -1211,32 +1550,29 @@ function FacilitatorStudio({ email, query, setQuery }: { email: string; query: s
         <label>Commercial course description <span>{description.length}/5000</span><textarea value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Explain the value, capability and evidence a learner will gain." /></label>
         <div className="editor-form-grid"><label>Intended audience<textarea value={design.intendedAudience} onChange={(event) => setDesign((current) => ({ ...current, intendedAudience: event.target.value }))} /></label><label>Prerequisites and entry guidance<textarea value={design.prerequisites} onChange={(event) => setDesign((current) => ({ ...current, prerequisites: event.target.value }))} /></label></div>
         <label>Accessibility commitment<textarea value={design.accessibilityStatement} onChange={(event) => setDesign((current) => ({ ...current, accessibilityStatement: event.target.value }))} /></label>
-        <button className="dialog-primary align-right" onClick={() => setStep("outcomes")}>Define objectives and outcomes <ChevronRight /></button>
+        <button className="dialog-primary align-right" disabled={!stepComplete(studioSteps[0])} onClick={() => setStep("outcomes")}>Define objectives and outcomes <ChevronRight /></button>
       </div>}
 
       {step === "outcomes" && <div className="outcome-authoring">
         <div className="studio-section-heading"><div><p className="eyebrow">OUTCOME-LED DESIGN</p><h3>Connect purpose, evidence and curriculum</h3><p>Every outcome carries a skill and assessment method, then maps to learning blocks in the next step.</p></div><ShieldCheck /></div>
-        <section className="objective-builder"><header><div><h3>Course objectives</h3><p>What the course is designed to accomplish.</p></div><button onClick={() => setDesign((current) => ({ ...current, objectives: [...current.objectives, ""] }))}>Add objective</button></header>{design.objectives.map((objective, index) => <article key={index}><span>{index + 1}</span><textarea value={objective} onChange={(event) => setDesign((current) => ({ ...current, objectives: current.objectives.map((item, itemIndex) => itemIndex === index ? event.target.value : item) }))} placeholder="Build, develop or enable…" /><button onClick={() => setDesign((current) => ({ ...current, objectives: current.objectives.filter((_, itemIndex) => itemIndex !== index) }))}>Remove</button></article>)}</section>
-        <section className="outcome-builder"><header><div><h3>Measurable course outcomes</h3><p>Use observable verbs and name the evidence that proves achievement.</p></div><button onClick={() => setDesign((current) => ({ ...current, outcomes: [...current.outcomes, { id: crypto.randomUUID(), statement: "", assessmentMethod: "", skill: "" }] }))}>Add outcome</button></header>{design.outcomes.map((outcome, index) => <article key={outcome.id}><span>{index + 1}</span><div><label>Outcome statement<textarea value={outcome.statement} onChange={(event) => setDesign((current) => ({ ...current, outcomes: current.outcomes.map((item) => item.id === outcome.id ? { ...item, statement: event.target.value } : item) }))} placeholder="By the end, learners can…" /></label><div><label>Skill / capability<input value={outcome.skill} onChange={(event) => setDesign((current) => ({ ...current, outcomes: current.outcomes.map((item) => item.id === outcome.id ? { ...item, skill: event.target.value } : item) }))} /></label><label>Assessment method<input value={outcome.assessmentMethod} onChange={(event) => setDesign((current) => ({ ...current, outcomes: current.outcomes.map((item) => item.id === outcome.id ? { ...item, assessmentMethod: event.target.value } : item) }))} /></label></div></div><button onClick={() => setDesign((current) => ({ ...current, outcomes: current.outcomes.filter((item) => item.id !== outcome.id) }))}>Remove</button></article>)}</section>
-        <section className="skill-builder"><header><h3>Skills tags</h3><button onClick={() => setDesign((current) => ({ ...current, skills: [...current.skills, ""] }))}>Add skill</button></header><div>{design.skills.map((skill, index) => <label key={index}><input value={skill} onChange={(event) => setDesign((current) => ({ ...current, skills: current.skills.map((item, itemIndex) => itemIndex === index ? event.target.value : item) }))} /><button onClick={() => setDesign((current) => ({ ...current, skills: current.skills.filter((_, itemIndex) => itemIndex !== index) }))}><X /></button></label>)}</div></section>
-        <section className="section-builder"><header><div><h3>Course sections</h3><p>Organise the learner journey into clear syllabus sections.</p></div><button onClick={() => setDesign((current) => ({ ...current, sections: [...current.sections, { id: crypto.randomUUID(), title: "New section", description: "" }] }))}>Add section</button></header>{design.sections.map((section, index) => <article key={section.id}><span>{index + 1}</span><label>Section title<input value={section.title} onChange={(event) => setDesign((current) => ({ ...current, sections: current.sections.map((item) => item.id === section.id ? { ...item, title: event.target.value } : item) }))} /></label><label>Purpose<input value={section.description} onChange={(event) => setDesign((current) => ({ ...current, sections: current.sections.map((item) => item.id === section.id ? { ...item, description: event.target.value } : item) }))} /></label><button onClick={() => setDesign((current) => ({ ...current, sections: current.sections.filter((item) => item.id !== section.id) }))}>Remove</button></article>)}</section>
-        <button className="dialog-primary align-right" onClick={() => { if (!design.sections.some((item) => item.id === contentSectionId)) setContentSectionId(design.sections[0]?.id ?? "section-1"); setStep("content"); }}>Build learning content <ChevronRight /></button>
+        <OutcomeDesignEditor design={design} onChange={setDesign} />
+        <button className="dialog-primary align-right" disabled={!stepComplete(studioSteps[1])} onClick={() => { if (!design.sections.some((item) => item.id === contentSectionId)) setContentSectionId(design.sections[0]?.id ?? "section-1"); setStep("content"); }}>Build learning content <ChevronRight /></button>
       </div>}
 
       {step === "content" && <div className="content-authoring commercial-content-authoring">
-        <section className="content-ingestion-studio"><div className="studio-section-heading"><div><p className="eyebrow">MULTI-FORMAT CONTENT INGESTION</p><h3>Turn sources into readable learning blocks</h3><p>Author text, upload protected originals or import a public link. PDF, DOCX, HTML, Markdown, TXT and RTF sources are converted to learner-readable HTML where possible.</p></div><FileText /></div>
+        <section className="content-ingestion-studio"><div className="studio-section-heading"><div><p className="eyebrow">MULTI-FORMAT CONTENT INGESTION</p><h3>Turn sources into readable learning blocks</h3><p>Author text, upload protected originals or import a public link. PDFs retain their original layout in a secure viewer; supported documents become learner-readable HTML when extraction is reliable.</p></div><FileText /></div>
           <div className="content-mode-tabs">{(["text", "file", "url"] as const).map((mode) => <button key={mode} className={contentMode === mode ? "active" : ""} onClick={() => setContentMode(mode)}>{mode === "text" ? <Pencil /> : mode === "file" ? <Upload /> : <Search />}<span>{mode === "text" ? "Write or paste" : mode === "file" ? "Upload document" : "Import public link"}</span></button>)}</div>
           <div className="content-placement-grid"><label>Learning-block title<input value={contentTitle} onChange={(event) => setContentTitle(event.target.value)} placeholder="A concise learner-facing title" /></label><label>Course section<select value={contentSectionId} onChange={(event) => setContentSectionId(event.target.value)}>{design.sections.map((section) => <option value={section.id} key={section.id}>{section.title}</option>)}</select></label><label>Unit / lesson label<input value={contentUnitTitle} onChange={(event) => setContentUnitTitle(event.target.value)} /></label><label>Author or source<input value={contentSource} onChange={(event) => setContentSource(event.target.value)} /></label><label>Licence / rights note<input value={contentLicense} onChange={(event) => setContentLicense(event.target.value)} /></label></div>
           <div className="outcome-mapping"><b>Align to learning outcomes</b><div>{design.outcomes.map((outcome, index) => <label key={outcome.id} className={contentOutcomeIds.includes(outcome.id) ? "selected" : ""}><input type="checkbox" checked={contentOutcomeIds.includes(outcome.id)} onChange={() => setContentOutcomeIds((items) => items.includes(outcome.id) ? items.filter((id) => id !== outcome.id) : [...items, outcome.id])} /><span>LO {index + 1}</span>{outcome.statement}</label>)}</div></div>
           {contentMode === "text" && <div className="text-content-editor"><label>Input format<select value={contentFormat} onChange={(event) => setContentFormat(event.target.value as "text" | "html")}><option value="text">Plain text / Markdown-style</option><option value="html">Sanitised HTML</option></select></label><label>Lesson content<textarea value={contentText} onChange={(event) => setContentText(event.target.value)} placeholder="# Lesson heading&#10;&#10;Paste or write the complete lesson. Headings, lists and emphasis become readable HTML." /></label></div>}
-          {contentMode === "file" && <label className="upload-zone commercial-single-upload"><Upload /><b>{contentFile?.name ?? "Choose PDF, DOCX or learning media"}</b><span>Protected original · automatic readable-text conversion where supported · 25 MB maximum</span><input type="file" accept=".pdf,.doc,.docx,.txt,.md,.html,.htm,.rtf,.ppt,.pptx,.csv,.jpg,.jpeg,.png,.webp,.mp3,.wav,.mp4,.webm" onChange={(event) => setContentFile(event.target.files?.[0] ?? null)} /></label>}
+          {contentMode === "file" && <label className="upload-zone commercial-single-upload"><Upload /><b>{contentFile?.name ?? "Choose PDF, DOCX or learning media"}</b><span>Protected original · secure PDF viewer · reliable readable-text conversion · 25 MB maximum</span><input type="file" accept=".pdf,.doc,.docx,.txt,.md,.html,.htm,.rtf,.ppt,.pptx,.csv,.jpg,.jpeg,.png,.webp,.mp3,.wav,.mp4,.webm" onChange={(event) => setContentFile(event.target.files?.[0] ?? null)} /></label>}
           {contentMode === "url" && <div className="url-content-import"><label>Public source URL<input type="url" value={contentUrl} onChange={(event) => setContentUrl(event.target.value)} placeholder="https://…" /></label><label className="embed-choice"><Switch checked={contentEmbedOnly} onCheckedChange={setContentEmbedOnly} /><span><b>Embed rather than convert</b>Use for interactive tools or pages whose content should remain at the source.</span></label></div>}
           <button className="dialog-primary" disabled={importingContent || contentOutcomeIds.length === 0} onClick={() => void importCourseContent()}><FileText /> {importingContent ? "Building readable lesson…" : "Add learning block to course"}</button>
         </section>
         <section className="structured-content-outline"><header><div><p className="eyebrow">STRUCTURED COURSE OUTLINE</p><h3>{materials.length} learning block{materials.length === 1 ? "" : "s"}</h3></div><span>{design.sections.length} section{design.sections.length === 1 ? "" : "s"}</span></header>{design.sections.map((section) => <article key={section.id}><div className="outline-section-title"><BookOpen /><div><b>{section.title}</b><span>{section.description}</span></div></div>{materials.filter((material) => material.sectionId === section.id).map((material) => <div className="outline-material" key={material.id ?? material.title}><span>{material.kind}</span><div><b>{material.title}</b><small>{material.unitTitle} · {material.estimatedMinutes ?? 5} min · {(material.outcomeIds ?? []).length} outcomes</small></div>{material.kind === "Watch" ? <details className="outline-transcript"><summary>{material.transcriptPublished && material.transcript ? "Transcript ready" : "Add transcript"}</summary><textarea value={material.transcript ?? ""} onChange={(event) => setMaterials((items) => items.map((item) => item === material ? { ...item, transcript: event.target.value, transcriptLanguage: item.transcriptLanguage ?? "English", transcriptSource: "Facilitator supplied" } : item))} placeholder="Paste or type the complete reviewed transcript…" /><label><input type="checkbox" checked={Boolean(material.transcriptPublished)} onChange={(event) => setMaterials((items) => items.map((item) => item === material ? { ...item, transcriptPublished: event.target.checked } : item))} /> Publish reviewed transcript</label></details> : <label title="Confirm the material has been reviewed for accessibility"><input type="checkbox" checked={Boolean(material.accessibilityChecked)} onChange={(event) => setMaterials((items) => items.map((item) => item === material ? { ...item, accessibilityChecked: event.target.checked } : item))} /> Accessible</label>}<button onClick={() => setMaterials((items) => items.filter((item) => item !== material))}>Remove</button></div>)}</article>)}</section>
         <div className="authoring-tabs"><section><p className="eyebrow">BATCH FILE IMPORT</p><h3>Documents and media</h3><p>Add several files using the placement and outcome settings above.</p><label className="upload-zone"><FileText /><b>Choose files to upload</b><span>Multiple files supported · protected delivery</span><input type="file" multiple accept=".pdf,.doc,.docx,.ppt,.pptx,.txt,.md,.html,.rtf,.csv,.jpg,.jpeg,.png,.mp3,.mp4" onChange={(event) => handleFiles(event.target.files)} /></label>{files.length > 0 && <div className="uploaded-files">{files.map((file, index) => <article key={`${file.name}-${index}`}><FileText /><div><b>{file.name}</b><span>{file.size} · {file.type}</span></div><button onClick={() => { setFiles((items) => items.filter((_, itemIndex) => itemIndex !== index)); toast.success("File removed from import summary"); }}>Remove</button></article>)}</div>}</section>
         <section><p className="eyebrow">YOUTUBE DISCOVERY</p><h3>Find, preview and approve video</h3><p>Search YouTube by the course keywords, then paste a selected video URL to review it in-frame before embedding.</p><div className="youtube-actions"><button onClick={() => window.open(youtubeSearchUrl, "_blank", "noopener,noreferrer")}><Search /> Search YouTube for “{query || "course topic"}”</button><div className="url-adder"><input value={youtubeUrl} onChange={(event) => setYoutubeUrl(event.target.value)} placeholder="Paste selected YouTube URL" /><button onClick={previewYoutube}><Video /> Review</button></div></div></section></div>
-        <section className="online-library"><div><p className="eyebrow">LIVE OPEN-RESOURCE SEARCH</p><h3>Search the web, then review before embedding</h3><p>Search live open-access research and public learning collections. Results open in a frame for quality, relevance, licence and accessibility judgement.</p></div><div className="oer-search"><label><Search /><input value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => event.key === "Enter" && searchOnline()} placeholder="Type keywords, e.g. climate adaptation" /></label><button disabled={searching} onClick={searchOnline}><Search /> {searching ? "Searching…" : "Search online"}</button></div><div className="filter-row">{["All", "Watch", "Read", "Code"].map((filter) => <button key={filter} className={type === filter ? "active" : ""} onClick={() => setType(filter)}>{filter}</button>)}</div><div className="resource-results compact">{resources.map((resource) => { const Icon = resource.type === "Watch" ? Video : resource.type === "Code" ? Code2 : FileText; return <article key={`${resource.title}-${resource.url}`}><span className={`resource-type ${resource.type.toLowerCase()}`}><Icon /></span><div><small>{resource.type} · {resource.license}</small><h3>{resource.title}</h3><p>{resource.source}</p></div><button onClick={() => openResourcePreview(resource)}>Review <ChevronRight /></button></article>; })}{!searching && resources.length === 0 && <div className="empty-state">No results in this category. Try different keywords or select All.</div>}</div></section><button className="dialog-primary align-right" onClick={() => setStep("activities")}>Continue to programme activities <ChevronRight /></button></div>}
+        <section className="online-library"><div><p className="eyebrow">LIVE OPEN-RESOURCE SEARCH</p><h3>Search the web, then review before embedding</h3><p>Search live open-access research and public learning collections. Results open in a frame for quality, relevance, licence and accessibility judgement.</p></div><div className="oer-search"><label><Search /><input value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => event.key === "Enter" && searchOnline()} placeholder="Type keywords, e.g. climate adaptation" /></label><button disabled={searching} onClick={searchOnline}><Search /> {searching ? "Searching…" : "Search online"}</button></div><div className="filter-row">{["All", "Watch", "Read", "Code"].map((filter) => <button key={filter} className={type === filter ? "active" : ""} onClick={() => setType(filter)}>{filter}</button>)}</div><div className="resource-results compact">{resources.map((resource) => { const Icon = resource.type === "Watch" ? Video : resource.type === "Code" ? Code2 : FileText; return <article key={`${resource.title}-${resource.url}`}><span className={`resource-type ${resource.type.toLowerCase()}`}><Icon /></span><div><small>{resource.type} · {resource.license}</small><h3>{resource.title}</h3><p>{resource.source}</p></div><button onClick={() => openResourcePreview(resource)}>Review <ChevronRight /></button></article>; })}{!searching && resources.length === 0 && <div className="empty-state">No results in this category. Try different keywords or select All.</div>}</div></section><button className="dialog-primary align-right" disabled={!stepComplete(studioSteps[2])} onClick={() => setStep("activities")}>Continue to programme activities <ChevronRight /></button></div>}
 
       {step === "activities" && <div className="programme-activities-builder">
         <div className="programme-activity-heading"><div><p className="eyebrow">PROGRAMME ACTIVITY DESIGN</p><h3>Add coding and interactive practical activities</h3><p>Attach each activity to this microcredential, configure its progression requirements and position it in the learner sequence.</p></div><span><Code2 /> Colab <b>+</b> <FlaskConical /> Virtual labs</span></div>
@@ -1245,7 +1581,7 @@ function FacilitatorStudio({ email, query, setQuery }: { email: string; query: s
           {activityKind === "virtual_lab" ? <div className="virtual-practical-picker"><div className="form-grid"><label>Laboratory discipline<select value={activityDiscipline} onChange={(event) => { const value = event.target.value as LabDiscipline | "All"; setActivityDiscipline(value); const first = virtualPracticals.find((item) => value === "All" || item.discipline === value); if (first) { setSelectedPracticalId(first.id); setActivityTitle(first.title); setActivityInstructions(first.focus); } }}><option>All</option>{labDisciplines.map((item) => <option key={item}>{item}</option>)}</select></label><label>Approved practical<select value={selectedPracticalId} onChange={(event) => { setSelectedPracticalId(event.target.value); const practical = virtualPracticals.find((item) => item.id === event.target.value); if (practical) { setActivityTitle(practical.title); setActivityInstructions(practical.focus); } }}>{virtualPracticals.filter((item) => activityDiscipline === "All" || item.discipline === activityDiscipline).map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}</select></label></div>{(() => { const practical = virtualPracticals.find((item) => item.id === selectedPracticalId); const reviewed = practical ? previewedPracticalIds.includes(practical.id) : false; return practical ? <article className="practical-design-preview"><VirtualLabIcon discipline={practical.discipline} /><div><b>{practical.discipline} · {practical.mode} simulation</b><p>{practical.focus}</p><span>{practical.objectives.length} objectives · safety gate · data report · debrief</span></div><button className={reviewed ? "previewed" : ""} onClick={() => setPreviewPractical(practical)}>{reviewed ? <CheckCircle2 /> : <Eye />} {reviewed ? "Preview reviewed" : "Preview full practical"}</button></article> : null; })()}</div> : <div className="colab-course-activity"><label className={activityNotebook ? "upload-zone selected" : "upload-zone"}><Code2 /><b>{activityNotebook?.name || "Upload master .ipynb notebook"}</b><span>Required · maximum 10 MB · stored with the course draft</span><input type="file" accept=".ipynb,application/x-ipynb+json,application/json" onChange={(event) => setActivityNotebook(event.target.files?.[0] ?? null)} /></label><label>Optional GitHub or Colab direct-open URL<input type="url" value={activityTemplateUrl} onChange={(event) => setActivityTemplateUrl(event.target.value)} placeholder="https://github.com/…/notebook.ipynb" /></label></div>}
           <button className="dialog-primary" disabled={addingActivity} onClick={activityKind === "colab" ? addColabActivity : addVirtualActivity}>{activityKind === "colab" ? <Code2 /> : <FlaskConical />} {addingActivity ? "Storing notebook…" : `Add ${activityKind === "colab" ? "Colab" : "virtual-lab"} activity`}</button></section>
           <section className="programme-activity-sequence"><div><p className="eyebrow">PROGRAMME SEQUENCE</p><h3>{courseActivities.length} designed activit{courseActivities.length === 1 ? "y" : "ies"}</h3><p>Activities become part of the course approval record. Colab assignments are activated automatically when the programme is approved.</p></div>{courseActivities.map((activity, index) => <article key={activity.id}><span className={activity.kind}><GripVertical /></span><div><small>{index + 1} · {activity.kind === "colab" ? "COLAB CODING" : `${activity.discipline?.toUpperCase()} VIRTUAL PRACTICAL`}</small><h4>{activity.title}</h4><p>{activity.required ? "Required" : "Optional"} · pass {activity.passMark}% · {activity.attemptsAllowed} attempt{activity.attemptsAllowed === 1 ? "" : "s"}</p></div><div className="sequence-actions"><button disabled={index === 0} onClick={() => moveActivity(index, -1)}>Move up</button><button disabled={index === courseActivities.length - 1} onClick={() => moveActivity(index, 1)}>Move down</button><button className="remove" onClick={() => setCourseActivities((items) => items.filter((item) => item.id !== activity.id))}>Remove</button></div></article>)}{courseActivities.length === 0 && <div className="empty-state">No programme activities yet. Add a Colab notebook or approved virtual practical.</div>}</section></div>
-        <button className="dialog-primary align-right" onClick={() => setStep("assessment")}>Continue to assessment design <ChevronRight /></button>
+        <button className="dialog-primary align-right" disabled={!stepComplete(studioSteps[3])} onClick={() => setStep("assessment")}>Continue to assessment design <ChevronRight /></button>
       </div>}
 
       {step === "assessment" && <div className="assessment-builder">
@@ -1268,7 +1604,7 @@ function FacilitatorStudio({ email, query, setQuery }: { email: string; query: s
         <div className={`whiteboard-setting ${whiteboardEnabled ? "enabled" : ""}`}><span><Sigma /></span><div><b>Mathematical working whiteboard</b><p>Add a drawing board to this question. Learners can write calculations, convert supported handwriting to editable text and correct the transcription before submitting.</p></div><Switch checked={whiteboardEnabled} onCheckedChange={setWhiteboardEnabled} /></div>
         <label className="points-field">Marks / points<input type="number" value={questionPoints} onChange={(event) => setQuestionPoints(Math.max(1, Number(event.target.value)))} min="1" /></label>
         <label>Marking scheme or rubric<textarea value={markingScheme} onChange={(event) => setMarkingScheme(event.target.value)} placeholder="State the criteria, expected evidence and allocation of marks…" /></label><div className="editor-form-grid"><label>Feedback when correct<textarea value={feedbackCorrect} onChange={(event) => setFeedbackCorrect(event.target.value)} /></label><label>Feedback when incorrect<textarea value={feedbackIncorrect} onChange={(event) => setFeedbackIncorrect(event.target.value)} /></label></div><label>Learner advice and next-step guidance<textarea value={learnerAdvice} onChange={(event) => setLearnerAdvice(event.target.value)} placeholder="Explain what the learner should review or practise next…" /></label><button className="secondary-action add-question" disabled={questions.length >= questionLimit} onClick={addQuestion}><FileCheck2 /> {questions.length >= questionLimit ? `Question limit reached (${questionLimit})` : `Add question ${questions.length + 1} of ${questionLimit}`}</button></section>
-        <button className="dialog-primary align-right" onClick={() => setStep("review")}>Review course structure <ChevronRight /></button>
+        <button className="dialog-primary align-right" disabled={!stepComplete(studioSteps[4])} onClick={() => setStep("review")}>Review course structure <ChevronRight /></button>
       </div>}
 
       {step === "review" && <div className="course-review commercial-quality-review">
@@ -1280,9 +1616,30 @@ function FacilitatorStudio({ email, query, setQuery }: { email: string; query: s
       </div>}
     </section>
 
-    <aside className="builder-panel persistent-sequence"><p className="eyebrow">LIVE COURSE OUTLINE</p><h2>{courseTitle || "Untitled course"}</h2><div className="sequence-list">{materials.map((material, index) => <article key={`${material.title}-${index}`} className={material.kind.includes("check") ? "gate" : ""}><span>{material.kind === "Watch" ? <Video /> : material.kind === "Code" ? <Code2 /> : <FileText />}</span><div><b>{index + 1} · {material.kind}</b><p>{material.title}</p></div><CheckCircle2 /></article>)}{courseActivities.map((activity, index) => <article key={activity.id} className="programme-activity"><span>{activity.kind === "colab" ? <Code2 /> : <FlaskConical />}</span><div><b>{materials.length + index + 1} · {activity.kind === "colab" ? "Colab" : "Virtual lab"}</b><p>{activity.title}</p></div>{activity.required ? <ShieldCheck /> : <CheckCircle2 />}</article>)}{assessmentModes.length > 0 && <article className="gate"><span><FileCheck2 /></span><div><b>{materials.length + courseActivities.length + 1} · Assessment</b><p>{assessmentModes.join(" · ")}</p></div><ShieldCheck /></article>}</div><div className="release-rule"><ShieldCheck /><p><b>Progress rule</b>{gateRequired ? "Learners must meet the pass mark before the next activity unlocks." : "Activities are available without a required assessment gate."}</p></div><button className="secondary-action" onClick={() => setLearnerPreviewOpen(true)}><Eye /> Preview as student</button><button className="dialog-primary" onClick={() => setStep("review")}>Review draft course</button></aside>
+    <aside className="studio-assurance-panel">
+      <section className="studio-overall-progress"><div><p className="eyebrow">COURSE ASSURANCE</p><span>{studioProgress}%</span></div><h2>{completedStudioSteps === studioSteps.length ? "All stages complete" : `${studioSteps.length - completedStudioSteps} ${studioSteps.length - completedStudioSteps === 1 ? "stage" : "stages"} need attention`}</h2><p>Checks update instantly as you work. A stage turns green only when every required item is complete.</p><Progress value={studioProgress} /></section>
 
-    <Dialog open={learnerPreviewOpen} onOpenChange={setLearnerPreviewOpen}><DialogContent className="learner-preview-dialog"><DialogHeader><p className="eyebrow">STUDENT PORTAL PREVIEW</p><DialogTitle>{courseTitle || "Untitled microcredential"}</DialogTitle><DialogDescription>This is the learner-facing experience using the current unsaved studio state. Test the flow before submission.</DialogDescription></DialogHeader><PublishedCourseExperience course={{ code: courseCode || "DRAFT", title: courseTitle || "Untitled microcredential", school: "Facilitator preview", progress: 0, modules: `${materials.length + courseActivities.length} learning activities`, accent: "teal", next: "Preview", discipline, description, materials, activities: courseActivities, assessmentConfig: { passMark, attempts, questions }, design, certificateEnabled, status: "preview", facilitatorName: "Course facilitator" }} onOpenActivity={() => toast.info("Programme activity preview", { description: "Use the dedicated activity preview in the Activities step to test the full practical or Colab workflow." })} preview /></DialogContent></Dialog>
+      <section className="studio-step-checks">
+        <header><div><span>STEP {currentStudioStep.number}</span><b>{currentStudioStep.label} checks</b></div><em>{currentStudioStep.checks.filter((check) => check.passed).length}/{currentStudioStep.checks.length}</em></header>
+        <div>{currentStudioStep.checks.map((check) => <article className={check.passed ? "passed" : "pending"} key={check.label}>{check.passed ? <CheckCircle2 /> : <Clock3 />}<div><b>{check.label}</b><p>{check.passed ? "Complete" : check.detail}</p></div></article>)}</div>
+      </section>
+
+      <section className="studio-next-guidance"><Gauge /><div><b>What to do now</b><p>{currentStudioStep.guidance}</p></div></section>
+
+      <div className="studio-side-actions">
+        <button className="secondary-action" onClick={() => setLearnerPreviewOpen(true)}><Eye /> Preview as student</button>
+        {nextStudioStep ? <button className="dialog-primary" disabled={!stepComplete(currentStudioStep)} onClick={() => setStep(nextStudioStep.id)}>Continue to {nextStudioStep.label} <ChevronRight /></button> : <button className="dialog-primary" disabled={saving || completedStudioSteps !== studioSteps.length} onClick={() => void saveCourse("review")}><ShieldCheck /> {saving ? "Submitting…" : "Submit for UCC review"}</button>}
+        <button className="studio-quiet-action" disabled={saving} onClick={() => void saveCourse("draft")}><FileCheck2 /> Save progress</button>
+      </div>
+
+      <details className="studio-outline-disclosure">
+        <summary><BookOpen /><span><b>Course outline</b><small>{materials.length + courseActivities.length} learning items</small></span><ChevronDown /></summary>
+        <div className="sequence-list">{materials.map((material, index) => <article key={`${material.title}-${index}`} className={material.kind.includes("check") ? "gate" : ""}><span>{material.kind === "Watch" ? <Video /> : material.kind === "Code" ? <Code2 /> : <FileText />}</span><div><b>{index + 1} · {material.kind}</b><p>{material.title}</p></div><CheckCircle2 /></article>)}{courseActivities.map((activity, index) => <article key={activity.id} className="programme-activity"><span>{activity.kind === "colab" ? <Code2 /> : <FlaskConical />}</span><div><b>{materials.length + index + 1} · {activity.kind === "colab" ? "Colab" : "Virtual lab"}</b><p>{activity.title}</p></div>{activity.required ? <ShieldCheck /> : <CheckCircle2 />}</article>)}{assessmentModes.length > 0 && <article className="gate"><span><FileCheck2 /></span><div><b>{materials.length + courseActivities.length + 1} · Assessment</b><p>{assessmentModes.join(" · ")}</p></div><ShieldCheck /></article>}</div>
+        <div className="release-rule"><ShieldCheck /><p><b>Progress rule</b>{gateRequired ? "Learners must meet the pass mark before the next activity unlocks." : "Activities are available without a required assessment gate."}</p></div>
+      </details>
+    </aside>
+
+    <Dialog open={learnerPreviewOpen} onOpenChange={setLearnerPreviewOpen}><DialogContent className="learner-preview-dialog"><DialogHeader><p className="eyebrow">STUDENT PORTAL PREVIEW</p><DialogTitle>{courseTitle || "Untitled microcredential"}</DialogTitle><DialogDescription>This is the learner-facing experience using the current unsaved studio state. Test lessons, Colab notebooks and virtual practicals before submission.</DialogDescription></DialogHeader><PublishedCourseExperience course={{ code: courseCode || "DRAFT", title: courseTitle || "Untitled microcredential", school: "Facilitator preview", progress: 0, modules: `${materials.length + courseActivities.length} learning activities`, accent: "teal", next: "Preview", discipline, description, materials, activities: courseActivities, assessmentConfig: { passMark, attempts, questions }, design, certificateEnabled, status: "preview", facilitatorName: "Course facilitator" }} onOpenActivity={openProgrammeActivityPreview} preview /></DialogContent></Dialog>
 
     <Dialog open={Boolean(previewPractical)} onOpenChange={(open) => !open && setPreviewPractical(null)}><DialogContent className="virtual-lab-dialog"><DialogHeader><p className="eyebrow">PROGRAMME DESIGN · FACILITATOR PREVIEW</p><DialogTitle>{previewPractical?.title}</DialogTitle><DialogDescription>Test the complete learner activity before adding it to this programme</DialogDescription></DialogHeader>{previewPractical && <VirtualPracticalRunner key={`studio-preview-${previewPractical.id}`} practical={previewPractical} preview onSubmitted={async () => {}} onPreviewComplete={() => setPreviewedPracticalIds((items) => items.includes(previewPractical.id) ? items : [...items, previewPractical.id])} />}</DialogContent></Dialog>
 

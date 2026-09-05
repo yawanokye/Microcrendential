@@ -77,8 +77,8 @@ export async function POST(request: Request) {
   const returnTo = payload.mode === "register"
     ? "/student-registration"
     : portal === "facilitator" && payload.inviteToken
-      ? `/?portal=facilitator&invite=${encodeURIComponent(payload.inviteToken)}`
-      : `/?portal=${portal}`;
+      ? `/facilitator-studio?invite=${encodeURIComponent(payload.inviteToken)}`
+      : portal === "facilitator" ? "/facilitator-studio" : `/?portal=${portal}`;
   const response = NextResponse.json({ authenticated: true, portal, returnTo });
   response.cookies.set(SESSION_COOKIE, createSessionToken(account.email, account.full_name), { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/", maxAge: 7 * 24 * 60 * 60 });
   return response;
