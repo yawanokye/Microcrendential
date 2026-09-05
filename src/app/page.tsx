@@ -14,10 +14,12 @@ import { Switch } from "@/components/ui/switch";
 import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
 import { defaultCourseDesign, evaluateCourseQuality, type CourseDesign, type CourseMaterialRecord } from "@/lib/course-design";
+import { buildIllustrativeCourseTemplate, type IllustrativeTemplateAssets } from "@/lib/illustrative-course";
 import { labDisciplines, virtualPracticals, type LabDiscipline, type VirtualPractical } from "@/lib/virtual-labs";
 
 type PairItem = { left: string; right: string; image?: string };
 type AssessmentQuestion = { id: string; type: string; prompt: string; options: string[]; correctAnswer: string; points: number; scheme: string; feedbackCorrect: string; feedbackIncorrect: string; learnerAdvice: string; outcomeIds?: string[]; pairs?: PairItem[]; videoUrl?: string; videoMode?: "whole" | "part" | "pause"; videoStart?: number; videoEnd?: number; whiteboardEnabled?: boolean };
+type AssessmentSourceFile = { name: string; size: string; type: string; key?: string; url?: string };
 type CourseMaterial = CourseMaterialRecord;
 type CourseActivity = { id: string; kind: "colab" | "virtual_lab"; title: string; instructions: string; required: boolean; passMark: number; attemptsAllowed: number; maxMark?: number; dueAt?: string; rubric?: string; notebookKey?: string; notebookFileName?: string; templateUrl?: string; practicalId?: string; discipline?: string };
 type Course = { code: string; title: string; school: string; progress: number; modules: string; accent: string; next: string; discipline?: string; published?: boolean; description?: string; materials?: CourseMaterial[]; activities?: CourseActivity[]; assessmentConfig?: { passMark?: number; attempts?: string; questions?: AssessmentQuestion[] }; design?: CourseDesign; facilitatorName?: string; createdByEmail?: string; certificateEnabled?: boolean; status?: string; id?: number; versionNumber?: number; updatedAt?: string };
@@ -524,18 +526,21 @@ function MathWhiteboard({ value, onChange }: { value: string; onChange: (value: 
 function VideoTranscriptDialog({ material, onClose }: { material: CourseMaterial | null; onClose: () => void }) {
   if (!material) return null;
   const showTranscript = Boolean(material.transcript && material.transcriptPublished !== false);
-  const protectedFile = material.fileKey ? `/api/course-materials?key=${encodeURIComponent(material.fileKey)}` : "";
-  const isMediaFile = Boolean(protectedFile && /^(video|audio)\//.test(material.mimeType ?? ""));
-  const isPdfFile = Boolean(protectedFile && (material.mimeType === "application/pdf" || material.fileName?.toLowerCase().endsWith(".pdf")));
+  const originalFile = material.fileKey
+    ? `/api/course-materials?key=${encodeURIComponent(material.fileKey)}`
+    : (["Download", "File"].includes(material.kind) ? material.url ?? "" : "");
+  const isMediaFile = Boolean(originalFile && /^(video|audio)\//.test(material.mimeType ?? ""));
+  const isPdfFile = Boolean(originalFile && (material.mimeType === "application/pdf" || material.fileName?.toLowerCase().endsWith(".pdf") || originalFile.toLowerCase().includes(".pdf")));
   return <Dialog open onOpenChange={(open) => !open && onClose()}><DialogContent className="video-transcript-dialog commercial-content-dialog"><DialogHeader><p className="eyebrow">{material.kind.toUpperCase()} · {material.sectionTitle ?? "COURSE CONTENT"}</p><DialogTitle>{material.title}</DialogTitle><DialogDescription>{material.source} · {material.estimatedMinutes ?? 5} estimated minutes · {material.license ?? "Course material"}</DialogDescription></DialogHeader>
     <div className={showTranscript ? "video-transcript-layout" : "video-transcript-layout video-only"}>
       <div className="commercial-content-body">
-        {isPdfFile ? <div className="protected-pdf-viewer"><header><div><FileText /><span><b>Protected PDF lesson</b><small>Original layout · searchable and zoomable when supported by your browser</small></span></div><a href={protectedFile} target="_blank" rel="noreferrer">Open full screen</a></header><iframe src={`${protectedFile}#toolbar=1&navpanes=0&view=FitH`} title={`${material.title} PDF`} loading="lazy" /></div> : null}
+        {isPdfFile ? <div className="protected-pdf-viewer"><header><div><FileText /><span><b>PDF lesson</b><small>Original layout · searchable and zoomable when supported by your browser</small></span></div><a href={originalFile} target="_blank" rel="noreferrer">Open full screen</a></header><iframe src={`${originalFile}#toolbar=1&navpanes=0&view=FitH`} title={`${material.title} PDF`} loading="lazy" /></div> : null}
         {!isPdfFile && material.readableHtml ? <article className="readable-course-document" dangerouslySetInnerHTML={{ __html: material.readableHtml }} /> : null}
         {!isPdfFile && !material.readableHtml && material.kind === "Watch" && material.url ? <div className="transcript-video"><iframe src={material.url} title={material.title} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen /></div> : null}
-        {!isPdfFile && !material.readableHtml && isMediaFile ? material.mimeType?.startsWith("audio/") ? <audio controls src={protectedFile} /> : <video controls src={protectedFile} /> : null}
+        {!isPdfFile && !material.readableHtml && isMediaFile ? material.mimeType?.startsWith("audio/") ? <audio controls src={originalFile} /> : <video controls src={originalFile} /> : null}
         {!isPdfFile && !material.readableHtml && material.kind === "Embed" && material.url ? <iframe className="sandboxed-resource" src={material.url} title={material.title} sandbox="allow-scripts allow-same-origin allow-forms allow-popups" /> : null}
-        {!isPdfFile && !material.readableHtml && !isMediaFile && protectedFile ? <div className="download-material"><FileText /><h3>{material.fileName ?? material.title}</h3><p>Open or download the protected original supplied for this course.</p><a href={protectedFile} target="_blank" rel="noreferrer">Open original file</a></div> : null}
+        {!isPdfFile && !material.readableHtml && !isMediaFile && originalFile ? <div className="download-material"><FileText /><h3>{material.fileName ?? material.title}</h3><p>Open or download the original supplied for this course.</p><a href={originalFile} target="_blank" rel="noreferrer">Open original file</a></div> : null}
+        {!isPdfFile && material.readableHtml && originalFile ? <a className="frame-fallback" href={originalFile} target="_blank" rel="noreferrer">Open original {material.fileName?.split(".").pop()?.toUpperCase() ?? "document"}</a> : null}
         {material.externalUrl ? <a className="frame-fallback" href={material.externalUrl} target="_blank" rel="noreferrer">Open cited source in a new tab</a> : null}
       </div>
       {showTranscript && <section className="learner-transcript"><header><div><FileText /><b>Facilitator-reviewed transcript</b></div><span>{material.transcript?.split(/\s+/).filter(Boolean).length ?? 0} words</span></header><pre>{material.transcript}</pre></section>}
@@ -1130,7 +1135,7 @@ function OutcomeDesignEditor({ design, onChange }: { design: CourseDesign; onCha
 
 function FacilitatorStudio({ email, query, setQuery }: { email: string; query: string, setQuery: (value: string) => void }) {
   type Material = CourseMaterial;
-  type StudioDraft = { id: number; code: string; title: string; discipline: string; description: string; design: CourseDesign; materials: Material[]; activities: CourseActivity[]; assessmentModes: string[]; assessmentConfig: { passMark?: number; attempts?: string; questions?: AssessmentQuestion[]; questionFiles?: { name: string; size: string; type: string }[] }; gateRequired: boolean; questionLimit: number; certificateEnabled: boolean; status: string; createdByEmail: string; versionNumber: number; updatedAt?: string; reviewComment?: string | null; reviewedAt?: string | null };
+  type StudioDraft = { id: number; code: string; title: string; discipline: string; description: string; design: CourseDesign; materials: Material[]; activities: CourseActivity[]; assessmentModes: string[]; assessmentConfig: { passMark?: number; attempts?: string; questions?: AssessmentQuestion[]; questionFiles?: AssessmentSourceFile[] }; gateRequired: boolean; questionLimit: number; certificateEnabled: boolean; status: string; createdByEmail: string; versionNumber: number; updatedAt?: string; reviewComment?: string | null; reviewedAt?: string | null };
   const [step, setStep] = useState<StudioStepId>("details");
   const [portfolioOpen, setPortfolioOpen] = useState(false);
   const [courseTitle, setCourseTitle] = useState("Community Data Skills for Decision-Making");
@@ -1194,7 +1199,7 @@ function FacilitatorStudio({ email, query, setQuery }: { email: string; query: s
   const [gateRequired, setGateRequired] = useState(true);
   const [passMark, setPassMark] = useState(80);
   const [attempts, setAttempts] = useState("3");
-  const [questionFiles, setQuestionFiles] = useState<{ name: string; size: string; type: string }[]>([]);
+  const [questionFiles, setQuestionFiles] = useState<AssessmentSourceFile[]>([]);
   const [questions, setQuestions] = useState<AssessmentQuestion[]>([]);
   const [questionType, setQuestionType] = useState("Multiple choice");
   const [whiteboardEnabled, setWhiteboardEnabled] = useState(false);
@@ -1217,6 +1222,9 @@ function FacilitatorStudio({ email, query, setQuery }: { email: string; query: s
   const [learnerAdvice, setLearnerAdvice] = useState("Focus on the key concept, compare it with the examples, and use the feedback before your next attempt.");
   const [saving, setSaving] = useState(false);
   const [learnerPreviewOpen, setLearnerPreviewOpen] = useState(false);
+  const [tutorialOpen, setTutorialOpen] = useState(false);
+  const [loadingIllustrativeCourse, setLoadingIllustrativeCourse] = useState(false);
+  const [illustrativeTemplateLoaded, setIllustrativeTemplateLoaded] = useState(false);
   const refreshDrafts = useCallback(async () => {
     setLoadingDrafts(true);
     try {
@@ -1227,12 +1235,43 @@ function FacilitatorStudio({ email, query, setQuery }: { email: string; query: s
     finally { setLoadingDrafts(false); }
   }, [email]);
   useEffect(() => { void refreshDrafts(); }, [refreshDrafts]);
+  const loadIllustrativeCourse = async () => {
+    setLoadingIllustrativeCourse(true);
+    try {
+      const origin = window.location.origin;
+      const fallbackAssets: IllustrativeTemplateAssets = {
+        casePack: { name: "Applied-Data-Literacy-Case-Pack.pdf", size: 0, type: "application/pdf", publicUrl: `${origin}/examples/Applied-Data-Literacy-Case-Pack.pdf` },
+        capstoneBrief: { name: "Applied-Data-Literacy-Capstone-Brief.docx", size: 0, type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", publicUrl: `${origin}/examples/Applied-Data-Literacy-Capstone-Brief.docx` },
+        notebook: { name: "Applied-Data-Literacy-Colab-Notebook.ipynb", size: 0, type: "application/x-ipynb+json", publicUrl: `${origin}/examples/Applied-Data-Literacy-Colab-Notebook.ipynb` },
+        questionBank: { name: "Applied-Data-Literacy-Question-Bank.csv", size: 0, type: "text/csv", publicUrl: `${origin}/examples/Applied-Data-Literacy-Question-Bank.csv` },
+      };
+      let assets = fallbackAssets;
+      try {
+        const response = await fetch("/api/course-templates/illustrative", { method: "POST" });
+        const result = await response.json() as { assets?: IllustrativeTemplateAssets; error?: string };
+        if (response.ok && result.assets) assets = result.assets;
+        else toast.info("Example files will use their bundled copies", { description: result.error ?? "The course itself is still ready to explore." });
+      } catch {
+        toast.info("Example files will use their bundled copies", { description: "The course itself is still ready to explore." });
+      }
+
+      const example = buildIllustrativeCourseTemplate(origin, assets);
+      setDraftId(null); setDraftVersion(1); setDraftStatus("new"); setCourseCode(example.code); setCourseTitle(example.title); setDiscipline(example.discipline); setDescription(example.description);
+      setDesign(example.design); setMaterials(example.materials); setCourseActivities(example.activities); setAssessmentModes(example.assessmentModes);
+      setGateRequired(example.gateRequired); setQuestionLimit(example.questionLimit); setCertificateEnabled(example.certificateEnabled); setPassMark(example.assessmentConfig.passMark); setAttempts(example.assessmentConfig.attempts); setQuestions(example.assessmentConfig.questions); setQuestionFiles(example.assessmentConfig.questionFiles);
+      setContentSectionId(example.design.sections[0]?.id ?? "section-1"); setContentOutcomeIds(example.design.outcomes[0]?.id ? [example.design.outcomes[0].id] : []); setQuestionOutcomeIds(example.design.outcomes[0]?.id ? [example.design.outcomes[0].id] : []);
+      setStep("details"); setPortfolioOpen(false); setLearnerPreviewOpen(false); setIllustrativeTemplateLoaded(true);
+      toast.success("Complete illustrative course loaded", { description: "All six stages are filled. Explore, preview and adapt this unsaved copy before saving it as your own draft." });
+    } finally {
+      setLoadingIllustrativeCourse(false);
+    }
+  };
   const loadDraft = (course: StudioDraft) => {
     if (course.status === "active") return toast.info("Active courses are locked. Use the current version as the basis for a governed future revision.");
     setDraftId(course.id); setDraftVersion(course.versionNumber); setDraftStatus(course.status); setCourseCode(course.code); setCourseTitle(course.title); setDiscipline(course.discipline); setDescription(course.description);
     setDesign(course.design ?? defaultCourseDesign()); setMaterials(course.materials ?? []); setCourseActivities(course.activities ?? []); setAssessmentModes(course.assessmentModes ?? []);
     setGateRequired(course.gateRequired); setQuestionLimit(course.questionLimit); setCertificateEnabled(course.certificateEnabled); setPassMark(course.assessmentConfig?.passMark ?? 70); setAttempts(course.assessmentConfig?.attempts ?? "3"); setQuestions(course.assessmentConfig?.questions ?? []); setQuestionFiles(course.assessmentConfig?.questionFiles ?? []);
-    setContentSectionId(course.design?.sections?.[0]?.id ?? "section-1"); setContentOutcomeIds(course.design?.outcomes?.[0]?.id ? [course.design.outcomes[0].id] : []); setStep("details"); setPortfolioOpen(false);
+    setContentSectionId(course.design?.sections?.[0]?.id ?? "section-1"); setContentOutcomeIds(course.design?.outcomes?.[0]?.id ? [course.design.outcomes[0].id] : []); setStep("details"); setPortfolioOpen(false); setIllustrativeTemplateLoaded(false);
     toast.success(`Loaded version ${course.versionNumber}`, { description: course.title });
   };
   const importCourseContent = async () => {
@@ -1335,7 +1374,7 @@ function FacilitatorStudio({ email, query, setQuery }: { email: string; query: s
   const moveActivity = (index: number, direction: -1 | 1) => setCourseActivities((items) => { const target = index + direction; if (target < 0 || target >= items.length) return items; const next = [...items]; [next[index], next[target]] = [next[target], next[index]]; return next; });
   const openColabPreview = async (activity: CourseActivity) => {
     const directUrl = (() => {
-      if (!activity.templateUrl) return "https://colab.research.google.com/";
+      if (!activity.templateUrl) return null;
       try {
         const url = new URL(activity.templateUrl);
         if (url.hostname === "colab.research.google.com") return url.toString();
@@ -1343,7 +1382,7 @@ function FacilitatorStudio({ email, query, setQuery }: { email: string; query: s
           return `https://colab.research.google.com/github${url.pathname}${url.search}${url.hash}`;
         }
       } catch { /* The URL is validated before the activity is added. */ }
-      return "https://colab.research.google.com/";
+      return null;
     })();
 
     const colabWindow = window.open("about:blank", "_blank");
@@ -1352,19 +1391,22 @@ function FacilitatorStudio({ email, query, setQuery }: { email: string; query: s
       return;
     }
     colabWindow.opener = null;
-    colabWindow.location.href = directUrl;
+    colabWindow.location.href = directUrl ?? "https://colab.research.google.com/";
 
-    if (activity.templateUrl) {
+    if (directUrl) {
       toast.success("Colab preview opened", { description: "The facilitator-provided notebook is opening in a separate tab." });
       return;
     }
-    if (!activity.notebookKey) {
+    const notebookSource = activity.notebookKey
+      ? `/api/uploads?key=${encodeURIComponent(activity.notebookKey)}`
+      : activity.templateUrl;
+    if (!notebookSource) {
       toast.error("Notebook template unavailable", { description: "Return to Activities and upload the .ipynb template before testing the preview." });
       return;
     }
 
     try {
-      const response = await fetch(`/api/uploads?key=${encodeURIComponent(activity.notebookKey)}`);
+      const response = await fetch(notebookSource);
       if (!response.ok) {
         const result = await response.json().catch(() => ({})) as { error?: string };
         throw new Error(result.error ?? "The notebook template could not be downloaded.");
@@ -1377,7 +1419,7 @@ function FacilitatorStudio({ email, query, setQuery }: { email: string; query: s
       link.click();
       link.remove();
       window.setTimeout(() => URL.revokeObjectURL(blobUrl), 1_000);
-      toast.info("Colab opened and notebook downloaded", { description: "In Colab, choose File → Upload notebook and select the downloaded .ipynb template." });
+      toast.success("Colab opened and notebook downloaded", { description: "In the Colab tab, choose File → Upload notebook, then select the downloaded .ipynb file." });
     } catch (error) {
       toast.error("Colab opened, but the notebook could not be downloaded", { description: error instanceof Error ? error.message : "Return to Activities and upload the notebook again." });
     }
@@ -1464,13 +1506,13 @@ function FacilitatorStudio({ email, query, setQuery }: { email: string; query: s
   };
   const handleQuestionFiles = async (fileList: FileList | null) => {
     if (!fileList) return;
-    const uploaded: { name: string; size: string; type: string }[] = [];
+    const uploaded: AssessmentSourceFile[] = [];
     for (const file of Array.from(fileList)) {
       const body = new FormData(); body.append("file", file);
       const response = await fetch("/api/uploads", { method: "POST", body });
       if (!response.ok) { toast.error(`Could not upload ${file.name}`); continue; }
-      const stored = await response.json() as { name: string; size: number; type: string };
-      uploaded.push({ name: stored.name, size: `${Math.max(1, Math.round(stored.size / 1024))} KB`, type: stored.type });
+      const stored = await response.json() as { key?: string; name: string; size: number; type: string };
+      uploaded.push({ name: stored.name, size: `${Math.max(1, Math.round(stored.size / 1024))} KB`, type: stored.type, key: stored.key });
     }
     if (uploaded.length) { setQuestionFiles((items) => [...items, ...uploaded]); toast.success(`${uploaded.length} question file${uploaded.length === 1 ? "" : "s"} uploaded`); }
   };
@@ -1513,7 +1555,7 @@ function FacilitatorStudio({ email, query, setQuery }: { email: string; query: s
     }
   };
   const startNewCourse = () => {
-    const nextDesign = defaultCourseDesign(); setDraftId(null); setDraftVersion(1); setDraftStatus("new"); setCourseTitle(""); setCourseCode(""); setDescription(""); setDiscipline("Interdisciplinary"); setDesign(nextDesign); setMaterials([]); setCourseActivities([]); setQuestions([]); setQuestionFiles([]); setAssessmentModes(["Objective quiz"]); setContentSectionId(nextDesign.sections[0].id); setContentOutcomeIds([nextDesign.outcomes[0].id]); setStep("details"); setPortfolioOpen(false);
+    const nextDesign = defaultCourseDesign(); setDraftId(null); setDraftVersion(1); setDraftStatus("new"); setCourseTitle(""); setCourseCode(""); setDescription(""); setDiscipline("Interdisciplinary"); setDesign(nextDesign); setMaterials([]); setCourseActivities([]); setQuestions([]); setQuestionFiles([]); setAssessmentModes(["Objective quiz"]); setContentSectionId(nextDesign.sections[0].id); setContentOutcomeIds([nextDesign.outcomes[0].id]); setStep("details"); setPortfolioOpen(false); setIllustrativeTemplateLoaded(false);
   };
 
   return <div className="authoring-shell">
@@ -1527,6 +1569,23 @@ function FacilitatorStudio({ email, query, setQuery }: { email: string; query: s
         <header><div><p className="eyebrow">MY COURSE PORTFOLIO</p><h3>Drafts, reviews and live offerings</h3></div><div className="portfolio-header-actions"><button className="portfolio-new" onClick={startNewCourse}><BookOpen /> New course</button><button className="portfolio-toggle" type="button" aria-expanded={portfolioOpen} onClick={() => setPortfolioOpen((open) => !open)}>{portfolioOpen ? "Hide courses" : `Open courses (${drafts.length})`} <ChevronDown /></button></div></header>
         {portfolioOpen && (loadingDrafts ? <div className="empty-state">Loading course versions…</div> : <div>{drafts.map((course) => <article key={course.id} className={draftId === course.id ? "selected" : ""}><span className={`portfolio-status ${course.status}`}>{course.status.replaceAll("_", " ")}</span><div><b>{course.title}</b><small>{course.code} · version {course.versionNumber} · {course.updatedAt ? new Date(course.updatedAt).toLocaleDateString() : "recently updated"}</small></div><div className="portfolio-actions"><button onClick={() => loadDraft(course)}>{course.status === "active" ? "View status" : "Continue editing"}</button></div>{course.reviewComment && <p className="review-feedback"><MessageSquareText /> <span><b>{course.status === "rejected" ? "Changes requested" : "Review note"}</b>{course.reviewComment}</span></p>}</article>)}{drafts.length === 0 && <div className="empty-state">Your first course draft will appear here after saving.</div>}</div>)}
       </section>
+
+      <section className="illustrative-guide-card">
+        <div className="illustrative-guide-icon"><GraduationCap /></div>
+        <div className="illustrative-guide-copy">
+          <p className="eyebrow">FACILITATOR TUTORIAL · COMPLETE ILLUSTRATIVE COURSE</p>
+          <h2>Learn the Studio from a course that fills every field</h2>
+          <p>Load a safe, unsaved example with a complete blueprint, measurable outcomes, mapped HTML/PDF/Word/video content, Colab and virtual-lab activities, all assessment formats, accessibility evidence, rubrics, progression rules and the UCC QR-certificate gate.</p>
+          <div className="illustrative-coverage" aria-label="Illustrative course coverage"><span><CheckCircle2 /> Required fields</span><span><CheckCircle2 /> Optional enhancements</span><span><CheckCircle2 /> 13 question types</span><span><CheckCircle2 /> 100% readiness example</span></div>
+        </div>
+        <div className="illustrative-guide-actions">
+          <button className="dialog-primary" disabled={loadingIllustrativeCourse} onClick={() => void loadIllustrativeCourse()}><BookOpen /> {loadingIllustrativeCourse ? "Preparing example…" : "Load complete example"}</button>
+          <button className="secondary-action" onClick={() => setTutorialOpen(true)}><Eye /> Open guided tutorial</button>
+          <div><a href="/tutorials/UCC-Facilitator-Course-Studio-Annotated-Guide.pdf" download><FileText /> Download PDF guide</a><a href="/tutorials/UCC-Facilitator-Course-Studio-Annotated-Guide.docx" download><FileCheck2 /> Download Word guide</a></div>
+        </div>
+      </section>
+
+      {illustrativeTemplateLoaded && <section className="illustrative-loaded-banner"><ShieldCheck /><div><b>Illustrative template loaded — not yet saved</b><p>Explore every stage and use Preview as student. Before saving for real delivery, replace the example code, title, dates, external links, files and local case evidence.</p></div><button onClick={() => setTutorialOpen(true)}>View annotations</button></section>}
 
       <section className="studio-roadmap" aria-label="Course creation progress">
         <header><div><p className="eyebrow">GUIDED COURSE CREATION</p><h2>Six stages from idea to academic review</h2><p>Select a stage to edit it. Green ticks confirm that every check in that stage has passed.</p></div><span><b>{completedStudioSteps} of {studioSteps.length}</b> stages complete</span></header>
@@ -1592,7 +1651,7 @@ function FacilitatorStudio({ email, query, setQuery }: { email: string; query: s
 
         <section className="assessment-integrity-panel"><div><p className="eyebrow">ASSESSMENT INTEGRITY</p><h3>Design for demonstrated performance, not answer recall</h3><p>No online assessment can be made completely AI-proof. Use a mix of controlled video checkpoints, randomized questions, local scenarios, practical evidence, handwritten workings and short oral verification so the learner must demonstrate how the answer was produced.</p></div><div className="integrity-grid"><article><Video /><b>Watch → pause → answer</b><span>Unlock questions only after the configured video segment is viewed.</span></article><article><RotateCcw /><b>Question variation</b><span>Build a larger bank than the displayed question limit and vary prompts, data or cases.</span></article><article><Sigma /><b>Show working</b><span>Require calculations, whiteboard workings, annotated evidence or intermediate steps.</span></article><article><MessageSquareText /><b>Oral verification</b><span>Use a short viva for high-stakes tasks or suspicious/exceptional submissions.</span></article><article><FlaskConical /><b>Authentic task</b><span>Assess a practical, workplace, lab, coding or locally grounded deliverable.</span></article><article><ShieldCheck /><b>Evidence chain</b><span>Require source files, timestamps, drafts, screenshots or process notes where appropriate.</span></article></div></section>
 
-        <div className="assessment-source-grid"><section><p className="eyebrow">UPLOAD QUESTION BANK</p><h3>Import test questions or marking material</h3><p>Upload CSV, Excel, Word, PDF or text files. The files are retained with the draft for facilitator and quality review.</p><label className="upload-zone compact-upload"><FileCheck2 /><b>Choose assessment files</b><span>CSV · XLSX · DOCX · PDF · TXT</span><input type="file" multiple accept=".csv,.xls,.xlsx,.doc,.docx,.pdf,.txt" onChange={(event) => handleQuestionFiles(event.target.files)} /></label>{questionFiles.length > 0 && <div className="uploaded-files">{questionFiles.map((file, index) => <article key={`${file.name}-${index}`}><FileCheck2 /><div><b>{file.name}</b><span>{file.size} · assessment source</span></div><button onClick={() => setQuestionFiles((items) => items.filter((_, itemIndex) => itemIndex !== index))}>Remove</button></article>)}</div>}</section>
+        <div className="assessment-source-grid"><section><p className="eyebrow">UPLOAD QUESTION BANK</p><h3>Import test questions or marking material</h3><p>Upload CSV, Excel, Word, PDF or text files. The files are retained with the draft for facilitator and quality review.</p><label className="upload-zone compact-upload"><FileCheck2 /><b>Choose assessment files</b><span>CSV · XLSX · DOCX · PDF · TXT</span><input type="file" multiple accept=".csv,.xls,.xlsx,.doc,.docx,.pdf,.txt" onChange={(event) => handleQuestionFiles(event.target.files)} /></label>{questionFiles.length > 0 && <div className="uploaded-files">{questionFiles.map((file, index) => { const fileHref = file.key ? `/api/uploads?key=${encodeURIComponent(file.key)}` : file.url; return <article key={`${file.name}-${index}`}><FileCheck2 /><div><b>{file.name}</b><span>{file.size} · assessment source</span></div>{fileHref && <a href={fileHref} target="_blank" rel="noreferrer">Open</a>}<button onClick={() => setQuestionFiles((items) => items.filter((_, itemIndex) => itemIndex !== index))}>Remove</button></article>; })}</div>}</section>
         <section className="question-bank-summary"><p className="eyebrow">QUESTION BANK</p><h3>{questions.length} authored question{questions.length === 1 ? "" : "s"}</h3><p>Every question can carry a correct answer, grading scheme, feedback and learner advice.</p>{questions.map((question, index) => <article key={question.id}><span>{index + 1}</span><div><b>{question.type} · {question.points} point{question.points === 1 ? "" : "s"}{question.whiteboardEnabled ? " · Mathematical whiteboard" : ""}</b><p>{question.prompt}</p></div><button onClick={() => setQuestions((items) => items.filter((item) => item.id !== question.id))}>Remove</button></article>)}{questions.length === 0 && <div className="empty-state">No typed questions yet. Use the editor below or upload a question bank.</div>}</section></div>
 
         <section className="question-editor"><div className="editor-heading"><div><p className="eyebrow">QUESTION EDITOR</p><h3>Write a question and its grading guidance</h3></div><label>Question type<select value={questionType} onChange={(event) => { setQuestionType(event.target.value); setCorrectAnswer(""); setCorrectOptionIndex(null); }}><option>Multiple choice</option><option>True / false</option><option>Fill in</option><option>Matching</option><option>Drag and drop</option><option>Picture matching</option><option>Video question</option><option>Short answer</option><option>Essay</option><option>Scenario response</option><option>Oral defence prompt</option><option>Evidence upload prompt</option><option>Practical assignment</option></select></label></div><label>Question or task<textarea value={questionPrompt} onChange={(event) => setQuestionPrompt(event.target.value)} placeholder="Enter the question exactly as the learner should see it…" /></label><div className="outcome-mapping compact"><b>Outcomes assessed by this question</b><div>{design.outcomes.map((outcome, index) => <label key={outcome.id} className={questionOutcomeIds.includes(outcome.id) ? "selected" : ""}><input type="checkbox" checked={questionOutcomeIds.includes(outcome.id)} onChange={() => setQuestionOutcomeIds((items) => items.includes(outcome.id) ? items.filter((id) => id !== outcome.id) : [...items, outcome.id])} /><span>LO {index + 1}</span>{outcome.statement}</label>)}</div></div>
@@ -1638,6 +1697,20 @@ function FacilitatorStudio({ email, query, setQuery }: { email: string; query: s
         <div className="release-rule"><ShieldCheck /><p><b>Progress rule</b>{gateRequired ? "Learners must meet the pass mark before the next activity unlocks." : "Activities are available without a required assessment gate."}</p></div>
       </details>
     </aside>
+
+    <Dialog open={tutorialOpen} onOpenChange={setTutorialOpen}><DialogContent className="studio-tutorial-dialog"><DialogHeader><p className="eyebrow">ANNOTATED FACILITATOR TUTORIAL</p><DialogTitle>Build a review-ready UCC microcredential in six stages</DialogTitle><DialogDescription>Use the example to see what “complete” looks like. Green checks are generated from the same rules used before academic review.</DialogDescription></DialogHeader>
+      <div className="studio-tutorial-callout"><ShieldCheck /><div><b>Safe to explore</b><p>Loading the example replaces only the unsaved editor state. Nothing enters your portfolio until you choose Save draft.</p></div></div>
+      <div className="studio-tutorial-steps">{[
+        ["1", "Blueprint", "Define the offer", "Complete the title, unique code, 80+ character value statement, audience, prerequisites, workload, language, delivery, pricing and accessibility commitment."],
+        ["2", "Outcomes", "Align purpose and evidence", "Write at least two objectives and observable outcomes. Select a skill and assessment method for each, then organise the syllabus into purposeful sections."],
+        ["3", "Content", "Build an accessible sequence", "Add text or readable HTML, files and approved links. Place every block in a section, map all outcomes, and provide a reviewed transcript for each video."],
+        ["4", "Activities", "Require authentic practice", "Configure Colab or virtual-lab work with instructions, rubric, pass mark, attempts, due date and a clear required/optional certificate-gate decision."],
+        ["5", "Assessment", "Collect defensible evidence", "Choose evidence modes, map every question to outcomes, add correct answers or criteria, marks, feedback and learner advice, then set attempts and pass mark."],
+        ["6", "Quality & submit", "Test before governance", "Resolve every readiness exception, open each lesson and activity in Preview as student, save the draft, then submit the governed version for UCC review."],
+      ].map(([number, title, lead, detail]) => <article key={number}><span>{number}</span><div><p>{title}</p><b>{lead}</b><small>{detail}</small></div></article>)}</div>
+      <section className="studio-tutorial-key"><p className="eyebrow">HOW TO READ THE INDICATORS</p><div><span className="complete"><CheckCircle2 /></span><p><b>Green tick</b>Every required check in the stage is complete.</p></div><div><span className="pending"><Clock3 /></span><p><b>Clock</b>The side panel names the exact field or evidence still needed.</p></div><div><span className="optional"><Gauge /></span><p><b>Optional</b>Useful enrichment may be omitted, but any activity you add must be fully configured.</p></div></section>
+      <footer className="studio-tutorial-actions"><div><a href="/tutorials/UCC-Facilitator-Course-Studio-Annotated-Guide.pdf" download><FileText /> PDF guide</a><a href="/tutorials/UCC-Facilitator-Course-Studio-Annotated-Guide.docx" download><FileCheck2 /> Editable Word guide</a></div><button className="dialog-primary" disabled={loadingIllustrativeCourse} onClick={() => { setTutorialOpen(false); void loadIllustrativeCourse(); }}><BookOpen /> {loadingIllustrativeCourse ? "Preparing…" : "Load the example now"}</button></footer>
+    </DialogContent></Dialog>
 
     <Dialog open={learnerPreviewOpen} onOpenChange={setLearnerPreviewOpen}><DialogContent className="learner-preview-dialog"><DialogHeader><p className="eyebrow">STUDENT PORTAL PREVIEW</p><DialogTitle>{courseTitle || "Untitled microcredential"}</DialogTitle><DialogDescription>This is the learner-facing experience using the current unsaved studio state. Test lessons, Colab notebooks and virtual practicals before submission.</DialogDescription></DialogHeader><PublishedCourseExperience course={{ code: courseCode || "DRAFT", title: courseTitle || "Untitled microcredential", school: "Facilitator preview", progress: 0, modules: `${materials.length + courseActivities.length} learning activities`, accent: "teal", next: "Preview", discipline, description, materials, activities: courseActivities, assessmentConfig: { passMark, attempts, questions }, design, certificateEnabled, status: "preview", facilitatorName: "Course facilitator" }} onOpenActivity={openProgrammeActivityPreview} preview /></DialogContent></Dialog>
 
