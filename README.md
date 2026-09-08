@@ -108,6 +108,19 @@ npm run dev
 
 Open `http://localhost:3000`. The SQLite database and uploads are stored under `.data/` locally.
 
+## Manual-to-course import
+
+Facilitators can open the dedicated Course Studio and select **Import learning manual**. The protected workflow accepts searchable PDF, DOCX, TXT, Markdown, HTML and RTF documents up to 25 MB. It then:
+
+1. extracts readable text without publishing the source;
+2. proposes the course identity, audience, delivery, workload, objectives, measurable outcomes, skills and syllabus sections;
+3. creates structured readable-HTML learning blocks while retaining the original document;
+4. proposes assessment methods, editable short-answer questions, progression rules and the UCC certificate gate;
+5. labels every field as **Found in manual**, **Suggested**, **Review required** or **Missing**, with a confidence score and source excerpt; and
+6. lets the facilitator apply selected groups to a new unsaved Studio draft.
+
+Automatic import never publishes a course, confirms copyright permission, marks accessibility review complete, creates specialist Colab or virtual-lab evidence, grants UCC approval or issues a certificate. The facilitator must work through all six Studio stages and resolve the side-panel checks before submitting the version for academic review. Image-only or scanned PDFs must be made searchable with OCR before upload.
+
 ## Free Google Colab workflow
 
 1. A facilitator opens **Colab coding**, chooses one of their active courses, uploads a master `.ipynb` notebook, sets instructions, rubric, deadline, marks, pass threshold and permitted attempts, then publishes the assignment.
@@ -119,12 +132,6 @@ Open `http://localhost:3000`. The SQLite database and uploads are stored under `
 There is no compulsory Colab charge for ordinary CPU notebook work; learners need an internet connection and a Google account. Paid Colab is only a learner-side option when heavier GPU or compute resources are required.
 
 On Render, notebook templates and learner notebook submissions are stored below `DATA_DIR/uploads/colab-templates/` and `DATA_DIR/uploads/colab-submissions/` on the persistent disk.
-
-## Facilitator Course Studio tutorial and illustrative course
-
-Open **Facilitator Portal → Course Studio** and select **Load complete example** to populate a safe, unsaved model course. It fills all six stages and demonstrates required fields, optional enhancements, accessible HTML/PDF/Word/video learning blocks, outcome mapping, Colab and virtual-lab activities, 13 question formats, rubrics, progression rules and the QR-certificate gate. Nothing is saved until the facilitator selects **Save draft**.
-
-The Studio also provides an on-screen annotated tutorial and downloadable PDF/Word guides. Worked assets are stored in `public/tutorials/` and `public/examples/`. They are examples for study and must be adapted, checked and approved before live delivery. See `ILLUSTRATIVE_COURSE_RELEASE_2026-09-05.md` for the full release inventory.
 
 ### Add Colab and virtual-lab activities while designing a programme
 
