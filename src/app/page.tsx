@@ -5,16 +5,18 @@ import Image from "next/image";
 import {
   Activity, AlertTriangle, ArrowLeft, Award, Beaker, Bell, BookOpen, CalendarDays, CheckCircle2, ChevronDown, ChevronRight, CirclePlay, ClipboardCheck, Clock3,
   Code2, Eye, FileCheck2, FileText, FlaskConical, Gauge, GraduationCap, GripVertical, HeartPulse, LayoutDashboard, Menu,
-  MessageSquareText, Microscope, Pencil, QrCode, RotateCcw, Search, Settings, ShieldCheck, Sigma, Stethoscope, Undo2, Upload, Users, Video, Wrench, X,
+  MessageSquareText, Microscope, Pencil, QrCode, RotateCcw, Search, Settings, ShieldCheck, Sigma, Stethoscope, Undo2, Upload, Users, Video, WandSparkles, Wrench, X,
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { Toaster } from "@/components/ui/sonner";
+import { ManualCourseImporter } from "@/components/manual-course-importer";
 import { toast } from "sonner";
 import { defaultCourseDesign, evaluateCourseQuality, type CourseDesign, type CourseMaterialRecord } from "@/lib/course-design";
 import { buildIllustrativeCourseTemplate, type IllustrativeTemplateAssets } from "@/lib/illustrative-course";
+import type { ManualCourseProposal, ManualImportGroup } from "@/lib/manual-course-import";
 import { labDisciplines, virtualPracticals, type LabDiscipline, type VirtualPractical } from "@/lib/virtual-labs";
 
 type PairItem = { left: string; right: string; image?: string };
@@ -1225,6 +1227,7 @@ function FacilitatorStudio({ email, query, setQuery }: { email: string; query: s
   const [tutorialOpen, setTutorialOpen] = useState(false);
   const [loadingIllustrativeCourse, setLoadingIllustrativeCourse] = useState(false);
   const [illustrativeTemplateLoaded, setIllustrativeTemplateLoaded] = useState(false);
+  const [manualImportApplied, setManualImportApplied] = useState<{ fileName: string; missing: number; needsReview: number } | null>(null);
   const refreshDrafts = useCallback(async () => {
     setLoadingDrafts(true);
     try {
@@ -1260,7 +1263,7 @@ function FacilitatorStudio({ email, query, setQuery }: { email: string; query: s
       setDesign(example.design); setMaterials(example.materials); setCourseActivities(example.activities); setAssessmentModes(example.assessmentModes);
       setGateRequired(example.gateRequired); setQuestionLimit(example.questionLimit); setCertificateEnabled(example.certificateEnabled); setPassMark(example.assessmentConfig.passMark); setAttempts(example.assessmentConfig.attempts); setQuestions(example.assessmentConfig.questions); setQuestionFiles(example.assessmentConfig.questionFiles);
       setContentSectionId(example.design.sections[0]?.id ?? "section-1"); setContentOutcomeIds(example.design.outcomes[0]?.id ? [example.design.outcomes[0].id] : []); setQuestionOutcomeIds(example.design.outcomes[0]?.id ? [example.design.outcomes[0].id] : []);
-      setStep("details"); setPortfolioOpen(false); setLearnerPreviewOpen(false); setIllustrativeTemplateLoaded(true);
+      setStep("details"); setPortfolioOpen(false); setLearnerPreviewOpen(false); setIllustrativeTemplateLoaded(true); setManualImportApplied(null);
       toast.success("Complete illustrative course loaded", { description: "All six stages are filled. Explore, preview and adapt this unsaved copy before saving it as your own draft." });
     } finally {
       setLoadingIllustrativeCourse(false);
@@ -1271,7 +1274,7 @@ function FacilitatorStudio({ email, query, setQuery }: { email: string; query: s
     setDraftId(course.id); setDraftVersion(course.versionNumber); setDraftStatus(course.status); setCourseCode(course.code); setCourseTitle(course.title); setDiscipline(course.discipline); setDescription(course.description);
     setDesign(course.design ?? defaultCourseDesign()); setMaterials(course.materials ?? []); setCourseActivities(course.activities ?? []); setAssessmentModes(course.assessmentModes ?? []);
     setGateRequired(course.gateRequired); setQuestionLimit(course.questionLimit); setCertificateEnabled(course.certificateEnabled); setPassMark(course.assessmentConfig?.passMark ?? 70); setAttempts(course.assessmentConfig?.attempts ?? "3"); setQuestions(course.assessmentConfig?.questions ?? []); setQuestionFiles(course.assessmentConfig?.questionFiles ?? []);
-    setContentSectionId(course.design?.sections?.[0]?.id ?? "section-1"); setContentOutcomeIds(course.design?.outcomes?.[0]?.id ? [course.design.outcomes[0].id] : []); setStep("details"); setPortfolioOpen(false); setIllustrativeTemplateLoaded(false);
+    setContentSectionId(course.design?.sections?.[0]?.id ?? "section-1"); setContentOutcomeIds(course.design?.outcomes?.[0]?.id ? [course.design.outcomes[0].id] : []); setStep("details"); setPortfolioOpen(false); setIllustrativeTemplateLoaded(false); setManualImportApplied(null);
     toast.success(`Loaded version ${course.versionNumber}`, { description: course.title });
   };
   const importCourseContent = async () => {
@@ -1555,7 +1558,57 @@ function FacilitatorStudio({ email, query, setQuery }: { email: string; query: s
     }
   };
   const startNewCourse = () => {
-    const nextDesign = defaultCourseDesign(); setDraftId(null); setDraftVersion(1); setDraftStatus("new"); setCourseTitle(""); setCourseCode(""); setDescription(""); setDiscipline("Interdisciplinary"); setDesign(nextDesign); setMaterials([]); setCourseActivities([]); setQuestions([]); setQuestionFiles([]); setAssessmentModes(["Objective quiz"]); setContentSectionId(nextDesign.sections[0].id); setContentOutcomeIds([nextDesign.outcomes[0].id]); setStep("details"); setPortfolioOpen(false); setIllustrativeTemplateLoaded(false);
+    const nextDesign = defaultCourseDesign(); setDraftId(null); setDraftVersion(1); setDraftStatus("new"); setCourseTitle(""); setCourseCode(""); setDescription(""); setDiscipline("Interdisciplinary"); setDesign(nextDesign); setMaterials([]); setCourseActivities([]); setQuestions([]); setQuestionFiles([]); setAssessmentModes(["Objective quiz"]); setContentSectionId(nextDesign.sections[0].id); setContentOutcomeIds([nextDesign.outcomes[0].id]); setStep("details"); setPortfolioOpen(false); setIllustrativeTemplateLoaded(false); setManualImportApplied(null);
+  };
+
+  const applyManualCourseProposal = (proposal: ManualCourseProposal, selectedGroups: ManualImportGroup[]) => {
+    const selected = new Set(selectedGroups);
+    const importBlueprint = selected.has("blueprint");
+    const importOutcomes = selected.has("outcomes");
+    const importContent = selected.has("content");
+    const importAssessment = selected.has("assessment");
+    const allGroupsSelected = selectedGroups.length === 4;
+
+    const nextDesign: CourseDesign = {
+      ...(importBlueprint ? proposal.design : design),
+      objectives: importOutcomes ? proposal.design.objectives : design.objectives,
+      outcomes: importOutcomes ? proposal.design.outcomes : design.outcomes,
+      skills: importOutcomes ? proposal.design.skills : design.skills,
+      sections: importOutcomes ? proposal.design.sections : design.sections,
+    };
+    const validSections = new Set(nextDesign.sections.map((section) => section.id));
+    const validOutcomes = new Set(nextDesign.outcomes.map((outcome) => outcome.id));
+    const firstSection = nextDesign.sections[0];
+    const firstOutcome = nextDesign.outcomes[0];
+    const sourceMaterials = importContent ? proposal.materials : materials;
+    const nextMaterials = sourceMaterials.map((material) => {
+      const sectionId = material.sectionId && validSections.has(material.sectionId) ? material.sectionId : firstSection?.id;
+      const mappedOutcomes = (material.outcomeIds ?? []).filter((id) => validOutcomes.has(id));
+      return {
+        ...material,
+        sectionId,
+        sectionTitle: nextDesign.sections.find((section) => section.id === sectionId)?.title,
+        outcomeIds: mappedOutcomes.length ? mappedOutcomes : firstOutcome ? [firstOutcome.id] : [],
+      };
+    });
+    const sourceQuestions: AssessmentQuestion[] = importAssessment ? proposal.assessmentConfig.questions : questions;
+    const nextQuestions = sourceQuestions.map((question) => {
+      const mappedOutcomes = (question.outcomeIds ?? []).filter((id) => validOutcomes.has(id));
+      return { ...question, outcomeIds: mappedOutcomes.length ? mappedOutcomes : firstOutcome ? [firstOutcome.id] : [] };
+    });
+
+    setDraftId(null); setDraftVersion(1); setDraftStatus("new");
+    if (importBlueprint) { setCourseCode(proposal.course.code); setCourseTitle(proposal.course.title); setDescription(proposal.course.description); setDiscipline(proposal.course.discipline); }
+    setDesign(nextDesign); setMaterials(nextMaterials); setQuestions(nextQuestions);
+    if (importAssessment) {
+      setAssessmentModes(proposal.assessmentModes); setPassMark(proposal.assessmentConfig.passMark); setAttempts(proposal.assessmentConfig.attempts);
+      setGateRequired(proposal.gateRequired); setQuestionLimit(proposal.questionLimit); setCertificateEnabled(proposal.certificateEnabled); setQuestionFiles([]);
+    }
+    if (allGroupsSelected) setCourseActivities([]);
+    setContentSectionId(firstSection?.id ?? "section-1"); setContentOutcomeIds(firstOutcome ? [firstOutcome.id] : []); setQuestionOutcomeIds(firstOutcome ? [firstOutcome.id] : []);
+    setStep("details"); setPortfolioOpen(false); setLearnerPreviewOpen(false); setIllustrativeTemplateLoaded(false);
+    setManualImportApplied({ fileName: proposal.source.fileName, missing: proposal.counts.missing, needsReview: proposal.counts.needsReview });
+    toast.success("Manual converted to an unsaved course draft", { description: "Complete the remaining checks, confirm accessibility and rights, then save your draft." });
   };
 
   return <div className="authoring-shell">
@@ -1569,6 +1622,8 @@ function FacilitatorStudio({ email, query, setQuery }: { email: string; query: s
         <header><div><p className="eyebrow">MY COURSE PORTFOLIO</p><h3>Drafts, reviews and live offerings</h3></div><div className="portfolio-header-actions"><button className="portfolio-new" onClick={startNewCourse}><BookOpen /> New course</button><button className="portfolio-toggle" type="button" aria-expanded={portfolioOpen} onClick={() => setPortfolioOpen((open) => !open)}>{portfolioOpen ? "Hide courses" : `Open courses (${drafts.length})`} <ChevronDown /></button></div></header>
         {portfolioOpen && (loadingDrafts ? <div className="empty-state">Loading course versions…</div> : <div>{drafts.map((course) => <article key={course.id} className={draftId === course.id ? "selected" : ""}><span className={`portfolio-status ${course.status}`}>{course.status.replaceAll("_", " ")}</span><div><b>{course.title}</b><small>{course.code} · version {course.versionNumber} · {course.updatedAt ? new Date(course.updatedAt).toLocaleDateString() : "recently updated"}</small></div><div className="portfolio-actions"><button onClick={() => loadDraft(course)}>{course.status === "active" ? "View status" : "Continue editing"}</button></div>{course.reviewComment && <p className="review-feedback"><MessageSquareText /> <span><b>{course.status === "rejected" ? "Changes requested" : "Review note"}</b>{course.reviewComment}</span></p>}</article>)}{drafts.length === 0 && <div className="empty-state">Your first course draft will appear here after saving.</div>}</div>)}
       </section>
+
+      <ManualCourseImporter onApply={applyManualCourseProposal} />
 
       <section className="illustrative-guide-card">
         <div className="illustrative-guide-icon"><GraduationCap /></div>
@@ -1585,6 +1640,7 @@ function FacilitatorStudio({ email, query, setQuery }: { email: string; query: s
         </div>
       </section>
 
+      {manualImportApplied && <section className="manual-import-applied-banner"><WandSparkles /><div><b>Manual imported — not yet saved</b><p>{manualImportApplied.fileName} created a structured draft. {manualImportApplied.needsReview} fields need review and {manualImportApplied.missing} required source item remains missing. Follow the six stage checks before UCC submission.</p></div><button type="button" onClick={() => setStep("content")}>Review imported lessons</button></section>}
       {illustrativeTemplateLoaded && <section className="illustrative-loaded-banner"><ShieldCheck /><div><b>Illustrative template loaded — not yet saved</b><p>Explore every stage and use Preview as student. Before saving for real delivery, replace the example code, title, dates, external links, files and local case evidence.</p></div><button onClick={() => setTutorialOpen(true)}>View annotations</button></section>}
 
       <section className="studio-roadmap" aria-label="Course creation progress">
