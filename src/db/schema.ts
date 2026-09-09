@@ -15,6 +15,7 @@ export const courseDrafts = sqliteTable("course_drafts", {
   gateRequired: integer("gate_required", { mode: "boolean" }).notNull().default(true),
   questionLimit: integer("question_limit").notNull().default(10),
   certificateEnabled: integer("certificate_enabled", { mode: "boolean" }).notNull().default(true),
+  certificateFeeGhs: integer("certificate_fee_ghs").notNull().default(0),
   status: text("status").notNull().default("pending_review"),
   createdByEmail: text("created_by_email").notNull().default(""),
   activatedByEmail: text("activated_by_email"),
@@ -69,8 +70,28 @@ export const enrollments = sqliteTable("enrollments", {
   userEmail: text("user_email").notNull(),
   courseCode: text("course_code").notNull(),
   status: text("status", { enum: ["active", "completed", "withdrawn"] }).notNull().default("active"),
+  paymentStatus: text("payment_status", { enum: ["not_required", "pending", "paid"] }).notNull().default("not_required"),
+  paymentReference: text("payment_reference"),
+  amountPaidPesewas: integer("amount_paid_pesewas").notNull().default(0),
   enrolledAt: text("enrolled_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 }, (table) => [uniqueIndex("enrollments_user_course_unique").on(table.userEmail, table.courseCode)]);
+
+export const paymentOrders = sqliteTable("payment_orders", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  reference: text("reference").notNull(),
+  userEmail: text("user_email").notNull(),
+  courseCode: text("course_code").notNull(),
+  purpose: text("purpose", { enum: ["enrollment", "certificate"] }).notNull(),
+  amountPesewas: integer("amount_pesewas").notNull(),
+  currency: text("currency").notNull().default("GHS"),
+  provider: text("provider").notNull().default("paystack"),
+  status: text("status", { enum: ["pending", "paid", "failed"] }).notNull().default("pending"),
+  providerReference: text("provider_reference"),
+  providerPayloadJson: text("provider_payload_json").notNull().default("{}"),
+  paidAt: text("paid_at"),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [uniqueIndex("payment_orders_reference_unique").on(table.reference), index("payment_orders_user_course_idx").on(table.userEmail, table.courseCode)]);
 
 export const assessmentAttempts = sqliteTable("assessment_attempts", {
   id: integer("id").primaryKey({ autoIncrement: true }),

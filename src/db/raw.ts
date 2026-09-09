@@ -43,6 +43,7 @@ CREATE TABLE IF NOT EXISTS course_drafts (
   gate_required INTEGER NOT NULL DEFAULT 1,
   question_limit INTEGER NOT NULL DEFAULT 10,
   certificate_enabled INTEGER NOT NULL DEFAULT 1,
+  certificate_fee_ghs INTEGER NOT NULL DEFAULT 0,
   status TEXT NOT NULL DEFAULT 'pending_review',
   created_by_email TEXT NOT NULL DEFAULT '',
   activated_by_email TEXT,
@@ -95,9 +96,29 @@ CREATE TABLE IF NOT EXISTS enrollments (
   user_email TEXT NOT NULL,
   course_code TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','completed','withdrawn')),
+  payment_status TEXT NOT NULL DEFAULT 'not_required' CHECK(payment_status IN ('not_required','pending','paid')),
+  payment_reference TEXT,
+  amount_paid_pesewas INTEGER NOT NULL DEFAULT 0,
   enrolled_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   UNIQUE(user_email, course_code)
 );
+CREATE TABLE IF NOT EXISTS payment_orders (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  reference TEXT NOT NULL UNIQUE,
+  user_email TEXT NOT NULL,
+  course_code TEXT NOT NULL,
+  purpose TEXT NOT NULL CHECK(purpose IN ('enrollment','certificate')),
+  amount_pesewas INTEGER NOT NULL,
+  currency TEXT NOT NULL DEFAULT 'GHS',
+  provider TEXT NOT NULL DEFAULT 'paystack',
+  status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','paid','failed')),
+  provider_reference TEXT,
+  provider_payload_json TEXT NOT NULL DEFAULT '{}',
+  paid_at TEXT,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS payment_orders_user_course_idx ON payment_orders(user_email, course_code);
 CREATE TABLE IF NOT EXISTS assessment_attempts (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_email TEXT NOT NULL,
@@ -224,6 +245,10 @@ export function getRawDb() {
   ensureColumn("course_drafts", "review_comment", "TEXT");
   ensureColumn("course_drafts", "reviewed_by_email", "TEXT");
   ensureColumn("course_drafts", "reviewed_at", "TEXT");
+  ensureColumn("course_drafts", "certificate_fee_ghs", "INTEGER NOT NULL DEFAULT 0");
+  ensureColumn("enrollments", "payment_status", "TEXT NOT NULL DEFAULT 'not_required'");
+  ensureColumn("enrollments", "payment_reference", "TEXT");
+  ensureColumn("enrollments", "amount_paid_pesewas", "INTEGER NOT NULL DEFAULT 0");
   ensureColumn("users", "student_number", "TEXT");
   ensureColumn("users", "education_level", "TEXT");
   ensureColumn("users", "occupation", "TEXT");

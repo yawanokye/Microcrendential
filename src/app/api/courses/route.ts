@@ -5,7 +5,7 @@ import { plainTextFromHtml, sanitizeReadableHtml } from "@/lib/document-content"
 
 type CourseRow = {
   id: number; code: string; title: string; discipline: string; description: string; materials_json: string; activities_json: string; assessment_modes_json: string;
-  assessment_config_json: string; design_json: string; gate_required: number; question_limit: number; certificate_enabled: number; status: string;
+  assessment_config_json: string; design_json: string; gate_required: number; question_limit: number; certificate_enabled: number; certificate_fee_ghs: number; status: string;
   created_by_email: string; facilitator_name: string | null; activated_at: string | null; submitted_at: string | null; review_comment: string | null; reviewed_by_email: string | null; reviewed_at: string | null; version_number: number; updated_at: string | null; created_at: string;
 };
 
@@ -51,7 +51,7 @@ function present(row: CourseRow) {
     materials: parseJson<CourseMaterialRecord[]>(row.materials_json, []), activities: parseJson<unknown[]>(row.activities_json, []),
     assessmentModes: parseJson<string[]>(row.assessment_modes_json, []), assessmentConfig: parseJson<Record<string, unknown>>(row.assessment_config_json, {}),
     design: normalizeCourseDesign(parseJson(row.design_json, {})), gateRequired: Boolean(row.gate_required), questionLimit: row.question_limit,
-    certificateEnabled: Boolean(row.certificate_enabled), status: row.status, createdByEmail: row.created_by_email,
+    certificateEnabled: Boolean(row.certificate_enabled), certificateFeeGhs: row.certificate_fee_ghs || 0, status: row.status, createdByEmail: row.created_by_email,
     facilitatorName: row.facilitator_name ?? row.created_by_email, activatedAt: row.activated_at, submittedAt: row.submitted_at,
     reviewComment: row.review_comment, reviewedByEmail: row.reviewed_by_email, reviewedAt: row.reviewed_at,
     versionNumber: row.version_number || 1, updatedAt: row.updated_at ?? row.created_at, createdAt: row.created_at,
@@ -68,7 +68,8 @@ function normalizedPayload(payload: Record<string, unknown>) {
   const questions = Array.isArray(assessmentConfig.questions) ? assessmentConfig.questions : [];
   const questionLimit = Math.min(100, Math.max(1, Number(payload.questionLimit) || 10));
   const quality = evaluateCourseQuality({ title, description, design, materials, questionCount: questions.slice(0, questionLimit).length });
-  return { title, code, discipline, description, design, materials, activities, assessmentModes, assessmentConfig, questionLimit, quality };
+  const certificateFeeGhs = Math.min(1_000_000, Math.max(0, Math.round(Number(payload.certificateFeeGhs) || 0)));
+  return { title, code, discipline, description, design, materials, activities, assessmentModes, assessmentConfig, questionLimit, certificateFeeGhs, quality };
 }
 
 function validateForReview(course: ReturnType<typeof normalizedPayload>) {
@@ -101,8 +102,8 @@ export async function POST(request: Request) {
   const db = getRawDb(); const existing = await db.prepare("SELECT id FROM course_drafts WHERE code = ? LIMIT 1").bind(course.code).first();
   if (existing) return Response.json({ error: "That course code is already in use. Open the existing draft to continue editing." }, { status: 409 });
   const status = submissionMode === "review" ? "pending_review" : "draft";
-  const result = await db.prepare("INSERT INTO course_drafts (code, title, discipline, description, materials_json, activities_json, assessment_modes_json, assessment_config_json, design_json, gate_required, question_limit, certificate_enabled, status, created_by_email, submitted_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CASE WHEN ? = 'pending_review' THEN CURRENT_TIMESTAMP ELSE NULL END, CURRENT_TIMESTAMP)")
-    .bind(course.code, course.title, course.discipline, course.description, JSON.stringify(course.materials), JSON.stringify(course.activities), JSON.stringify(course.assessmentModes), JSON.stringify(course.assessmentConfig), JSON.stringify(course.design), payload.gateRequired === false ? 0 : 1, course.questionLimit, payload.certificateEnabled === false ? 0 : 1, status, account.profile.email, status).run();
+  const result = await db.prepare("INSERT INTO course_drafts (code, title, discipline, description, materials_json, activities_json, assessment_modes_json, assessment_config_json, design_json, gate_required, question_limit, certificate_enabled, certificate_fee_ghs, status, created_by_email, submitted_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CASE WHEN ? = 'pending_review' THEN CURRENT_TIMESTAMP ELSE NULL END, CURRENT_TIMESTAMP)")
+    .bind(course.code, course.title, course.discipline, course.description, JSON.stringify(course.materials), JSON.stringify(course.activities), JSON.stringify(course.assessmentModes), JSON.stringify(course.assessmentConfig), JSON.stringify(course.design), payload.gateRequired === false ? 0 : 1, course.questionLimit, payload.certificateEnabled === false ? 0 : 1, course.certificateFeeGhs, status, account.profile.email, status).run();
   return Response.json({ course: { id: result.meta.last_row_id, code: course.code, title: course.title, discipline: course.discipline, status, versionNumber: 1 }, quality: course.quality }, { status: 201 });
 }
 
@@ -124,8 +125,8 @@ export async function PUT(request: Request) {
   const submissionMode = payload.submissionMode === "review" ? "review" : "draft";
   if (submissionMode === "review") { const error = validateForReview(course); if (error) return Response.json({ error, quality: course.quality }, { status: 400 }); }
   const status = submissionMode === "review" ? "pending_review" : "draft";
-  const result = await db.prepare("UPDATE course_drafts SET code = ?, title = ?, discipline = ?, description = ?, materials_json = ?, activities_json = ?, assessment_modes_json = ?, assessment_config_json = ?, design_json = ?, gate_required = ?, question_limit = ?, certificate_enabled = ?, status = ?, version_number = version_number + 1, submitted_at = CASE WHEN ? = 'pending_review' THEN CURRENT_TIMESTAMP ELSE submitted_at END, review_comment = CASE WHEN ? = 'pending_review' THEN NULL ELSE review_comment END, reviewed_by_email = CASE WHEN ? = 'pending_review' THEN NULL ELSE reviewed_by_email END, reviewed_at = CASE WHEN ? = 'pending_review' THEN NULL ELSE reviewed_at END, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND version_number = ?")
-    .bind(course.code, course.title, course.discipline, course.description, JSON.stringify(course.materials), JSON.stringify(course.activities), JSON.stringify(course.assessmentModes), JSON.stringify(course.assessmentConfig), JSON.stringify(course.design), payload.gateRequired === false ? 0 : 1, course.questionLimit, payload.certificateEnabled === false ? 0 : 1, status, status, status, status, status, id, expectedVersion).run();
+  const result = await db.prepare("UPDATE course_drafts SET code = ?, title = ?, discipline = ?, description = ?, materials_json = ?, activities_json = ?, assessment_modes_json = ?, assessment_config_json = ?, design_json = ?, gate_required = ?, question_limit = ?, certificate_enabled = ?, certificate_fee_ghs = ?, status = ?, version_number = version_number + 1, submitted_at = CASE WHEN ? = 'pending_review' THEN CURRENT_TIMESTAMP ELSE submitted_at END, review_comment = CASE WHEN ? = 'pending_review' THEN NULL ELSE review_comment END, reviewed_by_email = CASE WHEN ? = 'pending_review' THEN NULL ELSE reviewed_by_email END, reviewed_at = CASE WHEN ? = 'pending_review' THEN NULL ELSE reviewed_at END, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND version_number = ?")
+    .bind(course.code, course.title, course.discipline, course.description, JSON.stringify(course.materials), JSON.stringify(course.activities), JSON.stringify(course.assessmentModes), JSON.stringify(course.assessmentConfig), JSON.stringify(course.design), payload.gateRequired === false ? 0 : 1, course.questionLimit, payload.certificateEnabled === false ? 0 : 1, course.certificateFeeGhs, status, status, status, status, status, id, expectedVersion).run();
   if (!result.meta.changes) return Response.json({ error: "The draft version changed before it could be saved." }, { status: 409 });
   return Response.json({ course: { id, code: course.code, title: course.title, status, versionNumber: expectedVersion + 1 }, quality: course.quality });
 }

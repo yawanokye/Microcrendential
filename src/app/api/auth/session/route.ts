@@ -7,7 +7,7 @@ export async function GET() {
   if (!identity) return Response.json({ authenticated: false });
   let enrollments: string[] = [];
   if (profile?.role === "learner") {
-    const rows = await getRawDb().prepare("SELECT course_code FROM enrollments WHERE user_email = ? AND status = 'active' ORDER BY enrolled_at DESC")
+    const rows = await getRawDb().prepare("SELECT course_code FROM enrollments WHERE user_email = ? AND status IN ('active', 'completed') ORDER BY enrolled_at DESC")
       .bind(profile.email).all<{ course_code: string }>();
     enrollments = rows.results.map((row) => row.course_code);
   }

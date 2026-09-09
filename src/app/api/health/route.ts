@@ -13,13 +13,17 @@ export async function GET() {
     persistentDataDirectory: Boolean(dataDirectory),
     persistentDatabasePath: Boolean(sqlitePath) && (!dataDirectory || sqlitePath.startsWith(dataDirectory)),
     database: false,
+    paymentGateway: false,
   };
 
   try {
     const result = await getRawDb().prepare("SELECT 1 AS ready").first<{ ready: number }>();
     checks.database = result?.ready === 1;
+    const paidCourse = await getRawDb().prepare("SELECT id FROM course_drafts WHERE status = 'active' AND (certificate_fee_ghs > 0 OR CAST(json_extract(design_json, '$.priceGhs') AS REAL) > 0) LIMIT 1").first<{ id: number }>();
+    checks.paymentGateway = !paidCourse || Boolean(process.env.PAYSTACK_SECRET_KEY?.trim());
   } catch {
     checks.database = false;
+    checks.paymentGateway = false;
   }
 
   const ready = Object.values(checks).every(Boolean);
