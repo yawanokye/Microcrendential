@@ -11,10 +11,6 @@ services:
         value: production
       - key: PORT
         value: 10000
-      - key: NEXT_PUBLIC_APP_URL
-        value: https://ucc-microcredential-platform.onrender.com
-      - key: PAYSTACK_SECRET_KEY
-        sync: false
       - key: DATA_DIR
         value: /var/data
       - key: SQLITE_PATH
@@ -22,6 +18,10 @@ services:
       - key: AUTH_SECRET
         generateValue: true
       - key: INITIAL_ADMIN_EMAIL
+        sync: false
+      - key: NEXT_PUBLIC_APP_URL
+        value: https://ucc-microcredential-platform.onrender.com
+      - key: PAYSTACK_SECRET_KEY
         sync: false
     disk:
       name: ucc-platform-data

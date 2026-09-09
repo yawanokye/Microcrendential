@@ -13,6 +13,8 @@ Role separation is enforced by both the interface and the API. Hiding a navigati
 ## Contemporary microcredential capabilities
 
 - A six-stage **Commercial Course Studio** covers product blueprint, course objectives, measurable outcomes, skills, syllabus sections, content, authentic activities, assessment and quality review. Draft saves use optimistic version checks and only a 100% publish-ready submission can enter academic activation.
+- **Self-enrolment is the institution-wide default** for every new, imported and existing active course or programme. Free enrolment is the default; a facilitator may optionally set an enrolment fee or a separate certificate-generation fee.
+- A protected **learning-manual importer** accepts PDF, DOCX, TXT, Markdown, HTML and RTF files, extracts readable content and pre-fills the course title, code, description, objectives, measurable outcomes, skills, syllabus sections, learning blocks and starter assessment questions for facilitator review.
 - Facilitators can author text or sanitised HTML, upload protected files, or import a public link. `.PDF`, `.DOCX`, `.TXT`, `.MD`, `.HTML` and `.RTF` sources are converted to readable HTML where possible; the protected original remains available to authorised learners. Other Word, PowerPoint, image, audio and video files remain protected course attachments.
 - Every learning block records its section, unit, estimated time, source/licence, accessibility review and mapped learning outcomes. The learner course view presents the same structured syllabus, objectives, outcomes and authentic evidence requirements.
 - A dedicated four-step **Student Registration Portal** creates a secure account, captures learner and accessibility preferences, protects identity evidence, and assigns a unique student number.
@@ -43,12 +45,31 @@ The package is adapted for Render. It uses:
 
 ## Commercial course design and content workflow
 
-1. In **Facilitator Portal → Course Studio**, define the market-facing title, code, category, level, delivery pattern, expected hours, language, audience, prerequisites, accessibility commitment, enrolment mode and optional price marker.
+1. In **Facilitator Portal → Course Studio**, define the market-facing title, code, category, level, delivery pattern, expected hours, language, audience, prerequisites and accessibility commitment. Self-enrolment and free enrolment are already selected; turn on an enrolment fee or certificate fee only when required.
 2. Add at least two objectives and measurable outcomes. Each outcome must name its related skill and assessment method. Create one or more learner-facing syllabus sections.
 3. Add learning blocks by writing/pasting text, supplying reviewed HTML, uploading a document/media file, converting a public web link, or keeping a link as a sandboxed embed. Map each block to a section and one or more outcomes.
 4. Add required or optional Colab and virtual-lab evidence activities, then author scored assessment questions and map them to outcomes.
 5. Save freely as a draft. The quality screen checks course identity, audience, objectives, outcomes, structure, outcome alignment, accessibility and assessment. Only a complete version can be submitted.
 6. A system administrator reviews the submitted version and activates it. Learners see only active versions.
+
+### Self-enrolment and payment rules
+
+- Every existing course record is migrated to self-enrolment once when this release first starts.
+- Every course created manually, copied from the illustrative template or generated from an uploaded manual is self-enrolment by default.
+- The default enrolment fee is **GHS 0**, so a signed-in student can enrol immediately.
+- If an enrolment fee is enabled, the student completes Paystack payment before the course is added to their learning portal.
+- Course completion is academic: a learner can finish a course even when a separate certificate fee applies.
+- The default certificate fee is **GHS 0**. If a facilitator enables a certificate fee, the learner pays from the credential wallet before the QR-verifiable UCC certificate is generated.
+
+### Create a course from a learning manual
+
+1. Open **Facilitator Portal → Course Studio** and select **Create from learning manual**.
+2. Upload a PDF, DOCX, TXT, Markdown, HTML or RTF manual of up to 25 MB.
+3. The importer stores the protected original, extracts readable text and creates an editable draft containing the available course-design fields.
+4. Review every generated objective, outcome, skill, section, learning block and question. Correct the wording, outcome mappings, licence, accessibility information, timings and assessment answers before saving.
+5. Complete the quality checklist, preview the student experience and submit the draft for administrator approval.
+
+Extraction is an authoring aid, not an academic approval decision. Scanned or poorly encoded PDFs may need OCR or an accessible DOCX alternative before reliable extraction.
 
 Automatic PDF extraction is best effort because PDFs may contain scanned pages, custom fonts or protected encodings. A low-text PDF is retained as the original and clearly flagged for facilitator correction or an accessible alternative. Modern `.DOCX` files can be converted; legacy binary `.DOC` files are retained as attachments and should be re-saved as `.DOCX` when readable conversion is required.
 
@@ -145,26 +166,8 @@ Learners may attach an optional video, image or PDF evidence file up to 25 MB. O
 | `DATA_DIR` | Yes on Render | Database and protected-upload directory; configured as `/var/data` |
 | `SQLITE_PATH` | Yes on Render | Explicit persistent database path; configured as `/var/data/ucc-microcredentials.sqlite` |
 | `PORT` | Render-managed | HTTP listening port; the Blueprint uses `10000` |
-| `NEXT_PUBLIC_APP_URL` | Yes in production | Canonical HTTPS origin used for payment callbacks |
-| `PAYSTACK_SECRET_KEY` | Only when a published course charges a fee | Server-only key used to initialize and verify GHS payments |
-
-## Manual-to-course drafting
-
-In **Facilitator Studio → Blueprint**, upload a readable PDF, DOCX, TXT, Markdown, HTML or RTF learning manual. The importer retains the original, extracts readable text and pre-fills an editable course title, description, objectives, measurable outcomes, skills, syllabus sections, aligned learning blocks and starter assessments.
-
-The generated result is a draft, not an academic approval. The facilitator must review accuracy, outcome wording, assessment validity, copyright, attribution, accessibility and learner workload before saving or submitting it for UCC review. Image-only PDFs need OCR before upload.
-
-## Free and paid enrolment and certificates
-
-All new courses default to **free enrolment** and a **free certificate**. A facilitator must explicitly enable either fee, and an administrator sees the disclosure during academic review.
-
-- A free open course enrols the signed-in learner immediately.
-- A paid open course redirects the learner to Paystack and grants access only after server-side verification of reference, amount, currency and email.
-- Academic course completion is recorded independently of certificate payment.
-- A certificate fee, when enabled, is requested only after every academic and identity requirement is complete.
-- Paystack secret keys remain server-side. Configure the webhook as `https://ucc-microcredential-platform.onrender.com/api/payments/webhook`.
-
-Implementation references: [Paystack payment flow](https://paystack.com/docs/payments/accept-payments/) and [Paystack webhook verification](https://paystack.com/docs/payments/webhooks/).
+| `NEXT_PUBLIC_APP_URL` | Yes on Render | Public HTTPS address used for payment return URLs; configured by the Blueprint |
+| `PAYSTACK_SECRET_KEY` | Only for paid offerings | Private Paystack server key used for enrolment and certificate payments; never expose it in browser code |
 
 ## Data persistence and backups
 

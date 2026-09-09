@@ -1,31 +1,23 @@
-# UCC Microcredential Platform — enrolment and certificate release
+# UCC Microcredential Platform v13
 
-## Included
+## Self-enrolment release
 
-- Signed-in learners can browse administrator-published courses, open full course details and enrol from the learner portal.
-- Course details show purpose, facilitator, workload, delivery, audience, prerequisites, objectives, measurable outcomes, syllabus and separate fee disclosures.
-- All new courses default to free enrolment and a free UCC certificate.
-- Facilitators must explicitly enable an enrolment fee or certificate fee in Course Studio.
-- Paid enrolment uses Paystack initialization, callback verification and signed webhooks.
-- Academic completion is stored independently from certificate payment.
-- A certificate fee, when enabled, is requested only after verified identity and all academic requirements are complete.
-- Free certificates are generated without a payment step.
-- Payment records include purpose, reference, amount, currency, status and a limited verification receipt.
-- The facilitator can upload a readable learning manual and generate a fully editable course draft containing objectives, outcomes, skills, sections, learning blocks and starter assessment items.
-- Manual-derived courses remain drafts and must pass the existing facilitator checks and UCC academic approval workflow.
+This release makes self-enrolment the platform-wide policy for courses and programmes.
 
-## Production configuration
+- All newly created courses are self-enrolment and free by default.
+- All courses generated from an uploaded learning manual are self-enrolment and free by default.
+- All existing database courses are converted to self-enrolment by a recorded one-time migration at startup.
+- Students can inspect full course details and enrol immediately in free courses.
+- A facilitator can optionally enable an enrolment fee. Paid enrolment is confirmed only after server-verified Paystack payment.
+- A facilitator can independently make the UCC certificate free or paid. Academic completion is retained while a paid certificate awaits payment.
+- The student credential wallet shows completed courses ready for free generation or payment and generation.
 
-Set `NEXT_PUBLIC_APP_URL` to the public HTTPS origin. Set `PAYSTACK_SECRET_KEY` only if at least one published course charges an enrolment or certificate fee. Configure Paystack to send webhooks to:
+## Learning-manual course creation
 
-`https://ucc-microcredential-platform.onrender.com/api/payments/webhook`
+The Course Studio can securely ingest PDF, DOCX, TXT, Markdown, HTML and RTF manuals up to 25 MB. It preserves the original file, extracts readable text and creates an editable draft with course identity, description, objectives, measurable outcomes, skills, sections, lesson blocks and starter assessment questions. Facilitator review and the existing academic approval gate remain mandatory.
 
-Do not expose the Paystack secret in client-side code or commit a real key to GitHub.
+## Deployment notes
 
-## Verification completed
+No manual database edit is needed for the self-enrolment conversion. The first application start applies the migration to the persistent SQLite database and records it in `platform_migrations`.
 
-- Next.js 16.2.6 production build passed.
-- TypeScript checks passed.
-- ESLint reported no errors (existing advisory warnings remain).
-- Fresh SQLite initialization created the fee and payment tables/columns.
-- A local payment-settlement fixture validated reference, email, currency and amount, then created the paid enrolment.
+`PAYSTACK_SECRET_KEY` is required only when at least one active offering charges an enrolment or certificate fee. Keep it in Render environment settings. The platform health endpoint reports a configuration problem when a paid active offering exists without the key.
