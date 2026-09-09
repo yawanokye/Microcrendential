@@ -1,26 +1,22 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { issueCertificateIfComplete } from "@/lib/course-completion";
-import { settlePayment } from "@/lib/payments";
-
-export const dynamic = "force-dynamic";
+import { getRawDb } from "@/db/raw";
+import { settlePaymentOrder, type PaymentOrder } from "@/lib/payments";
 
 export async function POST(request: Request) {
   const secret = process.env.PAYSTACK_SECRET_KEY?.trim();
   if (!secret) return Response.json({ error: "Payment webhook is not configured." }, { status: 503 });
-  const body = await request.text();
-  const supplied = request.headers.get("x-paystack-signature") || "";
-  const expected = createHmac("sha512", secret).update(body).digest("hex");
-  const suppliedBuffer = Buffer.from(supplied, "utf8");
-  const expectedBuffer = Buffer.from(expected, "utf8");
-  if (suppliedBuffer.length !== expectedBuffer.length || !timingSafeEqual(suppliedBuffer, expectedBuffer)) return Response.json({ error: "Invalid signature." }, { status: 401 });
-  const event = JSON.parse(body) as { event?: string; data?: { reference?: string } } & Record<string, unknown>;
-  if (event.event === "charge.success" && event.data?.reference) {
-    try {
-      const order = await settlePayment(event.data.reference, { status: true, data: event.data });
-      if (order.purpose === "certificate") await issueCertificateIfComplete(order.user_email, order.course_code);
-    } catch (error) {
-      return Response.json({ error: error instanceof Error ? error.message : "Payment settlement failed." }, { status: 400 });
-    }
-  }
+  const raw = Buffer.from(await request.arrayBuffer());
+  const signature = request.headers.get("x-paystack-signature") ?? "";
+  const expected = createHmac("sha512", secret).update(raw).digest("hex");
+  const validSignature = signature.length === expected.length && timingSafeEqual(Buffer.from(signature), Buffer.from(expected));
+  if (!validSignature) return Response.json({ error: "Invalid webhook signature." }, { status: 401 });
+  const event = JSON.parse(raw.toString("utf8")) as { event?: string; data?: { status?: string; reference?: string; amount?: number; currency?: string; customer?: { email?: string } } };
+  if (event.event !== "charge.success" || !event.data?.reference) return Response.json({ received: true });
+  const order = await getRawDb().prepare("SELECT reference, user_email, course_code, purpose, amount_pesewas, currency, status FROM payment_orders WHERE reference = ? LIMIT 1")
+    .bind(event.data.reference).first<PaymentOrder>();
+  if (!order) return Response.json({ received: true });
+  const valid = event.data.status === "success" && event.data.reference === order.reference && Number(event.data.amount) === order.amount_pesewas && event.data.currency === order.currency && event.data.customer?.email?.toLowerCase() === order.user_email.toLowerCase();
+  if (!valid) return Response.json({ error: "Payment details did not match the order." }, { status: 409 });
+  await settlePaymentOrder(order.reference, event);
   return Response.json({ received: true });
 }

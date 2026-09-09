@@ -19,6 +19,7 @@ export type CourseDesign = {
   expectedHours: number;
   enrolmentMode: "open" | "application" | "invitation";
   priceGhs: number;
+  certificateFeeGhs: number;
   intendedAudience: string;
   prerequisites: string;
   accessibilityStatement: string;
@@ -61,6 +62,7 @@ export const defaultCourseDesign = (): CourseDesign => ({
   expectedHours: 24,
   enrolmentMode: "open",
   priceGhs: 0,
+  certificateFeeGhs: 0,
   intendedAudience: "Professionals, students and lifelong learners seeking applied capability in this field.",
   prerequisites: "No formal prerequisite. Basic digital literacy and reliable internet access are recommended.",
   accessibilityStatement: "Readable HTML, keyboard-accessible activities, descriptive labels and reviewed transcripts will be provided wherever applicable.",
@@ -86,7 +88,6 @@ export function normalizeCourseDesign(value: unknown): CourseDesign {
   const categories = new Set<CourseDesign["category"]>(["credit", "professional", "rpl"]);
   const deliveries = new Set<CourseDesign["deliveryPattern"]>(["asynchronous", "synchronous", "blended"]);
   const levels = new Set<CourseDesign["level"]>(["foundation", "applied", "advanced"]);
-  const enrolmentModes = new Set<CourseDesign["enrolmentMode"]>(["open", "application", "invitation"]);
   const outcomes = Array.isArray(input.outcomes) ? input.outcomes.map((item, index) => {
     const outcome = item && typeof item === "object" ? item as Partial<LearningOutcome> : {};
     return {
@@ -106,14 +107,17 @@ export function normalizeCourseDesign(value: unknown): CourseDesign {
   }).filter((item) => item.title).slice(0, 30) : [];
   const expectedHours = Math.min(500, Math.max(1, Number(input.expectedHours) || fallback.expectedHours));
   const priceGhs = Math.min(1_000_000, Math.max(0, Number(input.priceGhs) || 0));
+  const certificateFeeGhs = Math.min(1_000_000, Math.max(0, Number(input.certificateFeeGhs) || 0));
   return {
     category: categories.has(input.category as CourseDesign["category"]) ? input.category as CourseDesign["category"] : fallback.category,
     deliveryPattern: deliveries.has(input.deliveryPattern as CourseDesign["deliveryPattern"]) ? input.deliveryPattern as CourseDesign["deliveryPattern"] : fallback.deliveryPattern,
     level: levels.has(input.level as CourseDesign["level"]) ? input.level as CourseDesign["level"] : fallback.level,
     language: String(input.language || fallback.language).trim().slice(0, 80),
     expectedHours,
-    enrolmentMode: enrolmentModes.has(input.enrolmentMode as CourseDesign["enrolmentMode"]) ? input.enrolmentMode as CourseDesign["enrolmentMode"] : fallback.enrolmentMode,
+    // Institution-wide policy: every published offering supports learner self-enrolment.
+    enrolmentMode: "open",
     priceGhs,
+    certificateFeeGhs,
     intendedAudience: String(input.intendedAudience || "").trim().slice(0, 2000),
     prerequisites: String(input.prerequisites || "").trim().slice(0, 2000),
     accessibilityStatement: String(input.accessibilityStatement || "").trim().slice(0, 2000),

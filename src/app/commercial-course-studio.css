@@ -250,6 +250,44 @@
   .quality-score-card { grid-template-columns:140px minmax(0,1fr) auto; }
   .skill-check-grid { grid-template-columns:1fr; }
 }
+
+.manual-import-card { display:grid; grid-template-columns:52px minmax(0,1fr) minmax(250px,330px); gap:18px; align-items:start; margin:18px 22px; padding:20px; background:linear-gradient(135deg,#f1fbf8,#f7fafc); border:1px solid #9acfc5; border-radius:16px; }
+.manual-import-icon { width:50px; height:50px; display:grid; place-items:center; color:#fff; background:linear-gradient(145deg,#0b755f,#123b55); border-radius:13px; }
+.manual-import-icon svg { width:24px; }
+.manual-import-card h2 { margin:5px 0 7px; color:#0b3349; font-size:17px; }
+.manual-import-card p:not(.eyebrow) { margin:0; color:#5e747c; font-size:10px; line-height:1.6; }
+.manual-import-notes { display:flex; flex-wrap:wrap; gap:7px; margin-top:12px; }
+.manual-import-notes span { display:flex; align-items:center; gap:5px; padding:6px 8px; color:#176f60; background:#fff; border:1px solid #c8e3dd; border-radius:16px; font-size:7px; font-weight:800; }
+.manual-import-notes svg { width:13px; }
+.manual-import-actions { display:grid; gap:9px; }
+.manual-import-actions label { display:grid; grid-template-columns:24px 1fr; gap:5px 8px; align-items:center; padding:12px; color:#123b55; background:#fff; border:1px dashed #6fae9f; border-radius:10px; cursor:pointer; }
+.manual-import-actions label>svg { grid-row:span 2; width:21px; color:#0b7b69; }
+.manual-import-actions label b { font-size:9px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.manual-import-actions label small { color:#71858c; font-size:7px; }
+.manual-import-actions input { display:none; }
+.manual-import-result { grid-column:2/-1; display:grid; grid-template-columns:24px 1fr; gap:8px; align-items:start; padding:10px 12px; color:#176f60; background:#e7f7f2; border-radius:9px; }
+.manual-import-result svg { width:19px; }
+.manual-import-result p { display:grid; gap:2px; }
+.self-enrolment-policy { grid-column:1/-1; display:grid; grid-template-columns:30px 1fr; gap:9px; align-items:center; padding:12px; color:#155f54; background:#e9f8f4; border:1px solid #90cabe; border-radius:10px; }
+.self-enrolment-policy>svg { width:22px; }
+.self-enrolment-policy span,.self-enrolment-policy b { display:block; }
+.self-enrolment-policy span { font-size:8px; line-height:1.5; }
+.self-enrolment-policy b { margin-bottom:2px; font-size:9px; }
+.fee-switch { align-content:start; padding:11px!important; background:#f7fafb; border:1px solid #d0dee2; border-radius:10px; }
+.fee-switch>span { display:flex; align-items:center; gap:8px; min-height:28px; }
+.fee-switch>input { margin-top:7px; }
+.catalog-grid button.catalog-details { min-width:0; width:max-content; margin-top:7px; padding:0; color:#0b786a; background:transparent; border:0; border-radius:0; font-size:8px; text-decoration:underline; }
+.catalog-grid button.catalog-details:hover { color:#0b3349; }
+
+@media (max-width:900px) {
+  .manual-import-card { grid-template-columns:48px minmax(0,1fr); }
+  .manual-import-actions,.manual-import-result { grid-column:1/-1; }
+}
+
+@media (max-width:560px) {
+  .manual-import-card { grid-template-columns:1fr; margin-left:10px; margin-right:10px; }
+  .manual-import-icon { width:44px; height:44px; }
+}
 @media (max-width:760px) {
   .commercial-studio-title > div:last-child { justify-content:flex-start; }
   .course-portfolio article { grid-template-columns:1fr; }

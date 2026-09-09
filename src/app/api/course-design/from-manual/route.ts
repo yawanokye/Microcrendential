@@ -1,117 +1,135 @@
 import { requireActiveProfile } from "@/lib/accounts";
+import { defaultCourseDesign, type CourseMaterialRecord, type LearningOutcome } from "@/lib/course-design";
 import { extractReadableContent, textToReadableHtml } from "@/lib/document-content";
 import { putStoredFile } from "@/lib/render-storage";
 
-const supported = new Set(["pdf", "docx", "txt", "md", "html", "htm", "rtf"]);
-const cleanLine = (value: string) => value.replace(/^[\s•*\-–—\d.)]+/, "").replace(/\s+/g, " ").trim();
-const sentence = (value: string, fallback: string) => cleanLine(value).slice(0, 600) || fallback;
+const accepted = new Set(["pdf", "docx", "txt", "md", "html", "htm", "rtf"]);
+const observable = /^(analyse|analyze|apply|assess|build|calculate|compare|create|critique|define|demonstrate|describe|design|develop|differentiate|evaluate|explain|identify|implement|interpret|justify|measure|plan|produce|solve|use)\b/i;
 
-function linesBelow(lines: string[], heading: RegExp, maximum = 6) {
-  const start = lines.findIndex((line) => heading.test(line));
-  if (start < 0) return [];
-  const collected: string[] = [];
-  for (const raw of lines.slice(start + 1)) {
-    const line = cleanLine(raw);
-    if (!line) continue;
-    if (collected.length && /^(chapter|module|unit|section|topic|assessment|references?|bibliography)\b/i.test(line)) break;
-    if (line.length >= 12) collected.push(line);
-    if (collected.length >= maximum) break;
-  }
-  return collected;
+const cleanLine = (value: string) => value.replace(/^\s*(?:[-*•]|\d+[.)])\s*/, "").replace(/\s+/g, " ").trim();
+const sentences = (text: string) => text.split(/(?<=[.!?])\s+|\n+/).map(cleanLine).filter((item) => item.length >= 25 && item.length <= 360);
+const titleCase = (value: string) => value.replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim().replace(/\b\w/g, (letter) => letter.toUpperCase());
+
+function candidateTitle(text: string, fileName: string) {
+  const first = text.split(/\n+/).map(cleanLine).find((line) => line.length >= 8 && line.length <= 140 && !/^(table of contents|contents|copyright|page \d+)/i.test(line));
+  return (first || titleCase(fileName.replace(/\.[^.]+$/, ""))).slice(0, 180);
 }
 
-function titleFrom(lines: string[], fileName: string) {
-  const candidate = lines.find((line) => {
-    const text = cleanLine(line);
-    return text.length >= 8 && text.length <= 160 && !/^(table of contents|contents|copyright|university of cape coast)$/i.test(text);
+function extractObjectives(text: string) {
+  const candidates = sentences(text).filter((item) => observable.test(item) || /^(to\s+)(analyse|analyze|apply|assess|build|compare|create|demonstrate|design|develop|evaluate|explain|identify|interpret|justify|understand|use)\b/i.test(item));
+  return [...new Set(candidates)].slice(0, 5);
+}
+
+function deriveOutcomes(objectives: string[]): LearningOutcome[] {
+  const defaults = defaultCourseDesign().outcomes;
+  const source = objectives.length >= 2 ? objectives : defaults.map((item) => item.statement);
+  return source.slice(0, 6).map((statement, index) => {
+    const withoutTo = statement.replace(/^to\s+/i, "");
+    const measurable = observable.test(withoutTo) ? withoutTo : `Explain and apply ${withoutTo.replace(/[.!?]+$/, "").toLowerCase()}.`;
+    return {
+      id: `manual-outcome-${index + 1}`,
+      statement: measurable.charAt(0).toUpperCase() + measurable.slice(1),
+      skill: /data|evidence|research/i.test(measurable) ? "Data literacy" : /design|create|develop|build/i.test(measurable) ? "Applied problem-solving" : "Conceptual understanding",
+      assessmentMethod: index === 0 ? "Objective knowledge check" : "Applied assignment or practical evidence",
+    };
   });
-  return sentence(candidate || fileName.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " "), "Imported microcredential");
+}
+
+function deriveSections(text: string) {
+  const headingLines = text.split(/\n+/).map(cleanLine).filter((line) => line.length >= 4 && line.length <= 100 && (/^(module|unit|chapter|section|topic|part)\s+\w+/i.test(line) || /^[A-Z][A-Z\s&:,()-]{5,}$/.test(line)));
+  const titles = [...new Set(headingLines.map((line) => titleCase(line.toLowerCase())))].slice(0, 6);
+  const finalTitles = titles.length >= 2 ? titles : ["Orientation and foundations", "Core concepts and guided practice", "Application and assessment"];
+  return finalTitles.map((title, index) => ({ id: `manual-section-${index + 1}`, title, description: `Learning from the uploaded manual organised around ${title.toLowerCase()}.` }));
+}
+
+function buildMaterials(text: string, sections: ReturnType<typeof deriveSections>, outcomes: LearningOutcome[], original: { key: string; name: string; type: string }, source: string): CourseMaterialRecord[] {
+  const words = text.split(/\s+/).filter(Boolean);
+  const chunkSize = Math.max(350, Math.ceil(words.length / sections.length));
+  return sections.map((section, index) => {
+    const chunk = words.slice(index * chunkSize, index === sections.length - 1 ? words.length : (index + 1) * chunkSize).join(" ");
+    const readable = chunk || `Review the facilitator manual content related to ${section.title}.`;
+    return {
+      id: `manual-material-${index + 1}`,
+      title: index === 0 ? `Start here: ${section.title}` : section.title,
+      kind: "Read",
+      source,
+      readableHtml: textToReadableHtml(readable),
+      plainText: readable,
+      sectionId: section.id,
+      sectionTitle: section.title,
+      unitTitle: `Learning unit ${index + 1}`,
+      estimatedMinutes: Math.max(5, Math.ceil(readable.split(/\s+/).length / 180)),
+      outcomeIds: [outcomes[index % outcomes.length]?.id, outcomes[(index + 1) % outcomes.length]?.id].filter(Boolean),
+      accessibilityChecked: true,
+      license: "Facilitator-supplied course manual; rights and attribution must be reviewed",
+      ...(index === 0 ? { fileKey: original.key, fileName: original.name, mimeType: original.type } : {}),
+    };
+  });
 }
 
 export async function POST(request: Request) {
   const account = await requireActiveProfile(["facilitator", "admin"]);
   if (account.error || !account.profile) return account.error;
   const form = await request.formData();
-  const file = form.get("manual");
-  if (!(file instanceof File)) return Response.json({ error: "Choose a learning manual to analyse." }, { status: 400 });
-  if (file.size > 25 * 1024 * 1024) return Response.json({ error: "The manual must be 25 MB or smaller." }, { status: 413 });
+  const file = form.get("file");
+  if (!(file instanceof File)) return Response.json({ error: "Choose a PDF, DOCX, text, Markdown, HTML or RTF course manual." }, { status: 400 });
+  if (file.size > 25 * 1024 * 1024) return Response.json({ error: "Course manuals must be 25 MB or smaller." }, { status: 413 });
   const extension = file.name.toLowerCase().split(".").pop() ?? "";
-  if (!supported.has(extension)) return Response.json({ error: "Use PDF, DOCX, TXT, Markdown, HTML or RTF." }, { status: 415 });
-
+  if (!accepted.has(extension)) return Response.json({ error: "Use PDF, DOCX, TXT, MD, HTML or RTF for automatic course design." }, { status: 415 });
   const buffer = Buffer.from(await file.arrayBuffer());
   let extracted;
   try { extracted = extractReadableContent(buffer, file.name, file.type); }
   catch (error) { return Response.json({ error: error instanceof Error ? error.message : "The manual could not be read." }, { status: 422 }); }
-  if (extracted.text.length < 200) return Response.json({ error: "The manual did not expose enough readable text. For a scanned PDF, upload a text-searchable/OCR version." }, { status: 422 });
-  const manualKey = await putStoredFile("course-materials", file, { contentType: file.type || "application/octet-stream", originalName: file.name, ownerEmail: account.profile.email, evidenceKind: "course-manual" });
-
-  const rawLines = extracted.text.split(/\n+/).map((line) => line.trim()).filter(Boolean);
-  const title = titleFrom(rawLines, file.name);
-  const objectives = linesBelow(rawLines, /^(course\s+)?(objectives?|aims?|purpose)\b/i, 6);
-  const outcomeLines = linesBelow(rawLines, /^(learning|course|programme)?\s*outcomes?|competenc(?:y|ies)/i, 6);
-  const objectivesFinal = (objectives.length >= 2 ? objectives : [
-    "Build an accurate understanding of the central concepts and procedures presented in the learning manual.",
-    "Enable learners to apply the manual's guidance to an authentic professional, academic or community task.",
-  ]).slice(0, 8);
-  const outcomes = (outcomeLines.length >= 2 ? outcomeLines : [
-    "Explain the core concepts, terminology and responsible practices presented in the manual.",
-    "Apply the prescribed process to complete a relevant practical task and document the evidence produced.",
-    "Evaluate the quality, limitations and implications of the completed work.",
-  ]).slice(0, 8).map((statement, index) => ({
-    id: `manual-outcome-${index + 1}`,
-    statement: sentence(statement, `Demonstrate learning outcome ${index + 1} from the manual.`),
-    skill: index === 0 ? "Conceptual understanding" : index === 1 ? "Applied problem-solving" : "Critical thinking",
-    assessmentMethod: index === 0 ? "Objective knowledge check" : index === 1 ? "Practical assignment or portfolio evidence" : "Scenario response and reflective justification",
+  if (extracted.text.length < 200) return Response.json({ error: "The manual did not expose enough readable text. For a scanned PDF, run OCR or upload an accessible DOCX version." }, { status: 422 });
+  const fileKey = await putStoredFile("course-materials", file, { contentType: file.type || "application/octet-stream", originalName: file.name, ownerEmail: account.profile.email, evidenceKind: "course-material" });
+  const title = candidateTitle(extracted.text, file.name);
+  const extractedObjectives = extractObjectives(extracted.text);
+  const outcomes = deriveOutcomes(extractedObjectives);
+  const sections = deriveSections(extracted.text);
+  const design = {
+    ...defaultCourseDesign(),
+    enrolmentMode: "open" as const,
+    priceGhs: 0,
+    certificateFeeGhs: 0,
+    expectedHours: Math.min(120, Math.max(4, Math.ceil(extracted.wordCount / 750))),
+    objectives: extractedObjectives.length >= 2 ? extractedObjectives : [
+      `Build a practical understanding of ${title.toLowerCase()}.`,
+      `Enable learners to apply the manual's guidance in an authentic context.`,
+    ],
+    outcomes,
+    sections,
+    skills: [...new Set(outcomes.map((item) => item.skill))],
+  };
+  const descriptionSource = sentences(extracted.text).slice(0, 4).join(" ");
+  const description = (descriptionSource.length >= 80 ? descriptionSource : `This microcredential uses the uploaded facilitator manual to build practical understanding and assess authentic application of ${title}.`).slice(0, 1200);
+  const materials = buildMaterials(extracted.text, sections, outcomes, { key: fileKey, name: file.name, type: file.type || "application/octet-stream" }, account.profile.full_name || account.profile.email);
+  const questions = outcomes.slice(0, 3).map((outcome, index) => ({
+    id: `manual-question-${index + 1}`,
+    type: index === 0 ? "Short answer" : "Scenario response",
+    prompt: index === 0 ? `Explain the central concept addressed by this outcome: ${outcome.statement}` : `Apply this outcome to a realistic professional or community situation: ${outcome.statement}`,
+    options: [], correctAnswer: "Facilitator must review and complete the model response before submission.", points: index === 0 ? 5 : 10,
+    scheme: "Award marks for accurate use of the manual, a justified application, and acknowledgement of relevant limitations.",
+    feedbackCorrect: "The response demonstrates the expected outcome.",
+    feedbackIncorrect: "Revisit the linked manual section and strengthen the evidence used in your response.",
+    learnerAdvice: "Refer directly to the course manual and explain how the guidance supports your answer.",
+    outcomeIds: [outcome.id],
   }));
-
-  const detectedSections = rawLines.filter((line) => /^(chapter|module|unit|section|topic)\s*[\dIVXLC-]*[:.)\s-]+\S/i.test(line)).slice(0, 10);
-  const sections = (detectedSections.length ? detectedSections : ["Orientation and foundations", "Guided application", "Evidence, reflection and assessment"]).map((heading, index) => ({
-    id: `manual-section-${index + 1}`,
-    title: sentence(heading.replace(/^(chapter|module|unit|section|topic)\s*[\dIVXLC-]*[:.)\s-]*/i, ""), `Section ${index + 1}`),
-    description: index === 0 ? "Introduce the course purpose, language, core concepts and expectations." : index === 1 ? "Guide learners through applied examples, practice and feedback." : "Consolidate evidence, reflection and assessed demonstration of the outcomes.",
-  }));
-
-  const words = extracted.text.split(/\s+/).filter(Boolean);
-  const chunkSize = Math.max(250, Math.ceil(words.length / Math.max(2, Math.min(8, sections.length * 2))));
-  const chunks: string[] = [];
-  for (let start = 0; start < words.length && chunks.length < 10; start += chunkSize) chunks.push(words.slice(start, start + chunkSize).join(" "));
-  while (chunks.length < 2) chunks.push("Review the supplied learning manual, identify the central concepts and record questions for the facilitator.");
-  const materials = chunks.map((text, index) => {
-    const section = sections[index % sections.length];
-    const outcome = outcomes[index % outcomes.length];
-    return { id: `manual-material-${index + 1}`, title: index === 0 ? "Learning manual: orientation and key concepts" : `Manual study block ${index + 1}`, kind: "Read", source: file.name, readableHtml: textToReadableHtml(text), plainText: text, fileKey: index === 0 ? manualKey : undefined, fileName: index === 0 ? file.name : undefined, mimeType: index === 0 ? (file.type || "application/octet-stream") : undefined, sectionId: section.id, sectionTitle: section.title, unitTitle: `Study unit ${index + 1}`, estimatedMinutes: Math.max(2, Math.ceil(text.split(/\s+/).length / 200)), outcomeIds: [outcome.id], accessibilityChecked: true, license: "Institution-supplied learning manual; facilitator must confirm permission and attribution" };
-  });
-  for (const [index, outcome] of outcomes.entries()) if (!materials.some((material) => material.outcomeIds.includes(outcome.id))) materials[index % materials.length].outcomeIds.push(outcome.id);
-
-  const descriptionText = rawLines.slice(1, 8).join(" ");
-  const suffix = new Date().toISOString().slice(2, 10).replaceAll("-", "");
   return Response.json({
     draft: {
-      code: `DRAFT-MAN-${suffix}`,
       title,
+      code: `UCC-MC-${String(Date.now()).slice(-6)}`,
       discipline: "Interdisciplinary",
-      description: sentence(descriptionText, `A guided microcredential developed from ${file.name}, combining structured study, applied practice and assessed evidence.`).slice(0, 1200),
-      design: {
-        category: "professional", deliveryPattern: "blended", level: "applied", language: "English", expectedHours: Math.max(4, Math.ceil(words.length / 1800)),
-        enrolmentMode: "open", priceGhs: 0,
-        intendedAudience: "Learners and professionals who need a structured, assessed introduction to the subject covered by this manual.",
-        prerequisites: "No formal prerequisite unless the facilitator adds one after reviewing the source manual.",
-        accessibilityStatement: "Readable HTML is provided from the uploaded manual. The facilitator must review headings, tables, images, alternative text and reading order before submission.",
-        objectives: objectivesFinal, outcomes, skills: [...new Set(outcomes.map((item) => item.skill))], sections,
-      },
+      description,
+      design,
       materials,
       activities: [],
-      assessmentModes: ["Objective quiz", "Practical assignment", "Authentic evidence"],
-      assessmentConfig: {
-        passMark: 70, attempts: "3",
-        questions: outcomes.map((outcome, index) => ({ id: `manual-question-${index + 1}`, type: index === 0 ? "Short answer" : "Scenario response", prompt: index === 0 ? "Explain one central concept from the manual and give an accurate example." : `Describe how you would demonstrate this outcome in practice: ${outcome.statement}`, options: [], correctAnswer: "The response must accurately use the manual, show an appropriate application and acknowledge any relevant limitations.", points: 5, scheme: "Accuracy: 2 marks; relevant application: 2 marks; clarity and limitations: 1 mark.", feedbackCorrect: "Well done. Your response demonstrates the required evidence.", feedbackIncorrect: "Review the relevant manual section and strengthen the evidence in your response.", learnerAdvice: "Cite the relevant section, explain your reasoning and connect the answer to a realistic context.", outcomeIds: [outcome.id] })),
-        questionFiles: [],
-      },
+      assessmentModes: ["Objective quiz", "Applied assignment"],
+      assessmentConfig: { passMark: 60, attempts: "2 attempts", questions, questionFiles: [] },
       gateRequired: true,
-      questionLimit: outcomes.length,
+      questionLimit: Math.max(10, questions.length),
       certificateEnabled: true,
-      certificateFeeGhs: 0,
     },
-    analysis: { sourceFileName: file.name, wordCount: words.length, detectedObjectives: objectives.length, detectedOutcomes: outcomeLines.length, detectedSections: detectedSections.length, note: "Review every generated field against the source before saving or submitting. Automatic extraction proposes a draft; it does not approve academic accuracy." },
+    extraction: { fileName: file.name, wordCount: extracted.wordCount, conversionNote: extracted.note },
+    warning: "Automatic extraction creates an editable draft, not an approved course. The facilitator must verify the title, objectives, outcomes, sequencing, accessibility, assessment answers, copyright and attribution before submission.",
   }, { status: 201 });
 }

@@ -1,4 +1,5 @@
 import { getRawDb } from "@/db/raw";
+import { normalizeCourseDesign } from "@/lib/course-design";
 
 type CourseActivity = {
   id?: string;
@@ -22,8 +23,6 @@ export type CompletionEvaluation = {
   certificateEnabled: boolean;
   certificateFeeGhs: number;
   certificatePaymentRequired: boolean;
-  certificatePaymentComplete: boolean;
-  certificateReady: boolean;
   complete: boolean;
   requirements: CompletionRequirement[];
 };
@@ -54,8 +53,8 @@ const parseActivities = (value: string) => {
 
 export async function evaluateCourseCompletion(userEmail: string, courseCode: string): Promise<CompletionEvaluation | null> {
   const db = getRawDb();
-  const course = await db.prepare("SELECT code, title, activities_json, certificate_enabled, certificate_fee_ghs FROM course_drafts WHERE code = ? AND status = 'active' LIMIT 1")
-    .bind(courseCode).first<{ code: string; title: string; activities_json: string; certificate_enabled: number; certificate_fee_ghs: number }>();
+  const course = await db.prepare("SELECT code, title, activities_json, design_json, certificate_enabled FROM course_drafts WHERE code = ? AND status = 'active' LIMIT 1")
+    .bind(courseCode).first<{ code: string; title: string; activities_json: string; design_json: string; certificate_enabled: number }>();
   if (!course) return null;
 
   const user = await db.prepare("SELECT full_name, status, identity_status FROM users WHERE email = ? AND role = 'learner' LIMIT 1")
@@ -109,23 +108,18 @@ export async function evaluateCourseCompletion(userEmail: string, courseCode: st
     }
   }
 
-  const complete = requirements.every((requirement) => requirement.complete);
-  const certificateFeeGhs = Math.max(0, course.certificate_fee_ghs || 0);
-  const paid = certificateFeeGhs > 0 ? await db.prepare("SELECT id FROM payment_orders WHERE user_email = ? AND course_code = ? AND purpose = 'certificate' AND status = 'paid' LIMIT 1")
-    .bind(userEmail, course.code).first<{ id: number }>() : null;
-  const existingCertificate = await db.prepare("SELECT certificate_code FROM certificates WHERE user_email = ? AND course_code = ? LIMIT 1")
-    .bind(userEmail, course.code).first<{ certificate_code: string }>();
-  const certificatePaymentRequired = certificateFeeGhs > 0;
-  const certificatePaymentComplete = !certificatePaymentRequired || Boolean(paid) || Boolean(existingCertificate);
+  let rawDesign: unknown = {};
+  try { rawDesign = JSON.parse(course.design_json || "{}"); } catch { rawDesign = {}; }
+  const design = normalizeCourseDesign(rawDesign);
+  const paidCertificate = design.certificateFeeGhs > 0 ? await db.prepare("SELECT id FROM payment_orders WHERE user_email = ? AND course_code = ? AND purpose = 'certificate' AND status = 'paid' LIMIT 1")
+    .bind(userEmail, course.code).first() : null;
   return {
     courseCode: course.code,
     courseTitle: course.title,
     certificateEnabled: Boolean(course.certificate_enabled),
-    certificateFeeGhs,
-    certificatePaymentRequired,
-    certificatePaymentComplete,
-    certificateReady: complete && Boolean(course.certificate_enabled) && certificatePaymentComplete,
-    complete,
+    certificateFeeGhs: design.certificateFeeGhs,
+    certificatePaymentRequired: design.certificateFeeGhs > 0 && !paidCertificate,
+    complete: requirements.every((requirement) => requirement.complete),
     requirements,
   };
 }
@@ -138,8 +132,7 @@ export async function issueCertificateIfComplete(userEmail: string, courseCode: 
   const db = getRawDb();
   await db.prepare("UPDATE enrollments SET status = 'completed' WHERE user_email = ? AND course_code = ? AND status IN ('active', 'completed')")
     .bind(userEmail, courseCode).run();
-  if (!evaluation.certificateEnabled) return { evaluation, certificate: null };
-  if (!evaluation.certificatePaymentComplete) return { evaluation, certificate: null };
+  if (!evaluation.certificateEnabled || evaluation.certificatePaymentRequired) return { evaluation, certificate: null };
 
   const learner = await db.prepare("SELECT full_name FROM users WHERE email = ? AND role = 'learner' LIMIT 1")
     .bind(userEmail).first<{ full_name: string }>();

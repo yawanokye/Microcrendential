@@ -1,5 +1,6 @@
 import { getRawDb } from "@/db/raw";
 import { requireActiveProfile } from "@/lib/accounts";
+import { issueCertificateIfComplete } from "@/lib/course-completion";
 
 type CertificateRow = { certificate_code: string; learner_name: string; course_code: string; course_title: string; issuer_name: string; requirements_json: string; credential_type: string; status: string; issued_at: string; expires_at: string | null; revoked_at: string | null; revocation_reason: string | null };
 
@@ -31,7 +32,28 @@ export async function GET(request: Request) {
   const account = await requireActiveProfile(["learner"]);
   if (account.error || !account.profile) return account.error;
   const certificates = await getRawDb().prepare("SELECT certificate_code, learner_name, course_code, course_title, issuer_name, requirements_json, credential_type, status, issued_at, expires_at, revoked_at, revocation_reason FROM certificates WHERE user_email = ? ORDER BY issued_at DESC").bind(account.profile.email).all<CertificateRow>();
-  return Response.json({ certificates: certificates.results.map((item) => presentCertificate(item)) });
+  const eligible = await getRawDb().prepare(`SELECT e.course_code, c.title AS course_title, c.design_json
+    FROM enrollments e JOIN course_drafts c ON c.code = e.course_code
+    LEFT JOIN certificates cert ON cert.user_email = e.user_email AND cert.course_code = e.course_code
+    WHERE e.user_email = ? AND e.status = 'completed' AND c.status = 'active' AND c.certificate_enabled = 1 AND cert.id IS NULL
+    ORDER BY e.enrolled_at DESC`).bind(account.profile.email).all<{ course_code: string; course_title: string; design_json: string }>();
+  return Response.json({ certificates: certificates.results.map((item) => presentCertificate(item)), eligibleCertificates: eligible.results.map((item) => {
+    try { const design = JSON.parse(item.design_json || "{}") as { certificateFeeGhs?: number }; return { courseCode: item.course_code, courseTitle: item.course_title, certificateFeeGhs: Math.max(0, Number(design.certificateFeeGhs) || 0) }; }
+    catch { return { courseCode: item.course_code, courseTitle: item.course_title, certificateFeeGhs: 0 }; }
+  }) });
+}
+
+export async function POST(request: Request) {
+  const account = await requireActiveProfile(["learner"]);
+  if (account.error || !account.profile) return account.error;
+  const payload = await request.json() as { courseCode?: string };
+  const courseCode = String(payload.courseCode ?? "").trim().toUpperCase();
+  if (!courseCode) return Response.json({ error: "Choose a completed course." }, { status: 400 });
+  const result = await issueCertificateIfComplete(account.profile.email, courseCode);
+  if (!result.evaluation) return Response.json({ error: "The published course was not found." }, { status: 404 });
+  if (!result.evaluation.complete) return Response.json({ error: "Complete every academic requirement before requesting the certificate.", completion: result.evaluation }, { status: 409 });
+  if (result.evaluation.certificatePaymentRequired) return Response.json({ error: "Certificate payment is required.", paymentRequired: true, purpose: "certificate", amountGhs: result.evaluation.certificateFeeGhs, completion: result.evaluation }, { status: 402 });
+  return Response.json({ certificate: result.certificate, completion: result.evaluation }, { status: result.certificate ? 201 : 409 });
 }
 
 export async function PATCH(request: Request) {
