@@ -108,19 +108,6 @@ npm run dev
 
 Open `http://localhost:3000`. The SQLite database and uploads are stored under `.data/` locally.
 
-## Manual-to-course import
-
-Facilitators can open the dedicated Course Studio and select **Import learning manual**. The protected workflow accepts searchable PDF, DOCX, TXT, Markdown, HTML and RTF documents up to 25 MB. It then:
-
-1. extracts readable text without publishing the source;
-2. proposes the course identity, audience, delivery, workload, objectives, measurable outcomes, skills and syllabus sections;
-3. creates structured readable-HTML learning blocks while retaining the original document;
-4. proposes assessment methods, editable short-answer questions, progression rules and the UCC certificate gate;
-5. labels every field as **Found in manual**, **Suggested**, **Review required** or **Missing**, with a confidence score and source excerpt; and
-6. lets the facilitator apply selected groups to a new unsaved Studio draft.
-
-Automatic import never publishes a course, confirms copyright permission, marks accessibility review complete, creates specialist Colab or virtual-lab evidence, grants UCC approval or issues a certificate. The facilitator must work through all six Studio stages and resolve the side-panel checks before submitting the version for academic review. Image-only or scanned PDFs must be made searchable with OCR before upload.
-
 ## Free Google Colab workflow
 
 1. A facilitator opens **Colab coding**, chooses one of their active courses, uploads a master `.ipynb` notebook, sets instructions, rubric, deadline, marks, pass threshold and permitted attempts, then publishes the assignment.
@@ -158,6 +145,26 @@ Learners may attach an optional video, image or PDF evidence file up to 25 MB. O
 | `DATA_DIR` | Yes on Render | Database and protected-upload directory; configured as `/var/data` |
 | `SQLITE_PATH` | Yes on Render | Explicit persistent database path; configured as `/var/data/ucc-microcredentials.sqlite` |
 | `PORT` | Render-managed | HTTP listening port; the Blueprint uses `10000` |
+| `NEXT_PUBLIC_APP_URL` | Yes in production | Canonical HTTPS origin used for payment callbacks |
+| `PAYSTACK_SECRET_KEY` | Only when a published course charges a fee | Server-only key used to initialize and verify GHS payments |
+
+## Manual-to-course drafting
+
+In **Facilitator Studio → Blueprint**, upload a readable PDF, DOCX, TXT, Markdown, HTML or RTF learning manual. The importer retains the original, extracts readable text and pre-fills an editable course title, description, objectives, measurable outcomes, skills, syllabus sections, aligned learning blocks and starter assessments.
+
+The generated result is a draft, not an academic approval. The facilitator must review accuracy, outcome wording, assessment validity, copyright, attribution, accessibility and learner workload before saving or submitting it for UCC review. Image-only PDFs need OCR before upload.
+
+## Free and paid enrolment and certificates
+
+All new courses default to **free enrolment** and a **free certificate**. A facilitator must explicitly enable either fee, and an administrator sees the disclosure during academic review.
+
+- A free open course enrols the signed-in learner immediately.
+- A paid open course redirects the learner to Paystack and grants access only after server-side verification of reference, amount, currency and email.
+- Academic course completion is recorded independently of certificate payment.
+- A certificate fee, when enabled, is requested only after every academic and identity requirement is complete.
+- Paystack secret keys remain server-side. Configure the webhook as `https://ucc-microcredential-platform.onrender.com/api/payments/webhook`.
+
+Implementation references: [Paystack payment flow](https://paystack.com/docs/payments/accept-payments/) and [Paystack webhook verification](https://paystack.com/docs/payments/webhooks/).
 
 ## Data persistence and backups
 
