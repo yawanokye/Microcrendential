@@ -591,18 +591,6 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .certificate-verify a { display: inline-block; margin-top: 5px; color: #087c74; font: 800 7px/1 Arial, sans-serif; text-decoration: none; }
 .certificate-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 7px; margin-top: 14px; }
 .certificate-actions .certificate-print { margin: 0; }
-.certificate-ready-list { display: grid; gap: 10px; margin: 0 20px 20px; padding: 16px; background: #f1faf7; border: 1px solid #bfe1d7; border-radius: 14px; }
-.certificate-ready-list > header { display: flex; align-items: flex-start; gap: 10px; color: #0a6f65; }
-.certificate-ready-list > header svg { flex: 0 0 auto; width: 20px; }
-.certificate-ready-list > header b, .certificate-ready-list > header span { display: block; }
-.certificate-ready-list > header b { font-size: 11px; }
-.certificate-ready-list > header span { margin-top: 4px; color: #55726b; font-size: 8px; line-height: 1.5; }
-.certificate-ready-list > article { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 12px; align-items: center; padding: 12px; background: #fff; border: 1px solid #d7e8e3; border-radius: 10px; }
-.certificate-ready-list > article b, .certificate-ready-list > article span { display: block; }
-.certificate-ready-list > article b { color: #173c49; font-size: 10px; }
-.certificate-ready-list > article span { margin-top: 3px; color: #6b8089; font-size: 8px; }
-.certificate-ready-list > article em { color: #0a6f65; font-size: 9px; font-style: normal; font-weight: 900; }
-.certificate-ready-list > article button { min-width: 140px; }
 
 /* Registration handoff */
 .registration-handoff { max-width: 650px; text-align: center; }
@@ -649,8 +637,6 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .verifier-hero > aside > svg, .verifier-hero > aside > b { grid-column: 1/-1; }
   .verification-facts { grid-template-columns: 1fr 1fr; }
   .passport-hero { grid-template-columns: 1fr; }
-  .certificate-ready-list > article { grid-template-columns: 1fr; }
-  .certificate-ready-list > article button { width: 100%; }
   .passport-score { grid-template-columns: auto auto 1fr; justify-items: start; align-items: center; gap: 10px; text-align: left; }
   .passport-score strong, .passport-score span { margin: 0; }
   .passport-score button { justify-self: end; }

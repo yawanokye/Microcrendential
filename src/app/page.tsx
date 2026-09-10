@@ -207,9 +207,20 @@ export default function Home() {
   useEffect(() => { setActive("overview"); }, [role]);
   useEffect(() => {
     if (account?.profile?.status !== "active") return;
-    fetch("/api/courses").then((response) => response.json()).then((result: { courses?: { id: number; code: string; title: string; discipline: string; description: string; materials: Course["materials"]; activities: Course["activities"]; assessmentConfig: Course["assessmentConfig"]; design: CourseDesign; questionLimit: number; certificateEnabled: boolean; status: string; facilitatorName: string; createdByEmail: string; versionNumber: number; updatedAt: string }[] }) => setPublishedCourses((result.courses ?? []).filter((course) => course.status === "active").map((course, index) => ({ id: course.id, code: course.code, title: course.title, discipline: course.discipline, description: course.description, materials: course.materials, activities: course.activities, assessmentConfig: course.assessmentConfig, design: course.design, certificateEnabled: course.certificateEnabled, status: course.status, facilitatorName: course.facilitatorName, createdByEmail: course.createdByEmail, versionNumber: course.versionNumber, updatedAt: course.updatedAt, school: `Facilitator: ${course.facilitatorName}`, progress: 0, modules: `${(course.materials?.length ?? 0) + (course.activities?.length ?? 0)} learning activities`, accent: ["teal", "blue", "gold"][index % 3], next: "Enter course portal", published: true })))).catch(() => setPublishedCourses([]));
+    const loadCourses = async () => {
+      try {
+        const [courseResponse, progressResponse] = await Promise.all([
+          fetch("/api/courses"),
+          role === "learner" ? fetch("/api/course-progress") : Promise.resolve(null),
+        ]);
+        const result = await courseResponse.json() as { courses?: { id: number; code: string; title: string; discipline: string; description: string; materials: Course["materials"]; activities: Course["activities"]; assessmentConfig: Course["assessmentConfig"]; design: CourseDesign; questionLimit: number; certificateEnabled: boolean; status: string; facilitatorName: string; createdByEmail: string; versionNumber: number; updatedAt: string }[] };
+        const progressResult = progressResponse?.ok ? await progressResponse.json() as { progressByCourse?: Record<string, number> } : {};
+        setPublishedCourses((result.courses ?? []).filter((course) => course.status === "active").map((course, index) => ({ id: course.id, code: course.code, title: course.title, discipline: course.discipline, description: course.description, materials: course.materials, activities: course.activities, assessmentConfig: course.assessmentConfig, design: course.design, certificateEnabled: course.certificateEnabled, status: course.status, facilitatorName: course.facilitatorName, createdByEmail: course.createdByEmail, versionNumber: course.versionNumber, updatedAt: course.updatedAt, school: `Facilitator: ${course.facilitatorName}`, progress: progressResult.progressByCourse?.[course.code] ?? 0, modules: `${(course.materials?.length ?? 0) + (course.activities?.length ?? 0)} learning activities`, accent: ["teal", "blue", "gold"][index % 3], next: "Open active course", published: true })));
+      } catch { setPublishedCourses([]); }
+    };
+    void loadCourses();
     fetch("/api/dashboard/summary").then((response) => response.json()).then((result: DashboardSummary) => setDashboardSummary(result)).catch(() => setDashboardSummary(null));
-  }, [account?.profile?.email, account?.profile?.status]);
+  }, [account?.profile?.email, account?.profile?.status, role]);
   const enrolledCodes = account?.enrollments ?? [];
   // Production learners see only administrator-approved database courses.
   // Static demonstration courses remain isolated inside the staff testing area.
@@ -308,8 +319,8 @@ export default function Home() {
 
         <Dialog open={Boolean(selectedCourse)} onOpenChange={(open) => !open && setSelectedCourse(null)}>
           <DialogContent className={selectedCourse?.published ? "learning-dialog learner-course-portal-dialog" : "learning-dialog"}>
-            <DialogHeader><p className="eyebrow">{selectedCourse?.published ? "STUDENT COURSE PORTAL" : selectedCourse?.code}</p><DialogTitle>{selectedCourse?.title}</DialogTitle><DialogDescription>{selectedCourse?.published ? `${selectedCourse.code} · ${selectedCourse.school}` : selectedCourse?.school}</DialogDescription></DialogHeader>
-            {selectedCourse?.published ? (role !== "learner" || enrolledCodes.includes(selectedCourse.code) ? <LearnerCoursePortal key={selectedCourse.code} course={selectedCourse} onOpenActivity={(activity) => { if (activity.kind === "virtual_lab" && activity.practicalId) sessionStorage.setItem("ucc-open-practical", activity.practicalId); setSelectedCourse(null); selectView(activity.kind === "colab" ? "colab" : "virtual_labs"); }} /> : <CourseEnrollmentPreview course={selectedCourse} onEnrol={() => enrolCourse(selectedCourse.code)} />) : <>
+            <DialogHeader><p className="eyebrow">{selectedCourse?.code}</p><DialogTitle>{selectedCourse?.title}</DialogTitle><DialogDescription>{selectedCourse?.school}</DialogDescription></DialogHeader>
+            {selectedCourse?.published ? <PublishedCourseExperience course={selectedCourse} onProgressChange={(progress) => { setPublishedCourses((items) => items.map((item) => item.code === selectedCourse.code ? { ...item, progress } : item)); setSelectedCourse((current) => current ? { ...current, progress } : current); }} onOpenActivity={(activity) => { if (activity.kind === "virtual_lab" && activity.practicalId) sessionStorage.setItem("ucc-open-practical", activity.practicalId); setSelectedCourse(null); selectView(activity.kind === "colab" ? "colab" : "virtual_labs"); }} /> : <>
             <div className="module-progress"><div><span>Course progress</span><b>{selectedCourse?.progress}%</b></div><Progress value={selectedCourse?.progress ?? 0} /></div>
             {lessonStage === "content" && <><div className="lesson-tabs"><button className={activityMode === "watch" ? "active" : ""} onClick={() => setActivityMode("watch")}><Video /> Watch</button><button className={activityMode === "read" ? "active" : ""} onClick={() => setActivityMode("read")}><FileText /> Read</button><button className={activityMode === "code" ? "active" : ""} onClick={() => setActivityMode("code")}><Code2 /> Code</button></div>{activityMode === "watch" && <div className="video-frame"><iframe src="https://www.youtube-nocookie.com/embed/aircAruvnKk" title="Open learning video" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen /></div>}{activityMode === "read" && <article className="reading-frame"><p className="eyebrow">OPEN READING</p><h3>Assessment-led certification</h3><p>A credible microcredential certifies demonstrated learning rather than attendance. Learning outcomes, authentic assessment and recorded decisions provide the evidence needed for recognition and progression.</p></article>}{activityMode === "code" && <div className="code-frame"><span>practice.js</span><textarea defaultValue={'const credential = {\n  outcomes: true,\n  assessed: true,\n  stackable: true\n};\n\nconsole.log(credential);'} aria-label="Practice code editor" /></div>}<p className="activity-note">Pause, replay and take notes as needed. The short knowledge check must be passed before the next activity unlocks.</p><button className="dialog-primary" onClick={() => setLessonStage("check")}><FileCheck2 size={17} /> Pause and check understanding</button></>}
             {lessonStage === "check" && <div className="knowledge-check"><span className="check-count">REQUIRED CHECK · 1 OF 1</span><h3>Which feature makes a microcredential academically trustworthy?</h3>{["A short completion time", "Assessed learning outcomes", "A social-media badge", "An unrestricted open link"].map((option) => <label key={option} className={answer === option ? "chosen" : ""}><input type="radio" name="knowledge-check" value={option} checked={answer === option} onChange={(event) => { setAnswer(event.target.value); setAnswerState("idle"); }} />{option}</label>)}{answerState === "incorrect" && <p className="feedback error">Not quite. Review the role of assessment and try again.</p>}{answerState === "correct" && <p className="feedback success">Correct. The next learning activity is now unlocked.</p>}<button className="dialog-primary" disabled={!answer} onClick={() => { if (answer === "Assessed learning outcomes") { setAnswerState("correct"); setLessonStage("complete"); } else setAnswerState("incorrect"); }}><FileCheck2 size={17} /> Submit answer</button><details><summary>Optional essay reflection</summary><textarea placeholder="Explain how authentic assessment could work in your professional context…" /></details></div>}
@@ -434,7 +445,6 @@ function RoleOverview({ role, summary, courses: activeCourses, onNavigate, onCou
 }
 
 type CertificateRecord = { certificate_code: string; learner_name: string; course_code: string; course_title: string; issuer_name?: string; credential_type?: string; status?: string; issued_at: string; expires_at?: string | null; revoked_at?: string | null; revocation_reason?: string | null; requirements?: { id?: string; type?: string; label?: string; complete?: boolean; evidence?: string }[]; sharePath?: string };
-type EligibleCertificate = { courseCode: string; courseTitle: string; certificateFeeGhs: number };
 
 function VerificationQr({ code }: { code: string }) {
   return <Image unoptimized width={150} height={150} className="certificate-qr" src={`/api/certificates/qr?code=${encodeURIComponent(code)}`} alt={`Scan to verify certificate ${code}`} />;
@@ -461,50 +471,9 @@ function CertificateCard({ certificate }: { certificate: CertificateRecord }) {
 }
 
 function CertificateWallet() {
-  const [items, setItems] = useState<CertificateRecord[]>([]);
-  const [eligible, setEligible] = useState<EligibleCertificate[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [requesting, setRequesting] = useState("");
-
-  const loadWallet = useCallback(async () => {
-    setLoading(true);
-    try {
-      const response = await fetch("/api/certificates");
-      const result = await response.json() as { certificates?: CertificateRecord[]; eligibleCertificates?: EligibleCertificate[] };
-      setItems(result.certificates ?? []);
-      setEligible(result.eligibleCertificates ?? []);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { void loadWallet(); }, [loadWallet]);
-
-  const generateCertificate = async (course: EligibleCertificate) => {
-    setRequesting(course.courseCode);
-    try {
-      if (course.certificateFeeGhs > 0) {
-        await beginPaystackPayment(course.courseCode, "certificate");
-        return;
-      }
-      const response = await fetch("/api/certificates", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ courseCode: course.courseCode }) });
-      const result = await response.json() as { error?: string };
-      if (!response.ok) throw new Error(result.error ?? "Certificate could not be generated.");
-      toast.success("UCC certificate generated", { description: "Your QR-verifiable credential is now in the wallet." });
-      await loadWallet();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Certificate could not be generated.");
-    } finally {
-      setRequesting("");
-    }
-  };
-
-  return <section className="page-panel certificate-wallet">
-    <div className="page-title"><div><p className="eyebrow">VERIFIABLE ACHIEVEMENT</p><h2>My certificates</h2><p>A UCC certificate is generated only after verified identity, the course assessment and every required practical or Colab activity are complete.</p></div><span className="access-badge"><Award /> {items.length} earned</span></div>
-    {eligible.length > 0 && <div className="certificate-ready-list"><header><ShieldCheck /><div><b>Completed courses ready for certification</b><span>Free certificates are issued immediately. Where a certificate fee applies, payment unlocks generation.</span></div></header>{eligible.map((course) => <article key={course.courseCode}><div><b>{course.courseTitle}</b><span>{course.courseCode}</span></div><em>{course.certificateFeeGhs > 0 ? `GHS ${course.certificateFeeGhs.toFixed(2)}` : "Free certificate"}</em><button className="primary-action" disabled={requesting === course.courseCode} onClick={() => void generateCertificate(course)}>{course.certificateFeeGhs > 0 ? "Pay & generate" : "Generate certificate"}</button></article>)}</div>}
-    {loading && <div className="empty-state">Loading certificates…</div>}
-    <div className="certificate-grid">{items.map((certificate) => <CertificateCard key={certificate.certificate_code} certificate={certificate} />)}{!loading && items.length === 0 && eligible.length === 0 && <div className="empty-state">No certificates yet. Complete every requirement in an active microcredential to earn one.</div>}</div>
-  </section>;
+  const [items, setItems] = useState<CertificateRecord[]>([]); const [loading, setLoading] = useState(true);
+  useEffect(() => { fetch("/api/certificates").then((response) => response.json()).then((result: { certificates?: CertificateRecord[] }) => setItems(result.certificates ?? [])).finally(() => setLoading(false)); }, []);
+  return <section className="page-panel certificate-wallet"><div className="page-title"><div><p className="eyebrow">VERIFIABLE ACHIEVEMENT</p><h2>My certificates</h2><p>A UCC certificate is generated only after verified identity, the course assessment and every required practical or Colab activity are complete.</p></div><span className="access-badge"><Award /> {items.length} earned</span></div>{loading && <div className="empty-state">Loading certificates…</div>}<div className="certificate-grid">{items.map((certificate) => <CertificateCard key={certificate.certificate_code} certificate={certificate} />)}{!loading && items.length === 0 && <div className="empty-state">No certificates yet. Complete every requirement in an active microcredential to earn one.</div>}</div></section>;
 }
 
 type SkillsPassportData = {
@@ -618,55 +587,13 @@ function VideoTranscriptDialog({ material, onClose }: { material: CourseMaterial
   </DialogContent></Dialog>;
 }
 
-function CourseEnrollmentPreview({ course, onEnrol }: { course: Course; onEnrol: () => Promise<unknown> }) {
-  const [enrolling, setEnrolling] = useState(false);
-  const design = course.design ?? defaultCourseDesign();
-  const enrolmentLabel = design.priceGhs > 0 ? `Pay GHS ${design.priceGhs.toLocaleString()} and enrol` : "Enrol free";
-  const enrol = async () => {
-    setEnrolling(true);
-    try { await onEnrol(); }
-    finally { setEnrolling(false); }
-  };
-  return <div className="course-enrolment-preview">
-    <section className="course-enrolment-hero"><div><p className="eyebrow">COURSE DETAILS · SELF-ENROLMENT</p><h2>{course.title}</h2><p>{course.description}</p><div className="course-enrolment-meta"><span><Gauge /> {design.level}</span><span><Clock3 /> {design.expectedHours} hours</span><span><BookOpen /> {course.materials?.length ?? 0} learning blocks</span><span><FileCheck2 /> {course.assessmentConfig?.questions?.length ?? 0} assessment items</span></div></div><Award /></section>
-    <div className="course-enrolment-grid"><section><p className="eyebrow">WHAT YOU WILL LEARN</p><h3>Course objectives</h3><ul>{design.objectives.map((objective) => <li key={objective}><CheckCircle2 /> {objective}</li>)}</ul></section><section><p className="eyebrow">ENTRY INFORMATION</p><h3>Before you enrol</h3><p><b>Audience:</b> {design.intendedAudience}</p><p><b>Prerequisites:</b> {design.prerequisites}</p><p><b>Delivery:</b> {design.deliveryPattern}</p></section></div>
-    <footer className="course-enrolment-action"><div><ShieldCheck /><span><b>{design.priceGhs > 0 ? `GHS ${design.priceGhs.toLocaleString()} enrolment fee` : "Free self-enrolment"}</b><small>Enrolment unlocks the complete course portal, learning materials, activities and assessment.</small></span></div><button className="dialog-primary" disabled={enrolling} onClick={enrol}>{enrolling ? "Opening enrolment…" : enrolmentLabel}<ChevronRight /></button></footer>
-  </div>;
-}
-
-function LearnerCoursePortal({ course, onOpenActivity }: { course: Course; onOpenActivity: (activity: CourseActivity) => void }) {
-  type PortalView = "home" | "content" | "activities" | "assessment" | "progress";
-  const [view, setView] = useState<PortalView>("home");
-  const design = course.design ?? defaultCourseDesign();
-  const materials = course.materials ?? [];
-  const activities = course.activities ?? [];
-  const questions = course.assessmentConfig?.questions ?? [];
-  const portalItems: { id: PortalView; label: string; detail: string; icon: typeof BookOpen }[] = [
-    { id: "home", label: "Course home", detail: "Overview and outcomes", icon: LayoutDashboard },
-    { id: "content", label: "Learning content", detail: `${materials.length} learning block${materials.length === 1 ? "" : "s"}`, icon: BookOpen },
-    { id: "activities", label: "Activities", detail: `${activities.length} practical task${activities.length === 1 ? "" : "s"}`, icon: FlaskConical },
-    { id: "assessment", label: "Assessment", detail: `${questions.length} question${questions.length === 1 ? "" : "s"}`, icon: FileCheck2 },
-    { id: "progress", label: "Progress & award", detail: "Completion and certificate", icon: Award },
-  ];
-  const startView: PortalView = materials.length ? "content" : activities.length ? "activities" : "assessment";
-  return <div className="learner-course-portal-shell">
-    <aside className="course-portal-navigation"><div className="course-portal-brand"><span><GraduationCap /></span><div><small>MY MICROCREDENTIAL</small><b>{course.code}</b></div></div><nav aria-label="Course portal sections">{portalItems.map((item) => { const Icon = item.icon; return <button key={item.id} className={view === item.id ? "active" : ""} aria-current={view === item.id ? "page" : undefined} onClick={() => setView(item.id)}><Icon /><span><b>{item.label}</b><small>{item.detail}</small></span><ChevronRight /></button>; })}</nav><div className="course-portal-progress"><div><span>Course progress</span><b>{course.progress}%</b></div><Progress value={course.progress} /><small>Complete required learning, activities and assessment to unlock certification.</small></div></aside>
-    <section className="course-portal-view">
-      {view === "home" && <div className="course-portal-home"><section className="learner-course-hero"><div><p className="eyebrow">{design.category.toUpperCase()} MICROCREDENTIAL</p><h2>{course.title}</h2><p>{course.description}</p><div><span><Gauge /> {design.level}</span><span><Clock3 /> {design.expectedHours} hours</span><span><BookOpen /> {design.deliveryPattern}</span><span><Users /> {course.facilitatorName}</span></div></div><Award /></section><div className="course-portal-overview-grid"><section><p className="eyebrow">YOUR LEARNING JOURNEY</p><h3>What this course contains</h3><div className="course-portal-stat-grid"><button onClick={() => setView("content")}><BookOpen /><span><b>{materials.length}</b><small>Learning blocks</small></span></button><button onClick={() => setView("activities")}><FlaskConical /><span><b>{activities.length}</b><small>Applied activities</small></span></button><button onClick={() => setView("assessment")}><FileCheck2 /><span><b>{questions.length}</b><small>Assessment items</small></span></button></div></section><section><p className="eyebrow">COURSE OBJECTIVES</p><h3>What you will accomplish</h3><ul>{design.objectives.map((objective) => <li key={objective}><CheckCircle2 /> {objective}</li>)}</ul></section></div><section className="course-portal-outcomes"><div><p className="eyebrow">MEASURABLE OUTCOMES</p><h3>Capabilities you will demonstrate</h3></div><div>{design.outcomes.map((outcome, index) => <article key={outcome.id}><span>{index + 1}</span><div><b>{outcome.statement}</b><small>{outcome.skill} · {outcome.assessmentMethod}</small></div></article>)}</div></section><button className="dialog-primary course-portal-start" onClick={() => setView(startView)}><CirclePlay /> Start or continue learning <ChevronRight /></button></div>}
-      {view === "content" && <div className="course-portal-section"><header><p className="eyebrow">LEARNING CONTENT</p><h2>Read, watch and work through every learning block</h2><p>Select a lesson to open readable HTML, the original PDF or Word file, video, transcript or linked resource.</p></header>{materials.length ? <PublishedCourseExperience key={`${course.code}-content`} course={course} onOpenActivity={onOpenActivity} /> : <div className="course-portal-empty"><BookOpen /><h3>Learning content is being prepared</h3><p>The facilitator has not published a learning block for this course yet.</p></div>}</div>}
-      {view === "activities" && <div className="course-portal-section"><header><p className="eyebrow">APPLIED LEARNING</p><h2>Course activities and practical evidence</h2><p>Open each required activity, follow its instructions and submit the required evidence.</p></header>{activities.length ? <div className="course-portal-activity-list">{activities.map((activity, index) => <article key={activity.id}><span>{index + 1}</span><div><small>{activity.kind === "colab" ? "COLAB CODING ACTIVITY" : "VIRTUAL PRACTICAL"}{activity.required ? " · REQUIRED" : " · OPTIONAL"}</small><h3>{activity.title}</h3><p>{activity.instructions}</p><em>Pass mark {activity.passMark}% · {activity.attemptsAllowed} attempt{activity.attemptsAllowed === 1 ? "" : "s"}</em></div><button onClick={() => onOpenActivity(activity)}>{activity.kind === "colab" ? <Code2 /> : <FlaskConical />} Open activity <ChevronRight /></button></article>)}</div> : <div className="course-portal-empty"><FlaskConical /><h3>No separate practical activities</h3><p>Continue with the published learning content and assessment.</p></div>}</div>}
-      {view === "assessment" && <div className="course-portal-section"><header><p className="eyebrow">COURSE ASSESSMENT</p><h2>Demonstrate achievement of the learning outcomes</h2><p>Complete every required question and submit your attempt for automatic or facilitator review.</p></header>{questions.length ? <PublishedCourseExperience key={`${course.code}-assessment`} course={course} onOpenActivity={onOpenActivity} initialStage="assessment" /> : <div className="course-portal-empty"><FileCheck2 /><h3>Assessment awaiting facilitator</h3><p>You can continue studying while the assessment is prepared.</p></div>}</div>}
-      {view === "progress" && <div className="course-portal-section"><header><p className="eyebrow">PROGRESS & CREDENTIAL</p><h2>Your completion pathway</h2><p>The digital certificate becomes available only after every required learning and assessment gate is complete.</p></header><section className="course-progress-summary"><div><span>{course.progress}%</span><div><b>Overall course progress</b><Progress value={course.progress} /><small>Progress updates as assessed requirements are recorded.</small></div></div></section><div className="course-completion-gates"><article><BookOpen /><div><b>Learning content</b><span>{materials.length} published block{materials.length === 1 ? "" : "s"} available</span></div><em>Study</em></article><article><FlaskConical /><div><b>Applied activities</b><span>{activities.filter((activity) => activity.required).length} required activit{activities.filter((activity) => activity.required).length === 1 ? "y" : "ies"}</span></div><em>Submit</em></article><article><FileCheck2 /><div><b>Course assessment</b><span>{questions.length ? `${questions.length} questions · Pass mark ${course.assessmentConfig?.passMark ?? 60}%` : "Awaiting publication"}</span></div><em>Pass</em></article><article><Award /><div><b>UCC digital certificate</b><span>{course.certificateEnabled === false ? "Not enabled for this course" : design.certificateFeeGhs > 0 ? `GHS ${design.certificateFeeGhs.toLocaleString()} after academic completion` : "Issued free after academic completion"}</span></div><em>{course.certificateEnabled === false ? "Unavailable" : "Locked"}</em></article></div></div>}
-    </section>
-  </div>;
-}
-
-function PublishedCourseExperience({ course, onOpenActivity, preview = false, initialStage = "materials" }: { course: Course; onOpenActivity: (activity: CourseActivity) => void; preview?: boolean; initialStage?: "materials" | "assessment" }) {
+function PublishedCourseExperience({ course, onOpenActivity, onProgressChange, preview = false }: { course: Course; onOpenActivity: (activity: CourseActivity) => void; onProgressChange?: (progress: number) => void; preview?: boolean }) {
   type Completion = { complete: boolean; certificateFeeGhs?: number; certificatePaymentRequired?: boolean; requirements: { id: string; label: string; complete: boolean; evidence?: string }[] };
-  const questions = course.assessmentConfig?.questions ?? []; const [stage, setStage] = useState<"materials" | "assessment" | "result">(initialStage); const [answers, setAnswers] = useState<Record<string, unknown>>({}); const [videoReady, setVideoReady] = useState<Record<string, boolean>>({}); const [score, setScore] = useState<number | null>(null); const [passed, setPassed] = useState(false); const [certificate, setCertificate] = useState<CertificateRecord | null>(null); const [completion, setCompletion] = useState<Completion | null>(null); const [submitting, setSubmitting] = useState(false); const [selectedMaterial, setSelectedMaterial] = useState<CourseMaterial | null>(null);
+  const questions = course.assessmentConfig?.questions ?? []; const [stage, setStage] = useState<"materials" | "assessment" | "result">("materials"); const [answers, setAnswers] = useState<Record<string, unknown>>({}); const [videoReady, setVideoReady] = useState<Record<string, boolean>>({}); const [score, setScore] = useState<number | null>(null); const [passed, setPassed] = useState(false); const [certificate, setCertificate] = useState<CertificateRecord | null>(null); const [completion, setCompletion] = useState<Completion | null>(null); const [submitting, setSubmitting] = useState(false); const [selectedMaterial, setSelectedMaterial] = useState<CourseMaterial | null>(null);
   const submit = async () => { if (preview) { setScore(100); setPassed(true); setCertificate(null); setCompletion(null); setStage("result"); toast.success("Preview assessment completed", { description: "No learner record or certificate was created." }); return; } setSubmitting(true); try { const response = await fetch("/api/assessments", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ courseCode: course.code, answers }) }); const result = await response.json() as { score?: number; passed?: boolean; certificate?: CertificateRecord; completion?: Completion; error?: string }; if (!response.ok) throw new Error(result.error ?? "Assessment could not be submitted."); setScore(result.score ?? 0); setPassed(Boolean(result.passed)); setCertificate(result.certificate ?? null); setCompletion(result.completion ?? null); setStage("result"); toast[result.passed ? "success" : "error"](result.passed ? "Assessment passed" : "Pass mark not reached", { description: result.certificate ? "Your verified UCC certificate is ready." : `Score: ${result.score ?? 0}%` }); } catch (error) { toast.error(error instanceof Error ? error.message : "Assessment could not be submitted."); } finally { setSubmitting(false); } };
   if (stage === "result") return <div className="published-course-result">{certificate ? <CertificateCard certificate={certificate} /> : <div className="completion-result"><span className={passed ? "passed" : "retry"}>{passed ? <CheckCircle2 /> : <FileCheck2 />}</span><h3>{passed ? "Assessment passed" : `Assessment result: ${score}%`}</h3><p>{passed ? "Your result is recorded. Complete every remaining required activity below to unlock the UCC digital certificate." : "Review the learning materials and try the assessment again when ready."}</p>{completion?.requirements?.length ? <div className="completion-checklist">{completion.requirements.map((requirement) => <article className={requirement.complete ? "complete" : "pending"} key={requirement.id}>{requirement.complete ? <CheckCircle2 /> : <Clock3 />}<div><b>{requirement.label}</b><span>{requirement.complete ? "Requirement complete" : "Still required"}</span></div></article>)}</div> : null}<button className="dialog-primary" onClick={() => setStage(passed ? "materials" : "assessment")}>{passed ? "Return to course activities" : "Try assessment again"}</button></div>}</div>;
-  if (stage === "materials") {
+  if (stage === "materials") return <GuidedCoursePortal course={course} preview={preview} onOpenActivity={onOpenActivity} onProgressChange={onProgressChange} onBeginAssessment={() => setStage("assessment")} />;
+  if ((stage as string) === "materials") {
     const design = course.design ?? defaultCourseDesign();
     const sections = design.sections.length ? design.sections : [{ id: "section-1", title: "Course learning", description: "Guided microcredential content" }];
     return <div className="published-course commercial-learner-course"><section className="learner-course-hero"><div><p className="eyebrow">{design.category.toUpperCase()} MICROCREDENTIAL</p><h2>{course.title}</h2><p>{course.description}</p><div><span><Gauge /> {design.level}</span><span><Clock3 /> {design.expectedHours} hours</span><span><BookOpen /> {design.deliveryPattern}</span><span><Users /> {course.facilitatorName}</span></div></div><Award /></section>
@@ -678,6 +605,110 @@ function PublishedCourseExperience({ course, onOpenActivity, preview = false, in
     </div>;
   }
   return <div className="published-assessment"><div className="assessment-heading"><span>{questions.length} QUESTIONS</span><h3>Complete every assessment activity</h3><p>Video-gated questions open only after the required whole video or selected segment finishes. Mathematical questions may include a handwriting-enabled working board.</p></div>{questions.map((question, index) => { const isVideo = question.type === "Video question"; const unlocked = !isVideo || videoReady[question.id]; return <article className="learner-question" key={question.id}><span className="question-number">{index + 1}</span><div><small>{question.type} · {question.points} point{question.points === 1 ? "" : "s"}{question.whiteboardEnabled ? " · Whiteboard enabled" : ""}</small>{isVideo && <VideoQuestionGate question={question} onReady={() => setVideoReady((items) => ({ ...items, [question.id]: true }))} />}{unlocked ? <><h3>{question.prompt}</h3>{["Multiple choice", "True / false"].includes(question.type) || (isVideo && question.options.length) ? <div className="learner-options">{question.options.map((option) => <label key={option}><input type="radio" name={question.id} checked={answers[question.id] === option} onChange={() => setAnswers((items) => ({ ...items, [question.id]: option }))} />{option}</label>)}</div> : ["Matching", "Drag and drop", "Picture matching"].includes(question.type) ? <PairAnswer question={question} value={(answers[question.id] as Record<string,string>) ?? {}} onChange={(value) => setAnswers((items) => ({ ...items, [question.id]: value }))} /> : question.whiteboardEnabled ? <MathWhiteboard value={String(answers[question.id] ?? "")} onChange={(value) => setAnswers((items) => ({ ...items, [question.id]: value }))} /> : <textarea value={String(answers[question.id] ?? "")} onChange={(event) => setAnswers((items) => ({ ...items, [question.id]: event.target.value }))} placeholder={question.type === "Fill in" ? "Type the missing word or phrase" : "Enter your answer"} />}</> : <div className="question-locked"><Video /> Complete the required viewing to reveal this question.</div>}</div></article>; })}<button className="dialog-primary" disabled={submitting || questions.some((question) => answers[question.id] === undefined) || questions.some((question) => question.type === "Video question" && !videoReady[question.id])} onClick={submit}><Award /> {submitting ? "Checking assessment…" : "Submit all assessments"}</button></div>;
+}
+
+function materialOriginalUrl(material: CourseMaterial) {
+  if (material.fileKey) return `/api/course-materials?key=${encodeURIComponent(material.fileKey)}`;
+  if (["Download", "File"].includes(material.kind)) return material.url ?? "";
+  return "";
+}
+
+function RichLearningSection({ material }: { material: CourseMaterial }) {
+  const originalFile = materialOriginalUrl(material);
+  const isPdf = Boolean(originalFile && (material.mimeType === "application/pdf" || material.fileName?.toLowerCase().endsWith(".pdf")));
+  const isMedia = Boolean(originalFile && /^(video|audio)\//.test(material.mimeType ?? ""));
+  return <div className="guided-section-body">
+    {isPdf && <details className="guided-original-document"><summary><FileText /><div><b>Original uploaded PDF</b><span>The manual remains in its supplied layout. Expand it here or open it with browser search and zoom tools.</span></div><span>View original</span></summary><div className="guided-original-actions"><a href={originalFile} target="_blank" rel="noreferrer">Open original in a new tab</a></div><iframe src={`${originalFile}#toolbar=1&navpanes=0&view=FitH`} title={`${material.title} original PDF`} /></details>}
+    {material.readableHtml && <article className="guided-rich-reading readable-course-document" dangerouslySetInnerHTML={{ __html: material.readableHtml }} />}
+    {!material.readableHtml && material.kind === "Watch" && material.url && <div className="transcript-video"><iframe src={material.url} title={material.title} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen /></div>}
+    {!material.readableHtml && isMedia && (material.mimeType?.startsWith("audio/") ? <audio controls src={originalFile} /> : <video controls src={originalFile} />)}
+    {!material.readableHtml && material.kind === "Embed" && material.url && <iframe className="sandboxed-resource" src={material.url} title={material.title} sandbox="allow-scripts allow-same-origin allow-forms allow-popups" />}
+    {!material.readableHtml && !isPdf && !isMedia && originalFile && <div className="download-material"><FileText /><h3>{material.fileName ?? material.title}</h3><p>Open or download the facilitator-supplied original file.</p></div>}
+    {originalFile && !isPdf && <a className="guided-original-link" href={originalFile} target="_blank" rel="noreferrer"><FileText /> Open original uploaded {material.fileName?.split(".").pop()?.toUpperCase() ?? "document"}</a>}
+    {material.externalUrl && <a className="guided-original-link" href={material.externalUrl} target="_blank" rel="noreferrer">Open cited source in a new tab</a>}
+    {material.transcript && material.transcriptPublished !== false && <details className="guided-transcript"><summary><FileText /> Facilitator-reviewed transcript</summary><pre>{material.transcript}</pre></details>}
+  </div>;
+}
+
+function GuidedCoursePortal({ course, preview, onOpenActivity, onProgressChange, onBeginAssessment }: { course: Course; preview: boolean; onOpenActivity: (activity: CourseActivity) => void; onProgressChange?: (progress: number) => void; onBeginAssessment: () => void }) {
+  const [view, setView] = useState<"overview" | "content" | "activities" | "progress">("overview");
+  const [completedIds, setCompletedIds] = useState<string[]>([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [loadingProgress, setLoadingProgress] = useState(!preview);
+  const [savingProgress, setSavingProgress] = useState(false);
+  const materials = course.materials ?? [];
+  const materialId = (material: CourseMaterial, index: number) => String(material.id || `material-${index + 1}`);
+  const completedCount = materials.filter((material, index) => completedIds.includes(materialId(material, index))).length;
+  const progress = materials.length ? Math.round((completedCount / materials.length) * 100) : 0;
+  const firstIncomplete = materials.findIndex((material, index) => !completedIds.includes(materialId(material, index)));
+  const current = materials[currentIndex] ?? null;
+  const design = course.design ?? defaultCourseDesign();
+
+  useEffect(() => {
+    setView("overview"); setCompletedIds([]); setCurrentIndex(0);
+    if (preview) { setLoadingProgress(false); return; }
+    setLoadingProgress(true);
+    fetch(`/api/course-progress?courseCode=${encodeURIComponent(course.code)}`)
+      .then(async (response) => ({ response, result: await response.json() as { progress?: { completedMaterialIds?: string[]; progress?: number }; error?: string } }))
+      .then(({ response, result }) => {
+        if (!response.ok) throw new Error(result.error ?? "Learning progress could not be loaded.");
+        const ids = result.progress?.completedMaterialIds ?? [];
+        setCompletedIds(ids);
+        const next = materials.findIndex((material, index) => !ids.includes(materialId(material, index)));
+        setCurrentIndex(next < 0 ? Math.max(0, materials.length - 1) : next);
+        onProgressChange?.(result.progress?.progress ?? 0);
+      })
+      .catch((error) => toast.error(error instanceof Error ? error.message : "Learning progress could not be loaded."))
+      .finally(() => setLoadingProgress(false));
+  // A new approved course/version must reopen at its own saved position.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [course.code, course.versionNumber, preview]);
+
+  const openMaterial = (index: number) => {
+    const allowed = firstIncomplete < 0 || index <= firstIncomplete || completedIds.includes(materialId(materials[index], index));
+    if (!allowed) return toast.info("Complete the current section before opening the next one.");
+    setCurrentIndex(index); setView("content");
+  };
+
+  const completeAndContinue = async () => {
+    if (!current) return;
+    const id = materialId(current, currentIndex);
+    let nextIds = completedIds.includes(id) ? completedIds : [...completedIds, id];
+    if (!preview && !completedIds.includes(id)) {
+      setSavingProgress(true);
+      try {
+        const response = await fetch("/api/course-progress", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ courseCode: course.code, materialId: id, completed: true }) });
+        const result = await response.json() as { progress?: { completedMaterialIds?: string[]; progress?: number }; error?: string };
+        if (!response.ok) throw new Error(result.error ?? "Section completion could not be saved.");
+        nextIds = result.progress?.completedMaterialIds ?? nextIds;
+        onProgressChange?.(result.progress?.progress ?? Math.round((nextIds.length / Math.max(1, materials.length)) * 100));
+      } catch (error) { toast.error(error instanceof Error ? error.message : "Section completion could not be saved."); setSavingProgress(false); return; }
+      finally { setSavingProgress(false); }
+    }
+    setCompletedIds(nextIds);
+    if (preview) onProgressChange?.(Math.round((nextIds.length / Math.max(1, materials.length)) * 100));
+    if (currentIndex < materials.length - 1) { setCurrentIndex(currentIndex + 1); toast.success("Section complete", { description: "The next section is now open." }); }
+    else { setView("activities"); toast.success("Learning content complete", { description: "Continue with the programme activities and assessment." }); }
+  };
+
+  return <div className="guided-course-portal">
+    <section className="guided-progress-bar"><div><span>Learning progress</span><b>{progress}%</b></div><Progress value={progress} /><small>{loadingProgress ? "Loading saved progress…" : `${completedCount} of ${materials.length} content sections complete`}</small></section>
+    <nav className="guided-course-nav" aria-label="Course portal sections">
+      <button className={view === "overview" ? "active" : ""} onClick={() => setView("overview")}><BookOpen /> Course home</button>
+      <button className={view === "content" ? "active" : ""} onClick={() => setView("content")}><FileText /> Learning manual</button>
+      <button className={view === "activities" ? "active" : ""} onClick={() => setView("activities")}><FlaskConical /> Activities</button>
+      <button onClick={onBeginAssessment}><FileCheck2 /> Assessment</button>
+      <button className={view === "progress" ? "active" : ""} onClick={() => setView("progress")}><Gauge /> Progress & award</button>
+    </nav>
+
+    {view === "overview" && <div className="guided-course-home"><section className="learner-course-hero"><div><p className="eyebrow">{design.category.toUpperCase()} MICROCREDENTIAL</p><h2>{course.title}</h2><p>{course.description}</p><div><span><Gauge /> {design.level}</span><span><Clock3 /> {design.expectedHours} hours</span><span><BookOpen /> {design.deliveryPattern}</span><span><Users /> {course.facilitatorName}</span></div></div><Award /></section><div className="learner-blueprint"><section><p className="eyebrow">WHAT YOU WILL LEARN</p><h3>Course objectives</h3><ul>{design.objectives.map((objective) => <li key={objective}><CheckCircle2 /> {objective}</li>)}</ul></section><section><p className="eyebrow">MEASURABLE ACHIEVEMENT</p><h3>Learning outcomes</h3>{design.outcomes.map((outcome, index) => <article key={outcome.id}><span>{index + 1}</span><div><b>{outcome.statement}</b><small>{outcome.skill} · {outcome.assessmentMethod}</small></div></article>)}</section></div><button className="dialog-primary guided-start" onClick={() => { setView("content"); if (firstIncomplete >= 0) setCurrentIndex(firstIncomplete); }}><CirclePlay /> {completedCount ? "Continue learning" : "Start the learning manual"}</button></div>}
+
+    {view === "content" && <div className="guided-reader-layout"><aside className="guided-section-list"><header><p className="eyebrow">LEARNING MANUAL</p><h3>Section-by-section pathway</h3><p>Complete each section to unlock the next.</p></header>{materials.map((material, index) => { const id = materialId(material, index); const complete = completedIds.includes(id); const locked = firstIncomplete >= 0 && index > firstIncomplete && !complete; return <button key={id} className={`${currentIndex === index ? "active" : ""} ${complete ? "complete" : ""} ${locked ? "locked" : ""}`} onClick={() => openMaterial(index)}><span>{complete ? <CheckCircle2 /> : locked ? <ShieldCheck /> : index + 1}</span><div><b>{material.sectionTitle || material.unitTitle || `Section ${index + 1}`}</b><small>{material.title} · {material.estimatedMinutes ?? 5} min</small></div></button>; })}</aside><section className="guided-reader"><header><div><p className="eyebrow">SECTION {currentIndex + 1} OF {materials.length} · {current?.sectionTitle ?? "COURSE CONTENT"}</p><h2>{current?.title ?? "Learning content is being prepared"}</h2><p>{current ? `${current.source} · ${current.estimatedMinutes ?? 5} estimated minutes` : "The facilitator has not added a learning section yet."}</p></div>{current && completedIds.includes(materialId(current, currentIndex)) && <span className="section-complete-badge"><CheckCircle2 /> Complete</span>}</header>{current && <RichLearningSection material={current} />}<footer><button className="secondary-action" disabled={currentIndex === 0} onClick={() => setCurrentIndex((index) => Math.max(0, index - 1))}><ArrowLeft /> Previous</button><button className="dialog-primary" disabled={!current || savingProgress} onClick={() => void completeAndContinue()}>{savingProgress ? "Saving progress…" : completedIds.includes(current ? materialId(current, currentIndex) : "") ? currentIndex < materials.length - 1 ? "Continue to next section" : "Continue to activities" : currentIndex < materials.length - 1 ? "Mark complete & continue" : "Complete manual & continue"} <ChevronRight /></button></footer></section></div>}
+
+    {view === "activities" && <section className="guided-activities"><header><div><p className="eyebrow">AUTHENTIC EVIDENCE</p><h2>Programme activities</h2><p>Complete each required task before the credential can be issued.</p></div><span><ShieldCheck /> Included in certificate gate</span></header><div className="published-materials">{(course.activities ?? []).map((activity, index) => <article className="published-programme-activity" key={activity.id}><span>{index + 1}</span><div><b>{activity.kind === "colab" ? "COLAB CODING ACTIVITY" : "INTERACTIVE VIRTUAL PRACTICAL"}{activity.required ? " · Required" : " · Optional"}</b><h3>{activity.title}</h3><p>{activity.instructions} · Pass mark {activity.passMark}% · {activity.attemptsAllowed} attempt{activity.attemptsAllowed === 1 ? "" : "s"}</p></div><button onClick={() => onOpenActivity(activity)}>{activity.kind === "colab" ? <Code2 /> : <FlaskConical />} Open activity</button></article>)}</div>{!(course.activities ?? []).length && <div className="empty-state">No programme activities are required for this course.</div>}<button className="dialog-primary" disabled={!(course.assessmentConfig?.questions ?? []).length} onClick={onBeginAssessment}><FileCheck2 /> Begin course assessment</button></section>}
+
+    {view === "progress" && <section className="guided-progress-view"><Award /><p className="eyebrow">PROGRESS & AWARD</p><h2>{progress === 100 ? "Learning manual complete" : "Continue your learning pathway"}</h2><p>{completedCount} of {materials.length} manual sections are complete. Your progress is saved to your student account and updates every time you finish a section.</p><div><Progress value={progress} /><b>{progress}%</b></div><ul><li className={progress === 100 ? "complete" : ""}>{progress === 100 ? <CheckCircle2 /> : <Clock3 />} Complete all manual sections</li><li><Clock3 /> Complete required programme activities</li><li><Clock3 /> Pass the course assessment</li><li><Clock3 /> Meet identity and certificate requirements</li></ul><button className="dialog-primary" onClick={() => setView(progress === 100 ? "activities" : "content")}>{progress === 100 ? "Continue to activities" : "Resume manual"} <ChevronRight /></button></section>}
+  </div>;
 }
 
 function PortalLoading() {
@@ -807,13 +838,13 @@ function OpenCourseCatalog({ courses: catalogue, enrolledCodes, query, onEnrol, 
     return matchesSearch && (selectedDiscipline === "All disciplines" || (course.discipline ?? "Interdisciplinary") === selectedDiscipline);
   });
   const openCount = available.length;
-  return <section className="page-panel open-catalog"><div className="page-title"><div><p className="eyebrow">MICROCREDENTIAL CATALOGUE</p><h2>Available courses and programmes</h2><p>Every published offering supports self-enrolment. Free courses open immediately; paid courses open after secure payment.</p></div><span className="open-badge"><CheckCircle2 /> {openCount} self-enrol</span></div><div className="discipline-filter" aria-label="Filter programmes by discipline"><button className={selectedDiscipline === "All disciplines" ? "active" : ""} onClick={() => setSelectedDiscipline("All disciplines")}>All disciplines <span>{catalogue.length}</span></button>{presentDisciplines.map((discipline) => <button key={discipline} className={selectedDiscipline === discipline ? "active" : ""} onClick={() => setSelectedDiscipline(discipline)}>{discipline} <span>{catalogue.filter((course) => (course.discipline ?? "Interdisciplinary") === discipline).length}</span></button>)}</div><div className="catalog-grid">{available.map((course) => { const enrolled = enrolledCodes.includes(course.code); const design = course.design ?? defaultCourseDesign(); const actionLabel = design.priceGhs > 0 ? `Pay GHS ${design.priceGhs.toLocaleString()} & enrol` : "Enrol free"; return <article className="catalog-course-card course-clickable" key={course.code} role="link" tabIndex={0} aria-label={enrolled ? `Open ${course.title} course portal` : `View ${course.title} details`} onClick={() => onOpen(course)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onOpen(course); } }}><div className={`catalog-icon ${course.accent}`}><BookOpen /></div><div><span>{course.code}</span><h3>{course.title}</h3><p>{course.school}</p><small><b>{course.discipline ?? "Interdisciplinary"}</b> · {design.level} · {design.expectedHours} hours · {design.deliveryPattern} · Self-enrolment</small><button className="catalog-details" onClick={(event) => { event.stopPropagation(); onOpen(course); }}>{enrolled ? "Open course portal" : "View full course details"}</button></div><button className={enrolled ? "enrolled" : ""} onClick={(event) => { event.stopPropagation(); if (enrolled) onOpen(course); else onEnrol(course.code); }}>{enrolled ? <><CheckCircle2 /> Enter course portal</> : <><CirclePlay /> {actionLabel}</>}</button></article>; })}{available.length === 0 && <div className="empty-state catalog-empty">No programmes match this discipline and search.</div>}</div></section>;
+  return <section className="page-panel open-catalog"><div className="page-title"><div><p className="eyebrow">MICROCREDENTIAL CATALOGUE</p><h2>Available courses and programmes</h2><p>Every published offering supports self-enrolment. Free courses open immediately; paid courses open after secure payment.</p></div><span className="open-badge"><CheckCircle2 /> {openCount} self-enrol</span></div><div className="discipline-filter" aria-label="Filter programmes by discipline"><button className={selectedDiscipline === "All disciplines" ? "active" : ""} onClick={() => setSelectedDiscipline("All disciplines")}>All disciplines <span>{catalogue.length}</span></button>{presentDisciplines.map((discipline) => <button key={discipline} className={selectedDiscipline === discipline ? "active" : ""} onClick={() => setSelectedDiscipline(discipline)}>{discipline} <span>{catalogue.filter((course) => (course.discipline ?? "Interdisciplinary") === discipline).length}</span></button>)}</div><div className="catalog-grid">{available.map((course) => { const enrolled = enrolledCodes.includes(course.code); const design = course.design ?? defaultCourseDesign(); const actionLabel = design.priceGhs > 0 ? `Pay GHS ${design.priceGhs.toLocaleString()} & enrol` : "Enrol free"; return <article key={course.code}><div className={`catalog-icon ${course.accent}`}><BookOpen /></div><div><span>{course.code}</span><h3>{course.title}</h3><p>{course.school}</p><small><b>{course.discipline ?? "Interdisciplinary"}</b> · {design.level} · {design.expectedHours} hours · {design.deliveryPattern} · Self-enrolment</small><button className="catalog-details" onClick={() => onOpen(course)}>View full course details</button></div><button className={enrolled ? "enrolled" : ""} onClick={() => enrolled ? onOpen(course) : onEnrol(course.code)}>{enrolled ? <><CheckCircle2 /> Enrolled — open course</> : <><CirclePlay /> {actionLabel}</>}</button></article>; })}{available.length === 0 && <div className="empty-state catalog-empty">No programmes match this discipline and search.</div>}</div></section>;
 }
 
 type FacilitatorRecord = { email: string; full_name: string; status: string; identity_status: string; created_at: string };
 type VerificationRecord = { email: string; full_name: string; role: string; date_of_birth: string; gender: string; nationality: string; phone: string; address?: string; id_type: string; id_last4: string; status: string; verifier_email?: string | null; created_at: string };
 type ReviewerRecord = { email: string; full_name: string; role: string };
-type CourseReviewRecord = { id: number; code: string; title: string; discipline: string; description: string; design: CourseDesign; materials: CourseMaterial[]; assessmentConfig?: { questions?: AssessmentQuestion[] }; status: string; facilitatorName: string; questionLimit: number; certificateEnabled: boolean; activities?: CourseActivity[]; versionNumber: number; submittedAt?: string | null; reviewComment?: string | null; reviewedByEmail?: string | null; reviewedAt?: string | null };
+type CourseReviewRecord = { id: number; code: string; title: string; discipline: string; description: string; design: CourseDesign; materials: CourseMaterial[]; assessmentConfig?: { questions?: AssessmentQuestion[] }; status: string; facilitatorName: string; questionLimit: number; certificateEnabled: boolean; activities?: CourseActivity[]; versionNumber: number; submittedAt?: string | null; reviewComment?: string | null; reviewedByEmail?: string | null; reviewedAt?: string | null; isRevision?: boolean; sourceCourseId?: number; baseVersionNumber?: number };
 
 type CohortAnalyticsData = { role: PortalRole; totals: { courses: number; enrolled: number; completed: number; pendingEvidence: number }; courses: { code: string; title: string; discipline: string; status: string; enrolled: number; activeLearners: number; completed: number; averageScore: number | null; passRate: number | null; pendingEvidence: number }[] };
 
@@ -838,17 +869,20 @@ function CredentialRegistry() {
 function CourseApprovalPanel() {
   const [items, setItems] = useState<CourseReviewRecord[]>([]);
   const [loading, setLoading] = useState(true);
-  const [comments, setComments] = useState<Record<number, string>>({});
-  const [savingId, setSavingId] = useState<number | null>(null);
+  const [comments, setComments] = useState<Record<string, string>>({});
+  const [savingId, setSavingId] = useState<string | null>(null);
+  const reviewKey = (course: CourseReviewRecord) => `${course.isRevision ? "revision" : "course"}-${course.id}`;
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await fetch("/api/courses");
-      const result = await response.json() as { courses?: CourseReviewRecord[]; error?: string };
-      if (!response.ok) throw new Error(result.error ?? "Courses could not be loaded.");
-      const courses = result.courses ?? [];
-      setItems(courses);
-      setComments(Object.fromEntries(courses.map((course) => [course.id, ""])));
+      const [courseResponse, revisionResponse] = await Promise.all([fetch("/api/courses"), fetch("/api/course-revisions")]);
+      const courseResult = await courseResponse.json() as { courses?: CourseReviewRecord[]; error?: string };
+      const revisionResult = await revisionResponse.json() as { revisions?: CourseReviewRecord[]; error?: string };
+      if (!courseResponse.ok) throw new Error(courseResult.error ?? "Courses could not be loaded.");
+      if (!revisionResponse.ok) throw new Error(revisionResult.error ?? "Course revisions could not be loaded.");
+      const records = [...(revisionResult.revisions ?? []), ...(courseResult.courses ?? [])];
+      setItems(records);
+      setComments(Object.fromEntries(records.map((course) => [reviewKey(course), ""])));
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Courses could not be loaded.");
     } finally {
@@ -858,20 +892,21 @@ function CourseApprovalPanel() {
   useEffect(() => { void load(); }, [load]);
 
   const review = async (course: CourseReviewRecord, status: "active" | "rejected", quality: ReturnType<typeof evaluateCourseQuality>) => {
-    const comment = comments[course.id]?.trim() ?? "";
+    const key = reviewKey(course);
+    const comment = comments[key]?.trim() ?? "";
     const administrativeOverride = status === "active" && (course.status === "rejected" || !quality.ready);
     if (status === "rejected" && !comment) return toast.error("Add comments explaining the required changes before returning the course.");
     if (administrativeOverride && !comment) return toast.error("Add an approval justification before publishing this course as an administrative exception.");
-    setSavingId(course.id);
+    setSavingId(key);
     try {
-      const response = await fetch("/api/courses", {
+      const response = await fetch(course.isRevision ? "/api/course-revisions" : "/api/courses", {
         method: "PATCH",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ id: course.id, status, comment, administrativeOverride }),
       });
       const result = await response.json() as { error?: string };
       if (!response.ok) throw new Error(result.error ?? "The course decision could not be saved.");
-      toast.success(status === "active" ? "Course approved and published" : "Course returned with comments to the facilitator", {
+      toast.success(status === "active" ? course.isRevision ? "Revision approved and published" : "Course approved and published" : "Course returned with comments to the facilitator", {
         description: administrativeOverride ? "The quality exception and administrator justification were recorded." : undefined,
       });
       await load();
@@ -889,7 +924,8 @@ function CourseApprovalPanel() {
     const missingChecks = quality.checks.filter((check) => !check.passed);
     const actionable = course.status === "pending_review" || course.status === "rejected";
     const requiresException = actionable && (course.status === "rejected" || !quality.ready);
-    return <article key={course.id}><div><span>{course.code} · {course.discipline} · version {course.versionNumber} · {course.status.replaceAll("_", " ")}</span><h3>{course.title}</h3><p>{course.facilitatorName} · {course.design?.outcomes?.length ?? 0} outcomes · {course.materials?.length ?? 0} learning blocks · {course.activities?.length ?? 0} applied activities</p><div className="admin-quality-meter"><Progress value={quality.score} /><b>{quality.score}% quality readiness</b></div><div className="admin-course-facts"><span>{course.design?.expectedHours ?? 0} hours</span><span>{course.design?.level ?? "level not set"}</span><span>{course.certificateEnabled ? "UCC QR certificate" : "certificate disabled"}</span></div>{course.reviewComment && course.status !== "pending_review" && <p className="admin-existing-comment"><MessageSquareText /> {course.reviewComment}</p>}{requiresException && <div className="approval-exception-note"><AlertTriangle /><div><b>Administrator exception required</b><span>{course.status === "rejected" ? "This course was previously returned. " : ""}{missingChecks.length ? `Outstanding checks: ${missingChecks.map((check) => check.label).join(", ")}. ` : ""}Enter a justification before approving publication.</span></div></div>}</div><div className="approval-decision"><label>{requiresException ? "Administrator justification" : "Review comments"}<textarea value={comments[course.id] ?? ""} onChange={(event) => setComments((current) => ({ ...current, [course.id]: event.target.value }))} placeholder={requiresException ? "Required: explain why this course may be published as an exception." : "Required when returning. Optional approval note when activating."} /></label><div><button className="reject" disabled={course.status === "active" || savingId === course.id} onClick={() => review(course, "rejected", quality)}>Return with comments</button><button className="approve" disabled={!actionable || savingId === course.id} title={!actionable ? "Only pending or returned courses can be published." : requiresException ? "Enter an administrator justification, then approve publication." : "Approve and publish this course."} onClick={() => review(course, "active", quality)}><CheckCircle2 /> {savingId === course.id ? "Saving…" : "Approve & publish"}</button></div></div></article>;
+    const key = reviewKey(course);
+    return <article key={key}><div><span>{course.isRevision ? `REVISION OF LIVE VERSION ${course.baseVersionNumber ?? ""} · ` : ""}{course.code} · {course.discipline} · editor version {course.versionNumber} · {course.status.replaceAll("_", " ")}</span><h3>{course.title}</h3><p>{course.facilitatorName} · {course.design?.outcomes?.length ?? 0} outcomes · {course.materials?.length ?? 0} learning blocks · {course.activities?.length ?? 0} applied activities</p>{course.isRevision && <p className="revision-safety-note"><ShieldCheck /> The current approved version remains visible to students until this revision is approved.</p>}<div className="admin-quality-meter"><Progress value={quality.score} /><b>{quality.score}% quality readiness</b></div><div className="admin-course-facts"><span>{course.design?.expectedHours ?? 0} hours</span><span>{course.design?.level ?? "level not set"}</span><span>{course.certificateEnabled ? "UCC QR certificate" : "certificate disabled"}</span></div>{course.reviewComment && course.status !== "pending_review" && <p className="admin-existing-comment"><MessageSquareText /> {course.reviewComment}</p>}{requiresException && <div className="approval-exception-note"><AlertTriangle /><div><b>Administrator exception required</b><span>{course.status === "rejected" ? "This course was previously returned. " : ""}{missingChecks.length ? `Outstanding checks: ${missingChecks.map((check) => check.label).join(", ")}. ` : ""}Enter a justification before approving publication.</span></div></div>}</div><div className="approval-decision"><label>{requiresException ? "Administrator justification" : "Review comments"}<textarea value={comments[key] ?? ""} onChange={(event) => setComments((current) => ({ ...current, [key]: event.target.value }))} placeholder={requiresException ? "Required: explain why this course may be published as an exception." : "Required when returning. Optional approval note when activating."} /></label><div><button className="reject" disabled={course.status === "active" || savingId === key} onClick={() => review(course, "rejected", quality)}>Return with comments</button><button className="approve" disabled={!actionable || savingId === key} title={!actionable ? "Only pending or returned courses can be published." : requiresException ? "Enter an administrator justification, then approve publication." : "Approve and publish this course."} onClick={() => review(course, "active", quality)}><CheckCircle2 /> {savingId === key ? "Saving…" : course.isRevision ? "Approve revision" : "Approve & publish"}</button></div></div></article>;
   })}{!loading && items.length === 0 && <div className="empty-state">No facilitator courses have been submitted.</div>}</div></section>;
 }
 
@@ -938,8 +974,8 @@ function AdminPortal({ onOpenRegister }: { onOpenRegister: () => void }) {
   return <div className="admin-layout"><div className="admin-main-stack"><section className="page-panel"><div className="page-title"><div><p className="eyebrow">SYSTEM ADMINISTRATION</p><h2>User and access management</h2><p>Learners submit identity evidence. Facilitators begin with a one-time administrator invitation.</p></div><span className="access-badge"><ShieldCheck /> Admin protected</span></div><div className="admin-stats"><article><Users /><div><b>{counts.learner ?? 0}</b><span>Learners</span></div></article><article><ShieldCheck /><div><b>{counts.facilitator ?? 0}</b><span>Facilitators</span></div></article><article><FileCheck2 /><div><b>{verifications.length}</b><span>Pending ID reviews</span></div></article></div><div className="admin-table"><div className="admin-table-head"><span>Facilitator</span><span>Status</span><span>Created</span></div>{loading && <div className="empty-state">Loading facilitator accounts…</div>}{!loading && facilitators.map((facilitator) => <article key={facilitator.email}><div><b>{facilitator.full_name}</b><span>{facilitator.email}</span></div><em>{facilitator.status.replaceAll("_", " ")}</em><time>{new Date(facilitator.created_at).toLocaleDateString()}</time></article>)}{!loading && facilitators.length === 0 && <div className="empty-state">No facilitator accounts have been created yet.</div>}</div></section><section className="page-panel verification-panel"><div className="page-title"><div><p className="eyebrow">VERIFICATION ASSIGNMENTS</p><h2>Assign each identity case</h2><p>Only the assigned facilitator—and system administrators—can open the protected ID and live photo.</p></div></div><div className="verification-queue assignment-queue">{verifications.map((record) => <article key={record.email}><div className="verification-person"><span>{record.full_name.split(/\s+/).map((part) => part[0]).slice(0,2).join("")}</span><div><b>{record.full_name}</b><p>{record.role} · {record.email}</p><small>{record.id_type} ending {record.id_last4}</small></div></div><label className="reviewer-select">Assigned reviewer<select value={record.verifier_email ?? ""} onChange={(event) => assign(record.email, event.target.value)}><option value="">Select administrator or facilitator</option>{reviewers.map((reviewer) => <option key={reviewer.email} value={reviewer.email}>{reviewer.full_name} · {reviewer.role}</option>)}</select></label><button className="open-register" onClick={onOpenRegister}><FileCheck2 /> Open identity register</button></article>)}{!loading && verifications.length === 0 && <div className="empty-state">No identity submissions are awaiting assignment.</div>}</div></section></div><aside className="admin-create"><p className="eyebrow">INVITE FACILITATOR</p><h2>Create one-time setup link</h2><p>The facilitator must sign in with this exact email, complete permanent biodata, and submit ID plus a live photo.</p><label>Full name<input value={fullName} onChange={(event) => setFullName(event.target.value)} placeholder="e.g. Dr. Esi Mensah" /></label><label>Institutional email<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@ucc.edu.gh" /></label><div className="registration-rule"><ShieldCheck /><p><b>Secure sign-in</b>Password and recovery remain with the verified sign-in provider; no readable password is stored here.</p></div><button className="dialog-primary" disabled={saving} onClick={createFacilitator}><Users /> {saving ? "Creating invitation…" : "Create setup invitation"}</button>{invite && <div className="invite-result"><CheckCircle2 /><div><b>Invitation ready for {invite.email}</b><span>Expires {new Date(invite.expiresAt).toLocaleString()}</span></div><button onClick={copyInvite}>Copy link</button><a href={`mailto:${encodeURIComponent(invite.email)}?subject=${encodeURIComponent("UCC Microcredentials facilitator setup")}&body=${encodeURIComponent(`Complete your permanent facilitator profile using this one-time link:\n\n${invite.url}`)}`}>Email link</a></div>}</aside></div>;
 }
 
-function CourseRow({ course, onOpen }: { course: Course, onOpen: () => void }) { return <article className="course-row course-clickable" role="link" tabIndex={0} aria-label={`Open ${course.title} course portal`} onClick={onOpen} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onOpen(); } }}><div className={`course-swatch ${course.accent}`}><BookOpen size={21} /></div><div className="course-copy"><span>{course.code}</span><h3>{course.title}</h3><small>{course.school}</small></div><div className="course-progress"><div><span>{course.modules}</span><b>{course.progress}%</b></div><Progress value={course.progress} /><button onClick={(event) => { event.stopPropagation(); onOpen(); }}>{course.next} <ChevronRight size={15} /></button></div></article>; }
-function CourseCard({ course, onOpen }: { course: Course, onOpen: () => void }) { return <article className="course-card course-clickable" role="link" tabIndex={0} aria-label={`Open ${course.title} course portal`} onClick={onOpen} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onOpen(); } }}><div className={`course-card-top ${course.accent}`}><span>{course.code}</span><BookOpen /></div><div className="course-card-body"><small>{course.school}</small><h3>{course.title}</h3><div className="progress-meta"><span>{course.modules}</span><b>{course.progress}%</b></div><Progress value={course.progress} /><button onClick={(event) => { event.stopPropagation(); onOpen(); }}>Enter course portal<ChevronRight size={16} /></button></div></article>; }
+function CourseRow({ course, onOpen }: { course: Course, onOpen: () => void }) { return <article className="course-row"><div className={`course-swatch ${course.accent}`}><BookOpen size={21} /></div><div className="course-copy"><span>{course.code}</span><h3>{course.title}</h3><small>{course.school}</small></div><div className="course-progress"><div><span>{course.modules}</span><b>{course.progress}%</b></div><Progress value={course.progress} /><button onClick={onOpen}>{course.next} <ChevronRight size={15} /></button></div></article>; }
+function CourseCard({ course, onOpen }: { course: Course, onOpen: () => void }) { return <article className="course-card"><div className={`course-card-top ${course.accent}`}><span>{course.code}</span><BookOpen /></div><div className="course-card-body"><small>{course.school}</small><h3>{course.title}</h3><div className="progress-meta"><span>{course.modules}</span><b>{course.progress}%</b></div><Progress value={course.progress} /><button onClick={onOpen}>{course.next}<ChevronRight size={16} /></button></div></article>; }
 function SessionRow({ session }: { session: typeof liveSessions[number] }) { return <article className="session-row"><div className="date-tile"><b>{session.day}</b><span>{session.month}</span></div><div><span>{session.status} · {session.time}</span><h3>{session.title}</h3><small>{session.course}</small></div></article>; }
 function LiveCard({ session, onOpen }: { session: typeof liveSessions[number], onOpen: () => void }) { return <article className="live-card"><div className="live-meta"><span>{session.status}</span><b>{session.time}</b></div><h3>{session.title}</h3><p>{session.course}</p><small>Facilitator: {session.host}</small><button onClick={onOpen}><Video size={17} /> View session room</button></article>; }
 
@@ -1248,7 +1284,7 @@ function OutcomeDesignEditor({ design, onChange }: { design: CourseDesign; onCha
 
 function FacilitatorStudio({ email, query, setQuery }: { email: string; query: string, setQuery: (value: string) => void }) {
   type Material = CourseMaterial;
-  type StudioDraft = { id: number; code: string; title: string; discipline: string; description: string; design: CourseDesign; materials: Material[]; activities: CourseActivity[]; assessmentModes: string[]; assessmentConfig: { passMark?: number; attempts?: string; questions?: AssessmentQuestion[]; questionFiles?: AssessmentSourceFile[] }; gateRequired: boolean; questionLimit: number; certificateEnabled: boolean; status: string; createdByEmail: string; versionNumber: number; updatedAt?: string; reviewComment?: string | null; reviewedAt?: string | null };
+  type StudioDraft = { id: number; code: string; title: string; discipline: string; description: string; design: CourseDesign; materials: Material[]; activities: CourseActivity[]; assessmentModes: string[]; assessmentConfig: { passMark?: number; attempts?: string; questions?: AssessmentQuestion[]; questionFiles?: AssessmentSourceFile[] }; gateRequired: boolean; questionLimit: number; certificateEnabled: boolean; status: string; createdByEmail: string; versionNumber: number; updatedAt?: string; reviewComment?: string | null; reviewedAt?: string | null; isRevision?: boolean; sourceCourseId?: number; baseVersionNumber?: number };
   const [step, setStep] = useState<StudioStepId>("details");
   const [portfolioOpen, setPortfolioOpen] = useState(false);
   const [courseTitle, setCourseTitle] = useState("Community Data Skills for Decision-Making");
@@ -1259,6 +1295,7 @@ function FacilitatorStudio({ email, query, setQuery }: { email: string; query: s
   const [draftId, setDraftId] = useState<number | null>(null);
   const [draftVersion, setDraftVersion] = useState(1);
   const [draftStatus, setDraftStatus] = useState("new");
+  const [editingRevision, setEditingRevision] = useState(false);
   const [drafts, setDrafts] = useState<StudioDraft[]>([]);
   const [loadingDrafts, setLoadingDrafts] = useState(true);
   const [type, setType] = useState("All");
@@ -1344,9 +1381,12 @@ function FacilitatorStudio({ email, query, setQuery }: { email: string; query: s
   const refreshDrafts = useCallback(async () => {
     setLoadingDrafts(true);
     try {
-      const response = await fetch("/api/courses"); const result = await response.json() as { courses?: StudioDraft[]; error?: string };
-      if (!response.ok) throw new Error(result.error ?? "Course drafts could not be loaded.");
-      setDrafts((result.courses ?? []).filter((course) => course.createdByEmail === email));
+      const [courseResponse, revisionResponse] = await Promise.all([fetch("/api/courses"), fetch("/api/course-revisions")]);
+      const result = await courseResponse.json() as { courses?: StudioDraft[]; error?: string };
+      const revisionResult = await revisionResponse.json() as { revisions?: StudioDraft[]; error?: string };
+      if (!courseResponse.ok) throw new Error(result.error ?? "Course drafts could not be loaded.");
+      if (!revisionResponse.ok) throw new Error(revisionResult.error ?? "Course revisions could not be loaded.");
+      setDrafts([...(revisionResult.revisions ?? []), ...(result.courses ?? []).filter((course) => course.createdByEmail === email)]);
     } catch (error) { toast.error(error instanceof Error ? error.message : "Course drafts could not be loaded."); }
     finally { setLoadingDrafts(false); }
   }, [email]);
@@ -1372,7 +1412,7 @@ function FacilitatorStudio({ email, query, setQuery }: { email: string; query: s
       }
 
       const example = buildIllustrativeCourseTemplate(origin, assets);
-      setDraftId(null); setDraftVersion(1); setDraftStatus("new"); setCourseCode(example.code); setCourseTitle(example.title); setDiscipline(example.discipline); setDescription(example.description);
+      setDraftId(null); setDraftVersion(1); setDraftStatus("new"); setEditingRevision(false); setCourseCode(example.code); setCourseTitle(example.title); setDiscipline(example.discipline); setDescription(example.description);
       setDesign(example.design); setMaterials(example.materials); setCourseActivities(example.activities); setAssessmentModes(example.assessmentModes);
       setGateRequired(example.gateRequired); setQuestionLimit(example.questionLimit); setCertificateEnabled(example.certificateEnabled); setPassMark(example.assessmentConfig.passMark); setAttempts(example.assessmentConfig.attempts); setQuestions(example.assessmentConfig.questions); setQuestionFiles(example.assessmentConfig.questionFiles);
       setContentSectionId(example.design.sections[0]?.id ?? "section-1"); setContentOutcomeIds(example.design.outcomes[0]?.id ? [example.design.outcomes[0].id] : []); setQuestionOutcomeIds(example.design.outcomes[0]?.id ? [example.design.outcomes[0].id] : []);
@@ -1391,7 +1431,7 @@ function FacilitatorStudio({ email, query, setQuery }: { email: string; query: s
       const result = await response.json() as { draft?: Omit<StudioDraft, "id" | "status" | "createdByEmail" | "versionNumber">; extraction?: { fileName?: string; wordCount?: number; conversionNote?: string }; warning?: string; error?: string };
       if (!response.ok || !result.draft) throw new Error(result.error ?? "The course manual could not be converted.");
       const draft = result.draft;
-      setDraftId(null); setDraftVersion(1); setDraftStatus("new"); setCourseCode(draft.code); setCourseTitle(draft.title); setDiscipline(draft.discipline); setDescription(draft.description);
+      setDraftId(null); setDraftVersion(1); setDraftStatus("new"); setEditingRevision(false); setCourseCode(draft.code); setCourseTitle(draft.title); setDiscipline(draft.discipline); setDescription(draft.description);
       setDesign({ ...draft.design, enrolmentMode: "open" }); setMaterials(draft.materials); setCourseActivities(draft.activities); setAssessmentModes(draft.assessmentModes);
       setGateRequired(draft.gateRequired); setQuestionLimit(draft.questionLimit); setCertificateEnabled(draft.certificateEnabled); setPassMark(draft.assessmentConfig?.passMark ?? 60); setAttempts(draft.assessmentConfig?.attempts ?? "2"); setQuestions(draft.assessmentConfig?.questions ?? []); setQuestionFiles(draft.assessmentConfig?.questionFiles ?? []);
       setContentSectionId(draft.design.sections[0]?.id ?? "section-1"); setContentOutcomeIds(draft.design.outcomes[0]?.id ? [draft.design.outcomes[0].id] : []); setQuestionOutcomeIds(draft.design.outcomes[0]?.id ? [draft.design.outcomes[0].id] : []);
@@ -1401,13 +1441,27 @@ function FacilitatorStudio({ email, query, setQuery }: { email: string; query: s
     } catch (error) { toast.error(error instanceof Error ? error.message : "The course manual could not be converted."); }
     finally { setImportingManual(false); }
   };
-  const loadDraft = (course: StudioDraft) => {
-    if (course.status === "active") return toast.info("Active courses are locked. Use the current version as the basis for a governed future revision.");
+  const loadEditorState = (course: StudioDraft) => {
     setDraftId(course.id); setDraftVersion(course.versionNumber); setDraftStatus(course.status); setCourseCode(course.code); setCourseTitle(course.title); setDiscipline(course.discipline); setDescription(course.description);
+    setEditingRevision(Boolean(course.isRevision));
     setDesign(course.design ?? defaultCourseDesign()); setMaterials(course.materials ?? []); setCourseActivities(course.activities ?? []); setAssessmentModes(course.assessmentModes ?? []);
     setGateRequired(course.gateRequired); setQuestionLimit(course.questionLimit); setCertificateEnabled(course.certificateEnabled); setPassMark(course.assessmentConfig?.passMark ?? 70); setAttempts(course.assessmentConfig?.attempts ?? "3"); setQuestions(course.assessmentConfig?.questions ?? []); setQuestionFiles(course.assessmentConfig?.questionFiles ?? []);
     setContentSectionId(course.design?.sections?.[0]?.id ?? "section-1"); setContentOutcomeIds(course.design?.outcomes?.[0]?.id ? [course.design.outcomes[0].id] : []); setStep("details"); setPortfolioOpen(false); setIllustrativeTemplateLoaded(false);
-    toast.success(`Loaded version ${course.versionNumber}`, { description: course.title });
+  };
+  const startRevision = async (course: StudioDraft) => {
+    try {
+      const response = await fetch("/api/course-revisions", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ courseId: course.id }) });
+      const result = await response.json() as { revision?: StudioDraft; existing?: boolean; error?: string };
+      if (!response.ok || !result.revision) throw new Error(result.error ?? "The active course could not be opened for revision.");
+      loadEditorState(result.revision);
+      await refreshDrafts();
+      toast.success(result.existing ? "Existing revision opened" : "Editable revision created", { description: "Students continue to see the approved version until an administrator approves these changes." });
+    } catch (error) { toast.error(error instanceof Error ? error.message : "The active course could not be opened for revision."); }
+  };
+  const loadDraft = (course: StudioDraft) => {
+    if (course.status === "active") { void startRevision(course); return; }
+    loadEditorState(course);
+    toast.success(course.isRevision ? `Revision editor version ${course.versionNumber} opened` : `Loaded version ${course.versionNumber}`, { description: course.title });
   };
   const importCourseContent = async () => {
     if (contentMode === "text" && contentText.trim().length < 20) return toast.error("Enter at least 20 characters of lesson content.");
@@ -1673,7 +1727,7 @@ function FacilitatorStudio({ email, query, setQuery }: { email: string; query: s
     if (submissionMode === "review" && completedStudioSteps !== studioSteps.length) return toast.error("Complete all six studio stages before submitting for academic review.");
     setSaving(true);
     try {
-      const response = await fetch("/api/courses", {
+      const response = await fetch(editingRevision ? "/api/course-revisions" : "/api/courses", {
         method: draftId ? "PUT" : "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ id: draftId, expectedVersion: draftVersion, submissionMode, code: courseCode, title: courseTitle, discipline, description, design, materials, activities: courseActivities, assessmentModes, gateRequired, questionLimit, certificateEnabled, assessmentConfig: { passMark, attempts, questions: questions.slice(0, questionLimit), questionFiles } }),
@@ -1682,7 +1736,7 @@ function FacilitatorStudio({ email, query, setQuery }: { email: string; query: s
       if (!response.ok) throw new Error(result.error ?? "Could not save the course draft.");
       if (result.course) { setDraftId(result.course.id); setDraftVersion(result.course.versionNumber); setDraftStatus(result.course.status); }
       await refreshDrafts();
-      toast.success(submissionMode === "review" ? "Submitted for academic review" : "Draft saved", { description: submissionMode === "review" ? `${courseTitle} is now locked into the UCC quality-review queue.` : `Version ${result.course?.versionNumber ?? draftVersion} is safely stored.` });
+      toast.success(submissionMode === "review" ? editingRevision ? "Revision sent for approval" : "Submitted for academic review" : editingRevision ? "Revision saved" : "Draft saved", { description: submissionMode === "review" ? editingRevision ? "The live student course is unchanged until an administrator approves this revision." : `${courseTitle} is now locked into the UCC quality-review queue.` : `Editor version ${result.course?.versionNumber ?? draftVersion} is safely stored.` });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not save the course draft.");
     } finally {
@@ -1690,19 +1744,21 @@ function FacilitatorStudio({ email, query, setQuery }: { email: string; query: s
     }
   };
   const startNewCourse = () => {
-    const nextDesign = defaultCourseDesign(); setDraftId(null); setDraftVersion(1); setDraftStatus("new"); setCourseTitle(""); setCourseCode(""); setDescription(""); setDiscipline("Interdisciplinary"); setDesign(nextDesign); setMaterials([]); setCourseActivities([]); setQuestions([]); setQuestionFiles([]); setAssessmentModes(["Objective quiz"]); setContentSectionId(nextDesign.sections[0].id); setContentOutcomeIds([nextDesign.outcomes[0].id]); setStep("details"); setPortfolioOpen(false); setIllustrativeTemplateLoaded(false);
+    const nextDesign = defaultCourseDesign(); setDraftId(null); setDraftVersion(1); setDraftStatus("new"); setEditingRevision(false); setCourseTitle(""); setCourseCode(""); setDescription(""); setDiscipline("Interdisciplinary"); setDesign(nextDesign); setMaterials([]); setCourseActivities([]); setQuestions([]); setQuestionFiles([]); setAssessmentModes(["Objective quiz"]); setContentSectionId(nextDesign.sections[0].id); setContentOutcomeIds([nextDesign.outcomes[0].id]); setStep("details"); setPortfolioOpen(false); setIllustrativeTemplateLoaded(false);
   };
 
   return <div className="authoring-shell">
     <section className="authoring-main page-panel">
       <section className="studio-command-bar">
-        <div><p className="eyebrow">CURRENT COURSE</p><h2>{courseTitle || "New microcredential"}</h2><p>{courseCode || "Course code not set"} · Version {draftVersion}</p></div>
-        <div className="studio-command-actions"><span className={`draft-state ${draftStatus}`}>{draftStatus.replaceAll("_", " ")}</span><button className="secondary-action" onClick={() => setLearnerPreviewOpen(true)}><Eye /> Preview as student</button><button className="dialog-primary" disabled={saving} onClick={() => void saveCourse("draft")}><FileCheck2 /> {saving ? "Saving…" : "Save draft"}</button></div>
+        <div><p className="eyebrow">{editingRevision ? "ACTIVE COURSE REVISION" : "CURRENT COURSE"}</p><h2>{courseTitle || "New microcredential"}</h2><p>{courseCode || "Course code not set"} · Editor version {draftVersion}{editingRevision ? " · live course protected" : ""}</p></div>
+        <div className="studio-command-actions"><span className={`draft-state ${draftStatus}`}>{editingRevision ? `revision · ${draftStatus.replaceAll("_", " ")}` : draftStatus.replaceAll("_", " ")}</span><button className="secondary-action" onClick={() => setLearnerPreviewOpen(true)}><Eye /> Preview as student</button><button className="dialog-primary" disabled={saving || draftStatus === "pending_review"} onClick={() => void saveCourse("draft")}><FileCheck2 /> {saving ? "Saving…" : editingRevision ? "Save revision" : "Save draft"}</button></div>
       </section>
+
+      {editingRevision && <section className="revision-protection-banner"><ShieldCheck /><div><b>Safe revision workspace</b><p>You are editing every component of the active course. Students still see the last approved version; your changes become active only after administrator approval.</p></div><span>{draftStatus === "pending_review" ? "Approval pending" : "Not live yet"}</span></section>}
 
       <section className={`course-portfolio compact ${portfolioOpen ? "open" : ""}`}>
         <header><div><p className="eyebrow">MY COURSE PORTFOLIO</p><h3>Drafts, reviews and live offerings</h3></div><div className="portfolio-header-actions"><button className="portfolio-new" onClick={startNewCourse}><BookOpen /> New course</button><button className="portfolio-toggle" type="button" aria-expanded={portfolioOpen} onClick={() => setPortfolioOpen((open) => !open)}>{portfolioOpen ? "Hide courses" : `Open courses (${drafts.length})`} <ChevronDown /></button></div></header>
-        {portfolioOpen && (loadingDrafts ? <div className="empty-state">Loading course versions…</div> : <div>{drafts.map((course) => <article key={course.id} className={draftId === course.id ? "selected" : ""}><span className={`portfolio-status ${course.status}`}>{course.status.replaceAll("_", " ")}</span><div><b>{course.title}</b><small>{course.code} · version {course.versionNumber} · {course.updatedAt ? new Date(course.updatedAt).toLocaleDateString() : "recently updated"}</small></div><div className="portfolio-actions"><button onClick={() => loadDraft(course)}>{course.status === "active" ? "View status" : "Continue editing"}</button></div>{course.reviewComment && <p className="review-feedback"><MessageSquareText /> <span><b>{course.status === "rejected" ? "Changes requested" : "Review note"}</b>{course.reviewComment}</span></p>}</article>)}{drafts.length === 0 && <div className="empty-state">Your first course draft will appear here after saving.</div>}</div>)}
+        {portfolioOpen && (loadingDrafts ? <div className="empty-state">Loading course versions…</div> : <div>{drafts.map((course) => <article key={`${course.isRevision ? "revision" : "course"}-${course.id}`} className={draftId === course.id && editingRevision === Boolean(course.isRevision) ? "selected" : ""}><span className={`portfolio-status ${course.status}`}>{course.isRevision ? `revision · ${course.status.replaceAll("_", " ")}` : course.status.replaceAll("_", " ")}</span><div><b>{course.title}</b><small>{course.code} · {course.isRevision ? `based on live version ${course.baseVersionNumber ?? 1}` : `version ${course.versionNumber}`} · {course.updatedAt ? new Date(course.updatedAt).toLocaleDateString() : "recently updated"}</small></div><div className="portfolio-actions"><button onClick={() => loadDraft(course)}>{course.status === "active" ? "Edit active course" : course.isRevision ? course.status === "pending_review" ? "View submitted revision" : "Continue revision" : "Continue editing"}</button></div>{course.reviewComment && <p className="review-feedback"><MessageSquareText /> <span><b>{course.status === "rejected" ? "Changes requested" : "Review note"}</b>{course.reviewComment}</span></p>}</article>)}{drafts.length === 0 && <div className="empty-state">Your first course draft will appear here after saving.</div>}</div>)}
       </section>
 
       <section className="illustrative-guide-card">
@@ -1747,7 +1803,7 @@ function FacilitatorStudio({ email, query, setQuery }: { email: string; query: s
 
       {step === "details" && <div className="authoring-form commercial-blueprint-form">
         <div className="studio-section-heading"><div><p className="eyebrow">PRODUCT BLUEPRINT</p><h3>Position the learning offer</h3><p>Define the audience, workload, access model and institutional promise before authoring content.</p></div><Gauge /></div>
-        <div className="form-grid"><label>Course title<input value={courseTitle} onChange={(event) => setCourseTitle(event.target.value)} placeholder="A clear, market-facing course title" /></label><label>Unique course code<input value={courseCode} onChange={(event) => setCourseCode(event.target.value.toUpperCase())} placeholder="UCC-MC-101" /></label><label>Discipline of learning<select value={discipline} onChange={(event) => setDiscipline(event.target.value)}>{disciplines.map((item) => <option key={item}>{item}</option>)}</select></label><label>Microcredential category<select value={design.category} onChange={(event) => setDesign((current) => ({ ...current, category: event.target.value as CourseDesign["category"] }))}><option value="credit">Credit-bearing microcredential</option><option value="professional">Professional development</option><option value="rpl">Advanced standing / RPL</option></select></label><label>Delivery pattern<select value={design.deliveryPattern} onChange={(event) => setDesign((current) => ({ ...current, deliveryPattern: event.target.value as CourseDesign["deliveryPattern"] }))}><option value="asynchronous">Asynchronous</option><option value="synchronous">Synchronous</option><option value="blended">Blended</option></select></label><label>Competence band<select value={design.level} onChange={(event) => setDesign((current) => ({ ...current, level: event.target.value as CourseDesign["level"] }))}><option value="foundation">Foundation practitioner</option><option value="applied">Applied practitioner</option><option value="advanced">Advanced practitioner</option></select></label><label>Expected learning hours<input type="number" value={design.expectedHours} min="1" max="500" onChange={(event) => setDesign((current) => ({ ...current, expectedHours: Math.max(1, Number(event.target.value)) }))} /></label><label>Primary language<input value={design.language} onChange={(event) => setDesign((current) => ({ ...current, language: event.target.value }))} /></label><div className="self-enrolment-policy"><CheckCircle2 /><span><b>Self-enrolment enabled</b>All new, imported and existing UCC courses and programmes allow learners to enrol themselves. Paid offerings unlock after verified payment.</span></div><label className="fee-switch"><span><Switch checked={design.priceGhs > 0} onCheckedChange={(enabled) => setDesign((current) => ({ ...current, enrolmentMode: "open", priceGhs: enabled ? Math.max(1, current.priceGhs || 1) : 0 }))} /><b>Charge an enrolment fee</b></span>{design.priceGhs > 0 && <input aria-label="Enrolment fee in Ghana cedis" type="number" min="1" value={design.priceGhs} onChange={(event) => setDesign((current) => ({ ...current, priceGhs: Math.max(1, Number(event.target.value)) }))} />}</label><label className="fee-switch"><span><Switch checked={design.certificateFeeGhs > 0} onCheckedChange={(enabled) => setDesign((current) => ({ ...current, certificateFeeGhs: enabled ? Math.max(1, current.certificateFeeGhs || 1) : 0 }))} /><b>Charge a certificate fee</b></span>{design.certificateFeeGhs > 0 && <input aria-label="Certificate fee in Ghana cedis" type="number" min="1" value={design.certificateFeeGhs} onChange={(event) => setDesign((current) => ({ ...current, certificateFeeGhs: Math.max(1, Number(event.target.value)) }))} />}</label></div>
+        <div className="form-grid"><label>Course title<input value={courseTitle} onChange={(event) => setCourseTitle(event.target.value)} placeholder="A clear, market-facing course title" /></label><label>Unique course code<input value={courseCode} readOnly={editingRevision} title={editingRevision ? "The public course code remains fixed across approved revisions." : undefined} onChange={(event) => setCourseCode(event.target.value.toUpperCase())} placeholder="UCC-MC-101" /></label><label>Discipline of learning<select value={discipline} onChange={(event) => setDiscipline(event.target.value)}>{disciplines.map((item) => <option key={item}>{item}</option>)}</select></label><label>Microcredential category<select value={design.category} onChange={(event) => setDesign((current) => ({ ...current, category: event.target.value as CourseDesign["category"] }))}><option value="credit">Credit-bearing microcredential</option><option value="professional">Professional development</option><option value="rpl">Advanced standing / RPL</option></select></label><label>Delivery pattern<select value={design.deliveryPattern} onChange={(event) => setDesign((current) => ({ ...current, deliveryPattern: event.target.value as CourseDesign["deliveryPattern"] }))}><option value="asynchronous">Asynchronous</option><option value="synchronous">Synchronous</option><option value="blended">Blended</option></select></label><label>Competence band<select value={design.level} onChange={(event) => setDesign((current) => ({ ...current, level: event.target.value as CourseDesign["level"] }))}><option value="foundation">Foundation practitioner</option><option value="applied">Applied practitioner</option><option value="advanced">Advanced practitioner</option></select></label><label>Expected learning hours<input type="number" value={design.expectedHours} min="1" max="500" onChange={(event) => setDesign((current) => ({ ...current, expectedHours: Math.max(1, Number(event.target.value)) }))} /></label><label>Primary language<input value={design.language} onChange={(event) => setDesign((current) => ({ ...current, language: event.target.value }))} /></label><div className="self-enrolment-policy"><CheckCircle2 /><span><b>Self-enrolment enabled</b>All new, imported and existing UCC courses and programmes allow learners to enrol themselves. Paid offerings unlock after verified payment.</span></div><label className="fee-switch"><span><Switch checked={design.priceGhs > 0} onCheckedChange={(enabled) => setDesign((current) => ({ ...current, enrolmentMode: "open", priceGhs: enabled ? Math.max(1, current.priceGhs || 1) : 0 }))} /><b>Charge an enrolment fee</b></span>{design.priceGhs > 0 && <input aria-label="Enrolment fee in Ghana cedis" type="number" min="1" value={design.priceGhs} onChange={(event) => setDesign((current) => ({ ...current, priceGhs: Math.max(1, Number(event.target.value)) }))} />}</label><label className="fee-switch"><span><Switch checked={design.certificateFeeGhs > 0} onCheckedChange={(enabled) => setDesign((current) => ({ ...current, certificateFeeGhs: enabled ? Math.max(1, current.certificateFeeGhs || 1) : 0 }))} /><b>Charge a certificate fee</b></span>{design.certificateFeeGhs > 0 && <input aria-label="Certificate fee in Ghana cedis" type="number" min="1" value={design.certificateFeeGhs} onChange={(event) => setDesign((current) => ({ ...current, certificateFeeGhs: Math.max(1, Number(event.target.value)) }))} />}</label></div>
         <label>Commercial course description <span>{description.length}/5000</span><textarea value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Explain the value, capability and evidence a learner will gain." /></label>
         <div className="editor-form-grid"><label>Intended audience<textarea value={design.intendedAudience} onChange={(event) => setDesign((current) => ({ ...current, intendedAudience: event.target.value }))} /></label><label>Prerequisites and entry guidance<textarea value={design.prerequisites} onChange={(event) => setDesign((current) => ({ ...current, prerequisites: event.target.value }))} /></label></div>
         <label>Accessibility commitment<textarea value={design.accessibilityStatement} onChange={(event) => setDesign((current) => ({ ...current, accessibilityStatement: event.target.value }))} /></label>
@@ -1813,7 +1869,7 @@ function FacilitatorStudio({ email, query, setQuery }: { email: string; query: s
         <section className={`quality-score-card ${quality.ready ? "ready" : "needs-work"}`}><div><span>{quality.score}%</span><Progress value={quality.score} /></div><div><p className="eyebrow">PUBLISH READINESS</p><h3>{quality.ready ? "Ready for UCC academic review" : "Complete the remaining quality checks"}</h3><p>{quality.ready ? "The blueprint, alignment, accessibility and assessment checks are complete." : "Save this version as a draft or return to the indicated studio step."}</p></div>{quality.ready ? <CheckCircle2 /> : <Gauge />}</section>
         <div className="quality-check-grid">{quality.checks.map((check) => <article className={check.passed ? "passed" : "missing"} key={check.id}>{check.passed ? <CheckCircle2 /> : <Clock3 />}<div><b>{check.label}</b><p>{check.passed ? "Quality check complete" : check.detail}</p></div></article>)}</div>
         <div className="review-columns"><section><p className="eyebrow">LEARNER PREVIEW · COURSE OUTLINE</p>{design.sections.map((section, sectionIndex) => <div className="review-section" key={section.id}><h3>{sectionIndex + 1}. {section.title}</h3>{materials.filter((material) => material.sectionId === section.id).map((material, index) => <article key={material.id ?? `${material.title}-${index}`}><span>{index + 1}</span><div><b>{material.title}</b><p>{material.kind} · {material.unitTitle} · {(material.outcomeIds ?? []).length} mapped outcomes</p></div><button onClick={() => setMaterials((items) => items.filter((item) => item !== material))}>Remove</button></article>)}</div>)}{courseActivities.map((activity, index) => <article className="review-programme-activity" key={activity.id}><span>{materials.length + index + 1}</span><div><b>{activity.title}</b><p>{activity.kind === "colab" ? "Colab coding" : `${activity.discipline} virtual practical`} · {activity.required ? "required" : "optional"} · pass {activity.passMark}%</p></div><button onClick={() => setCourseActivities((items) => items.filter((item) => item.id !== activity.id))}>Remove</button></article>)}</section><section><p className="eyebrow">ASSESSMENT & CREDENTIAL GATE</p>{design.outcomes.map((outcome, index) => <article key={outcome.id}><span>{index + 1}</span><div><b>{outcome.statement}</b><p>{outcome.skill} · {outcome.assessmentMethod}</p></div></article>)}<article><span><FileCheck2 /></span><div><b>{questions.length} scored questions</b><p>{questionFiles.length} source files · {attempts} attempts · pass mark {passMark}%</p></div></article><article className="ucc-certificate-review"><span><Award /></span><div><b>University of Cape Coast digital certificate</b><p>{certificateEnabled ? "Generated only after verified identity, assessment pass and every required activity. Includes a live verification QR." : "Certificate generation is disabled for this course."}</p></div></article></section></div>
-        <div className="publish-actions"><button className="secondary-action" onClick={() => setStep("assessment")}>Return to editing</button><button className="secondary-action" disabled={saving} onClick={() => void saveCourse("draft")}><FileCheck2 /> {saving ? "Saving…" : "Save as draft"}</button><button className="dialog-primary" disabled={saving || !quality.ready} onClick={() => void saveCourse("review")}><ShieldCheck /> {saving ? "Submitting…" : "Submit version for UCC review"}</button></div>
+        <div className="publish-actions"><button className="secondary-action" onClick={() => setStep("assessment")}>Return to editing</button><button className="secondary-action" disabled={saving || draftStatus === "pending_review"} onClick={() => void saveCourse("draft")}><FileCheck2 /> {saving ? "Saving…" : editingRevision ? "Save revision" : "Save as draft"}</button><button className="dialog-primary" disabled={saving || !quality.ready || draftStatus === "pending_review"} onClick={() => void saveCourse("review")}><ShieldCheck /> {saving ? "Submitting…" : editingRevision ? "Apply revision for approval" : "Submit version for UCC review"}</button></div>
       </div>}
     </section>
 
@@ -1829,8 +1885,8 @@ function FacilitatorStudio({ email, query, setQuery }: { email: string; query: s
 
       <div className="studio-side-actions">
         <button className="secondary-action" onClick={() => setLearnerPreviewOpen(true)}><Eye /> Preview as student</button>
-        {nextStudioStep ? <button className="dialog-primary" disabled={!stepComplete(currentStudioStep)} onClick={() => setStep(nextStudioStep.id)}>Continue to {nextStudioStep.label} <ChevronRight /></button> : <button className="dialog-primary" disabled={saving || completedStudioSteps !== studioSteps.length} onClick={() => void saveCourse("review")}><ShieldCheck /> {saving ? "Submitting…" : "Submit for UCC review"}</button>}
-        <button className="studio-quiet-action" disabled={saving} onClick={() => void saveCourse("draft")}><FileCheck2 /> Save progress</button>
+        {nextStudioStep ? <button className="dialog-primary" disabled={!stepComplete(currentStudioStep)} onClick={() => setStep(nextStudioStep.id)}>Continue to {nextStudioStep.label} <ChevronRight /></button> : <button className="dialog-primary" disabled={saving || completedStudioSteps !== studioSteps.length || draftStatus === "pending_review"} onClick={() => void saveCourse("review")}><ShieldCheck /> {saving ? "Submitting…" : editingRevision ? "Apply revision for approval" : "Submit for UCC review"}</button>}
+        <button className="studio-quiet-action" disabled={saving || draftStatus === "pending_review"} onClick={() => void saveCourse("draft")}><FileCheck2 /> {editingRevision ? "Save revision" : "Save progress"}</button>
       </div>
 
       <details className="studio-outline-disclosure">

@@ -11,7 +11,7 @@ type CourseActivity = {
 
 export type CompletionRequirement = {
   id: string;
-  type: "identity" | "assessment" | "virtual_lab" | "colab";
+  type: "identity" | "content" | "assessment" | "virtual_lab" | "colab";
   label: string;
   complete: boolean;
   evidence?: string;
@@ -53,14 +53,23 @@ const parseActivities = (value: string) => {
 
 export async function evaluateCourseCompletion(userEmail: string, courseCode: string): Promise<CompletionEvaluation | null> {
   const db = getRawDb();
-  const course = await db.prepare("SELECT code, title, activities_json, design_json, certificate_enabled FROM course_drafts WHERE code = ? AND status = 'active' LIMIT 1")
-    .bind(courseCode).first<{ code: string; title: string; activities_json: string; design_json: string; certificate_enabled: number }>();
+  const course = await db.prepare("SELECT code, title, materials_json, activities_json, design_json, certificate_enabled FROM course_drafts WHERE code = ? AND status = 'active' LIMIT 1")
+    .bind(courseCode).first<{ code: string; title: string; materials_json: string; activities_json: string; design_json: string; certificate_enabled: number }>();
   if (!course) return null;
 
   const user = await db.prepare("SELECT full_name, status, identity_status FROM users WHERE email = ? AND role = 'learner' LIMIT 1")
     .bind(userEmail).first<{ full_name: string; status: string; identity_status: string }>();
   const assessment = await db.prepare("SELECT score, passed, completed_at FROM assessment_attempts WHERE user_email = ? AND course_code = ? LIMIT 1")
     .bind(userEmail, course.code).first<{ score: number; passed: number; completed_at: string }>();
+
+  let materialIds: string[] = [];
+  try {
+    const parsed = JSON.parse(course.materials_json || "[]") as { id?: string }[];
+    materialIds = Array.isArray(parsed) ? parsed.map((item, index) => String(item?.id || `material-${index + 1}`)) : [];
+  } catch { materialIds = []; }
+  const completedContent = materialIds.length ? await db.prepare("SELECT material_id FROM course_content_progress WHERE user_email = ? AND course_code = ?")
+    .bind(userEmail, course.code).all<{ material_id: string }>() : { results: [] as { material_id: string }[] };
+  const completedMaterialIds = new Set(completedContent.results.map((item) => item.material_id));
 
   const requirements: CompletionRequirement[] = [
     {
@@ -69,6 +78,13 @@ export async function evaluateCourseCompletion(userEmail: string, courseCode: st
       label: "Verified learner identity",
       complete: user?.status === "active" && user.identity_status === "verified",
       evidence: user?.identity_status ?? "not_submitted",
+    },
+    {
+      id: "learning-content",
+      type: "content",
+      label: "All learning-manual sections completed",
+      complete: materialIds.length > 0 && materialIds.every((id) => completedMaterialIds.has(id)),
+      evidence: `${materialIds.filter((id) => completedMaterialIds.has(id)).length} of ${materialIds.length} sections complete`,
     },
     {
       id: "course-assessment",

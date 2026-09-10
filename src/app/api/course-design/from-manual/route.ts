@@ -1,6 +1,6 @@
 import { requireActiveProfile } from "@/lib/accounts";
 import { defaultCourseDesign, type CourseMaterialRecord, type LearningOutcome } from "@/lib/course-design";
-import { extractReadableContent, textToReadableHtml } from "@/lib/document-content";
+import { escapeHtml, extractReadableContent, plainTextFromHtml, sanitizeReadableHtml } from "@/lib/document-content";
 import { putStoredFile } from "@/lib/render-storage";
 
 const accepted = new Set(["pdf", "docx", "txt", "md", "html", "htm", "rtf"]);
@@ -42,18 +42,40 @@ function deriveSections(text: string) {
   return finalTitles.map((title, index) => ({ id: `manual-section-${index + 1}`, title, description: `Learning from the uploaded manual organised around ${title.toLowerCase()}.` }));
 }
 
-function buildMaterials(text: string, sections: ReturnType<typeof deriveSections>, outcomes: LearningOutcome[], original: { key: string; name: string; type: string }, source: string): CourseMaterialRecord[] {
+function structuredManualSections(html: string, text: string) {
+  const cleanHtml = sanitizeReadableHtml(html);
+  const headings = [...cleanHtml.matchAll(/<h([1-4])>([\s\S]*?)<\/h\1>/gi)];
+  if (headings.length >= 2) {
+    return headings.slice(0, 10).map((heading, index) => {
+      const start = heading.index ?? 0;
+      const next = headings[index + 1]?.index ?? cleanHtml.length;
+      const introduction = index === 0 && start > 0 ? cleanHtml.slice(0, start) : "";
+      const sectionHtml = sanitizeReadableHtml(`${introduction}${cleanHtml.slice(start, next)}`);
+      const title = cleanLine(plainTextFromHtml(heading[0])).slice(0, 100) || `Manual section ${index + 1}`;
+      return { id: `manual-section-${index + 1}`, title, description: `Guided reading from the uploaded manual: ${title}.`, html: sectionHtml, text: plainTextFromHtml(sectionHtml) };
+    });
+  }
+  const sections = deriveSections(text);
   const words = text.split(/\s+/).filter(Boolean);
   const chunkSize = Math.max(350, Math.ceil(words.length / sections.length));
   return sections.map((section, index) => {
-    const chunk = words.slice(index * chunkSize, index === sections.length - 1 ? words.length : (index + 1) * chunkSize).join(" ");
-    const readable = chunk || `Review the facilitator manual content related to ${section.title}.`;
+    const chunk = words.slice(index * chunkSize, index === sections.length - 1 ? words.length : (index + 1) * chunkSize);
+    const paragraphs: string[] = [];
+    for (let cursor = 0; cursor < chunk.length; cursor += 130) paragraphs.push(`<p>${escapeHtml(chunk.slice(cursor, cursor + 130).join(" "))}</p>`);
+    const sectionHtml = sanitizeReadableHtml(`<h2>${escapeHtml(section.title)}</h2>${paragraphs.join("")}`);
+    return { ...section, html: sectionHtml, text: plainTextFromHtml(sectionHtml) };
+  });
+}
+
+function buildMaterials(sections: ReturnType<typeof structuredManualSections>, outcomes: LearningOutcome[], original: { key: string; name: string; type: string }, source: string): CourseMaterialRecord[] {
+  return sections.map((section, index) => {
+    const readable = section.text || `Review the facilitator manual content related to ${section.title}.`;
     return {
       id: `manual-material-${index + 1}`,
       title: index === 0 ? `Start here: ${section.title}` : section.title,
       kind: "Read",
       source,
-      readableHtml: textToReadableHtml(readable),
+      readableHtml: section.html,
       plainText: readable,
       sectionId: section.id,
       sectionTitle: section.title,
@@ -62,7 +84,9 @@ function buildMaterials(text: string, sections: ReturnType<typeof deriveSections
       outcomeIds: [outcomes[index % outcomes.length]?.id, outcomes[(index + 1) % outcomes.length]?.id].filter(Boolean),
       accessibilityChecked: true,
       license: "Facilitator-supplied course manual; rights and attribution must be reviewed",
-      ...(index === 0 ? { fileKey: original.key, fileName: original.name, mimeType: original.type } : {}),
+      fileKey: original.key,
+      fileName: original.name,
+      mimeType: original.type,
     };
   });
 }
@@ -85,7 +109,8 @@ export async function POST(request: Request) {
   const title = candidateTitle(extracted.text, file.name);
   const extractedObjectives = extractObjectives(extracted.text);
   const outcomes = deriveOutcomes(extractedObjectives);
-  const sections = deriveSections(extracted.text);
+  const structuredSections = structuredManualSections(extracted.html, extracted.text);
+  const sections = structuredSections.map(({ id, title: sectionTitle, description: sectionDescription }) => ({ id, title: sectionTitle, description: sectionDescription }));
   const design = {
     ...defaultCourseDesign(),
     enrolmentMode: "open" as const,
@@ -102,7 +127,7 @@ export async function POST(request: Request) {
   };
   const descriptionSource = sentences(extracted.text).slice(0, 4).join(" ");
   const description = (descriptionSource.length >= 80 ? descriptionSource : `This microcredential uses the uploaded facilitator manual to build practical understanding and assess authentic application of ${title}.`).slice(0, 1200);
-  const materials = buildMaterials(extracted.text, sections, outcomes, { key: fileKey, name: file.name, type: file.type || "application/octet-stream" }, account.profile.full_name || account.profile.email);
+  const materials = buildMaterials(structuredSections, outcomes, { key: fileKey, name: file.name, type: file.type || "application/octet-stream" }, account.profile.full_name || account.profile.email);
   const questions = outcomes.slice(0, 3).map((outcome, index) => ({
     id: `manual-question-${index + 1}`,
     type: index === 0 ? "Short answer" : "Scenario response",
