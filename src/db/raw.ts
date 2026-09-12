@@ -98,35 +98,6 @@ CREATE TABLE IF NOT EXISTS enrollments (
   enrolled_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   UNIQUE(user_email, course_code)
 );
-CREATE TABLE IF NOT EXISTS course_content_progress (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_email TEXT NOT NULL,
-  course_code TEXT NOT NULL,
-  material_id TEXT NOT NULL,
-  completed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE(user_email, course_code, material_id)
-);
-CREATE INDEX IF NOT EXISTS course_content_progress_user_idx ON course_content_progress(user_email);
-CREATE INDEX IF NOT EXISTS course_content_progress_course_idx ON course_content_progress(course_code);
-CREATE TABLE IF NOT EXISTS course_revisions (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  course_id INTEGER NOT NULL REFERENCES course_drafts(id) ON DELETE CASCADE,
-  base_version_number INTEGER NOT NULL,
-  payload_json TEXT NOT NULL DEFAULT '{}',
-  status TEXT NOT NULL DEFAULT 'draft' CHECK(status IN ('draft','pending_review','rejected','approved')),
-  created_by_email TEXT NOT NULL,
-  version_number INTEGER NOT NULL DEFAULT 1,
-  submitted_at TEXT,
-  review_comment TEXT,
-  reviewed_by_email TEXT,
-  reviewed_at TEXT,
-  approved_at TEXT,
-  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-CREATE INDEX IF NOT EXISTS course_revisions_course_idx ON course_revisions(course_id);
-CREATE INDEX IF NOT EXISTS course_revisions_creator_idx ON course_revisions(created_by_email);
-CREATE INDEX IF NOT EXISTS course_revisions_status_idx ON course_revisions(status);
 CREATE TABLE IF NOT EXISTS payment_orders (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   reference TEXT NOT NULL UNIQUE,
@@ -157,6 +128,70 @@ CREATE TABLE IF NOT EXISTS assessment_attempts (
   answers_json TEXT NOT NULL DEFAULT '{}',
   completed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   UNIQUE(user_email, course_code)
+);
+CREATE TABLE IF NOT EXISTS assessment_submissions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_email TEXT NOT NULL,
+  course_code TEXT NOT NULL,
+  attempt_number INTEGER NOT NULL,
+  status TEXT NOT NULL DEFAULT 'submitted' CHECK(status IN ('submitted','awaiting_marking','marked','resubmit')),
+  auto_score INTEGER,
+  final_score INTEGER,
+  passed INTEGER NOT NULL DEFAULT 0,
+  answers_json TEXT NOT NULL DEFAULT '{}',
+  auto_feedback_json TEXT NOT NULL DEFAULT '[]',
+  marker_feedback TEXT NOT NULL DEFAULT '',
+  marked_by_email TEXT,
+  submitted_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  marked_at TEXT,
+  UNIQUE(user_email, course_code, attempt_number)
+);
+CREATE INDEX IF NOT EXISTS assessment_submissions_course_idx ON assessment_submissions(course_code,status);
+CREATE TABLE IF NOT EXISTS learning_progress (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_email TEXT NOT NULL,
+  course_code TEXT NOT NULL,
+  material_id TEXT NOT NULL,
+  completed INTEGER NOT NULL DEFAULT 0,
+  last_position INTEGER NOT NULL DEFAULT 0,
+  completed_at TEXT,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(user_email,course_code,material_id)
+);
+CREATE TABLE IF NOT EXISTS course_revisions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  course_id INTEGER NOT NULL REFERENCES course_drafts(id) ON DELETE CASCADE,
+  revision_number INTEGER NOT NULL,
+  snapshot_json TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'draft' CHECK(status IN ('draft','pending_review','rejected','applied','withdrawn')),
+  created_by_email TEXT NOT NULL,
+  review_comment TEXT,
+  reviewed_by_email TEXT,
+  submitted_at TEXT,
+  reviewed_at TEXT,
+  applied_at TEXT,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(course_id,revision_number)
+);
+CREATE TABLE IF NOT EXISTS login_rate_limits (
+  rate_key TEXT PRIMARY KEY NOT NULL,
+  attempt_count INTEGER NOT NULL DEFAULT 0,
+  window_started_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  blocked_until TEXT,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS certificate_signatures (
+  signature_key TEXT PRIMARY KEY NOT NULL,
+  role TEXT NOT NULL CHECK(role IN ('facilitator','provost')),
+  owner_email TEXT,
+  signatory_name TEXT NOT NULL,
+  signatory_title TEXT NOT NULL,
+  file_key TEXT NOT NULL,
+  file_name TEXT NOT NULL,
+  mime_type TEXT NOT NULL,
+  uploaded_by_email TEXT NOT NULL,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 CREATE TABLE IF NOT EXISTS certificates (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -290,6 +325,12 @@ export function getRawDb() {
   ensureColumn("certificates", "expires_at", "TEXT");
   ensureColumn("certificates", "revoked_at", "TEXT");
   ensureColumn("certificates", "revocation_reason", "TEXT");
+  ensureColumn("certificates", "facilitator_name", "TEXT");
+  ensureColumn("certificates", "facilitator_title", "TEXT");
+  ensureColumn("certificates", "facilitator_signature_key", "TEXT");
+  ensureColumn("certificates", "provost_name", "TEXT");
+  ensureColumn("certificates", "provost_title", "TEXT");
+  ensureColumn("certificates", "provost_signature_key", "TEXT");
   const selfEnrolmentMigration = database.prepare("SELECT migration_key FROM platform_migrations WHERE migration_key = '0014_existing_courses_self_enrolment'").get() as { migration_key?: string } | undefined;
   if (!selfEnrolmentMigration) {
     database.exec(`UPDATE course_drafts
