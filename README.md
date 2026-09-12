@@ -13,6 +13,11 @@ Role separation is enforced by both the interface and the API. Hiding a navigati
 ## Contemporary microcredential capabilities
 
 - A six-stage **Commercial Course Studio** covers product blueprint, course objectives, measurable outcomes, skills, syllabus sections, content, authentic activities, assessment and quality review. Draft saves use optimistic version checks and only a 100% publish-ready submission can enter academic activation.
+- A facilitator can upload a complete course manual and receive an editable, section-based course proposal. The original file is retained, while extracted headings and rich content become guided learner lessons. Automatic extraction never bypasses facilitator review or academic approval.
+- Learner reading progress is persisted per lesson. Required lessons unlock in sequence, each lesson ends with **Complete and continue**, and the course assessment stays locked until required learning is complete.
+- Human-marked questions are never auto-awarded. Learners see an awaiting-marking state; facilitators receive a dedicated evidence, rubric, scoring, feedback and resubmission queue.
+- Published courses are immutable. Facilitators edit a controlled revision while the approved version remains available to learners; only an administrator-approved revision replaces the live version.
+- Facilitator and Provost certificate signatures are managed through restricted registers and snapshotted onto newly issued credentials. Administrators may maintain both registers; a facilitator may maintain only their own signature.
 - Facilitators can author text or sanitised HTML, upload protected files, or import a public link. `.PDF`, `.DOCX`, `.TXT`, `.MD`, `.HTML` and `.RTF` sources are converted to readable HTML where possible; the protected original remains available to authorised learners. Other Word, PowerPoint, image, audio and video files remain protected course attachments.
 - Every learning block records its section, unit, estimated time, source/licence, accessibility review and mapped learning outcomes. The learner course view presents the same structured syllabus, objectives, outcomes and authentic evidence requirements.
 - A dedicated four-step **Student Registration Portal** creates a secure account, captures learner and accessibility preferences, protects identity evidence, and assigns a unique student number.
@@ -158,11 +163,13 @@ Schedule regular disk snapshots or copy `/var/data/ucc-microcredentials.sqlite` 
 
 - Configure a custom domain and HTTPS in Render.
 - Replace the initial administrator password after handover.
-- Add institutional email verification, password reset and rate limiting before unrestricted public registration.
+- Connect institutional email verification and a supported password-reset or SSO recovery flow before unrestricted public registration. Login throttling is included, but production edge/WAF limits should also be enabled.
 - Keep the service on a paid plan with a persistent disk; free Render web services have ephemeral filesystems.
 - Restrict administrator and facilitator accounts to authorised UCC personnel.
 - Define retention and deletion rules for national-ID and selfie evidence.
 - Review third-party learning materials, licences and transcripts before publication.
+- Add malware scanning for uploaded documents and identity evidence, and define an incident-response procedure.
+- Migrate SQLite and filesystem uploads to managed PostgreSQL and private object storage before multi-instance or high-volume operation.
 
 ## Important service limitation
 
