@@ -1,8 +1,11 @@
 import { getRawDb } from "@/db/raw";
 import { requireActiveProfile } from "@/lib/accounts";
 import { normalizeCourseDesign } from "@/lib/course-design";
+import { rejectCrossSiteMutation } from "@/lib/request-security";
+import { recordAudit } from "@/lib/audit";
 
 export async function POST(request: Request) {
+  const originError = rejectCrossSiteMutation(request); if (originError) return originError;
   const account = await requireActiveProfile(["learner"]);
   if (account.error || !account.profile) return account.error;
   const payload = await request.json() as { courseCode?: string };
@@ -20,5 +23,6 @@ export async function POST(request: Request) {
   }
   await getRawDb().prepare("INSERT OR IGNORE INTO enrollments (user_email, course_code, status) VALUES (?, ?, 'active')")
     .bind(account.profile.email, courseCode).run();
+  await recordAudit(account.profile.email, "course.enrolled", { courseCode });
   return Response.json({ enrolled: true, courseCode }, { status: 201 });
 }

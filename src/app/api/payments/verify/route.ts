@@ -1,8 +1,11 @@
 import { requireActiveProfile } from "@/lib/accounts";
 import { getRawDb } from "@/db/raw";
 import { settlePaymentOrder, type PaymentOrder } from "@/lib/payments";
+import { rejectCrossSiteMutation } from "@/lib/request-security";
 
 export async function POST(request: Request) {
+  const origin = rejectCrossSiteMutation(request);
+  if (origin) return origin;
   const account = await requireActiveProfile(["learner"]);
   if (account.error || !account.profile) return account.error;
   const payload = await request.json() as { reference?: string };

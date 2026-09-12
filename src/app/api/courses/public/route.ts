@@ -9,8 +9,8 @@ export async function GET() {
     WHERE c.status = 'active' ORDER BY c.activated_at DESC, c.created_at DESC LIMIT 100`).all<{ id:number; code:string; title:string; discipline:string; description:string; design_json:string; materials_json:string; activities_json:string; certificate_enabled:number; activated_at:string|null; facilitator_name:string|null }>();
   return Response.json({ courses: rows.results.map((row) => ({
     id: row.id, code: row.code, title: row.title, discipline: row.discipline, description: row.description,
-    design: normalizeCourseDesign(parse(row.design_json, {})), materials: parse<CourseMaterialRecord[]>(row.materials_json, []),
-    activities: parse<unknown[]>(row.activities_json, []), certificateEnabled: Boolean(row.certificate_enabled), activatedAt: row.activated_at,
+    design: normalizeCourseDesign(parse(row.design_json, {})), materials: parse<CourseMaterialRecord[]>(row.materials_json, []).map((m)=>({id:m.id,title:m.title,kind:m.kind,sectionId:m.sectionId,sectionTitle:m.sectionTitle,unitTitle:m.unitTitle,estimatedMinutes:m.estimatedMinutes,outcomeIds:m.outcomeIds,required:m.required})),
+    activities: parse<Record<string,unknown>[]>(row.activities_json, []).map((a)=>({id:a.id,kind:a.kind,title:a.title,required:a.required,passMark:a.passMark})), certificateEnabled: Boolean(row.certificate_enabled), activatedAt: row.activated_at,
     facilitatorName: row.facilitator_name || "University of Cape Coast"
   })) });
 }

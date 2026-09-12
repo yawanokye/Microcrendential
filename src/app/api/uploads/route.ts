@@ -1,5 +1,6 @@
 import { requireActiveProfile } from "@/lib/accounts";
 import { getStoredFile, putStoredFile } from "@/lib/render-storage";
+import { rejectCrossSiteMutation } from "@/lib/request-security";
 
 export async function GET(request: Request) {
   const account = await requireActiveProfile(["facilitator", "admin"]);
@@ -30,6 +31,8 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const origin = rejectCrossSiteMutation(request);
+  if (origin) return origin;
   const account = await requireActiveProfile(["facilitator", "admin"]);
   if (account.error || !account.profile) return account.error;
   const form = await request.formData();

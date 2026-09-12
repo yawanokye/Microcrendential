@@ -1,6 +1,7 @@
 import { requireActiveProfile } from "@/lib/accounts";
 import { amountForPurpose, getCoursePaymentTerms, paymentReference, type PaymentPurpose } from "@/lib/payments";
 import { getRawDb } from "@/db/raw";
+import { rejectCrossSiteMutation } from "@/lib/request-security";
 
 const appBaseUrl = (request: Request) => {
   const configured = process.env.NEXT_PUBLIC_APP_URL?.trim().replace(/\/$/, "");
@@ -8,6 +9,8 @@ const appBaseUrl = (request: Request) => {
 };
 
 export async function POST(request: Request) {
+  const origin = rejectCrossSiteMutation(request);
+  if (origin) return origin;
   const account = await requireActiveProfile(["learner"]);
   if (account.error || !account.profile) return account.error;
   const payload = await request.json() as { courseCode?: string; purpose?: PaymentPurpose };

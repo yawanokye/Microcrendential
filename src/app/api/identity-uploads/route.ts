@@ -1,10 +1,13 @@
 import { getChatGPTUser } from "@/app/chatgpt-auth";
 import { putStoredFile } from "@/lib/render-storage";
+import { rejectCrossSiteMutation } from "@/lib/request-security";
 
 const ALLOWED_ID_TYPES = new Set(["image/jpeg", "image/png", "application/pdf"]);
 const ALLOWED_SELFIE_TYPES = new Set(["image/jpeg", "image/png"]);
 
 export async function POST(request: Request) {
+  const origin = rejectCrossSiteMutation(request);
+  if (origin) return origin;
   const identity = await getChatGPTUser();
   if (!identity) return Response.json({ error: "Sign in is required." }, { status: 401 });
   const form = await request.formData();

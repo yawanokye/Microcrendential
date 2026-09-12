@@ -1,8 +1,11 @@
 import { getRawDb } from "@/db/raw";
 import { requireActiveProfile } from "@/lib/accounts";
 import { issueCertificateIfComplete } from "@/lib/course-completion";
+import { rejectCrossSiteMutation } from "@/lib/request-security";
+import { recordAudit } from "@/lib/audit";
 
-type CertificateRow = { certificate_code: string; learner_name: string; course_code: string; course_title: string; issuer_name: string; requirements_json: string; credential_type: string; status: string; issued_at: string; expires_at: string | null; revoked_at: string | null; revocation_reason: string | null };
+type CertificateRow = { certificate_code: string; learner_name: string; course_code: string; course_title: string; issuer_name: string; requirements_json: string; credential_type: string; status: string; issued_at: string; expires_at: string | null; revoked_at: string | null; revocation_reason: string | null; facilitator_name:string|null;facilitator_title:string|null;facilitator_signature_key:string|null;provost_name:string|null;provost_title:string|null;provost_signature_key:string|null };
+const columns="certificate_code,learner_name,course_code,course_title,issuer_name,requirements_json,credential_type,status,issued_at,expires_at,revoked_at,revocation_reason,facilitator_name,facilitator_title,facilitator_signature_key,provost_name,provost_title,provost_signature_key";
 
 function presentCertificate(certificate: CertificateRow, publicView = false) {
   let requirements: { id?: string; type?: string; label?: string; complete?: boolean; evidence?: string }[] = [];
@@ -18,7 +21,7 @@ export async function GET(request: Request) {
   const parameters = new URL(request.url).searchParams;
   const code = parameters.get("code")?.trim().toUpperCase();
   if (code) {
-    const certificate = await getRawDb().prepare("SELECT certificate_code, learner_name, course_code, course_title, issuer_name, requirements_json, credential_type, status, issued_at, expires_at, revoked_at, revocation_reason FROM certificates WHERE certificate_code = ? LIMIT 1").bind(code).first<CertificateRow>();
+    const certificate = await getRawDb().prepare(`SELECT ${columns} FROM certificates WHERE certificate_code = ? LIMIT 1`).bind(code).first<CertificateRow>();
     if (!certificate) return Response.json({ valid: false, error: "Certificate was not found." }, { status: 404 });
     const expired = Boolean(certificate.expires_at && Date.parse(certificate.expires_at) < Date.now());
     return Response.json({ valid: certificate.status === "active" && !expired, status: expired ? "expired" : certificate.status, certificate: presentCertificate(certificate, true) });
@@ -26,12 +29,12 @@ export async function GET(request: Request) {
   if (parameters.get("scope") === "registry") {
     const account = await requireActiveProfile(["admin"]);
     if (account.error) return account.error;
-    const credentials = await getRawDb().prepare("SELECT certificate_code, learner_name, user_email, course_code, course_title, issuer_name, requirements_json, credential_type, status, issued_at, expires_at, revoked_at, revocation_reason FROM certificates ORDER BY issued_at DESC LIMIT 250").all<CertificateRow & { user_email: string }>();
+    const credentials = await getRawDb().prepare(`SELECT ${columns},user_email FROM certificates ORDER BY issued_at DESC LIMIT 250`).all<CertificateRow & { user_email: string }>();
     return Response.json({ credentials: credentials.results.map((item) => ({ ...presentCertificate(item), user_email: item.user_email })) });
   }
   const account = await requireActiveProfile(["learner"]);
   if (account.error || !account.profile) return account.error;
-  const certificates = await getRawDb().prepare("SELECT certificate_code, learner_name, course_code, course_title, issuer_name, requirements_json, credential_type, status, issued_at, expires_at, revoked_at, revocation_reason FROM certificates WHERE user_email = ? ORDER BY issued_at DESC").bind(account.profile.email).all<CertificateRow>();
+  const certificates = await getRawDb().prepare(`SELECT ${columns} FROM certificates WHERE user_email = ? ORDER BY issued_at DESC`).bind(account.profile.email).all<CertificateRow>();
   const eligible = await getRawDb().prepare(`SELECT e.course_code, c.title AS course_title, c.design_json
     FROM enrollments e JOIN course_drafts c ON c.code = e.course_code
     LEFT JOIN certificates cert ON cert.user_email = e.user_email AND cert.course_code = e.course_code
@@ -44,6 +47,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const originError = rejectCrossSiteMutation(request); if (originError) return originError;
   const account = await requireActiveProfile(["learner"]);
   if (account.error || !account.profile) return account.error;
   const payload = await request.json() as { courseCode?: string };
@@ -57,6 +61,7 @@ export async function POST(request: Request) {
 }
 
 export async function PATCH(request: Request) {
+  const originError = rejectCrossSiteMutation(request); if (originError) return originError;
   const account = await requireActiveProfile(["admin"]);
   if (account.error || !account.profile) return account.error;
   const payload = await request.json() as { code?: string; action?: "revoke" | "restore"; reason?: string };
@@ -67,5 +72,6 @@ export async function PATCH(request: Request) {
     ? await getRawDb().prepare("UPDATE certificates SET status = 'revoked', revoked_at = CURRENT_TIMESTAMP, revocation_reason = ? WHERE certificate_code = ? AND status = 'active'").bind(payload.reason!.trim(), code).run()
     : await getRawDb().prepare("UPDATE certificates SET status = 'active', revoked_at = NULL, revocation_reason = NULL WHERE certificate_code = ? AND status = 'revoked'").bind(code).run();
   if (!result.meta.changes) return Response.json({ error: "The credential was not found or is already in that state." }, { status: 409 });
+  await recordAudit(account.profile.email, payload.action === "revoke" ? "certificate.revoked" : "certificate.restored", { certificateCode: code, reason: payload.reason?.trim() || null });
   return Response.json({ updated: true, code, status: payload.action === "revoke" ? "revoked" : "active" });
 }

@@ -3,6 +3,7 @@ import type { CourseMaterialRecord } from "@/lib/course-design";
 import { extractArticleHtml, extractReadableContent, plainTextFromHtml, sanitizeReadableHtml, textToReadableHtml } from "@/lib/document-content";
 import { fetchPublicResource, validatePublicHttpUrl } from "@/lib/public-url";
 import { putStoredFile } from "@/lib/render-storage";
+import { rejectCrossSiteMutation } from "@/lib/request-security";
 
 const allowedExtensions = new Set(["pdf", "doc", "docx", "txt", "md", "html", "htm", "rtf", "ppt", "pptx", "csv", "jpg", "jpeg", "png", "webp", "mp3", "wav", "mp4", "webm"]);
 const convertibleExtensions = new Set(["pdf", "docx", "txt", "md", "html", "htm", "rtf"]);
@@ -18,6 +19,8 @@ const placement = (form: FormData) => ({
 const titleFromUrl = (url: URL) => url.pathname.split("/").filter(Boolean).at(-1)?.replace(/[-_]/g, " ") || url.hostname;
 
 export async function POST(request: Request) {
+  const origin = rejectCrossSiteMutation(request);
+  if (origin) return origin;
   const account = await requireActiveProfile(["facilitator", "admin"]);
   if (account.error || !account.profile) return account.error;
   const form = await request.formData(); const mode = clean(form, "mode", 30); const location = placement(form);

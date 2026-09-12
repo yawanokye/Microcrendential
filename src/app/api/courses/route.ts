@@ -2,6 +2,9 @@ import { getRawDb } from "@/db/raw";
 import { requireActiveProfile } from "@/lib/accounts";
 import { evaluateCourseQuality, normalizeCourseDesign, type CourseMaterialRecord } from "@/lib/course-design";
 import { plainTextFromHtml, sanitizeReadableHtml } from "@/lib/document-content";
+import { learnerSafeAssessmentConfig, type AssessmentConfigRecord } from "@/lib/assessment-policy";
+import { rejectCrossSiteMutation } from "@/lib/request-security";
+import { recordAudit } from "@/lib/audit";
 
 type CourseRow = {
   id: number; code: string; title: string; discipline: string; description: string; materials_json: string; activities_json: string; assessment_modes_json: string;
@@ -40,7 +43,7 @@ function normalizeMaterials(value: unknown): CourseMaterialRecord[] {
       outcomeIds, accessibilityChecked: Boolean(item.accessibilityChecked), license: String(item.license || "").trim().slice(0, 200) || undefined,
       transcript: String(item.transcript || "").slice(0, 300_000) || undefined,
       transcriptLanguage: String(item.transcriptLanguage || "").slice(0, 80) || undefined,
-      transcriptSource: String(item.transcriptSource || "").slice(0, 240) || undefined, transcriptPublished: Boolean(item.transcriptPublished),
+      transcriptSource: String(item.transcriptSource || "").slice(0, 240) || undefined, transcriptPublished: Boolean(item.transcriptPublished), required: item.required !== false,
     };
   });
 }
@@ -58,6 +61,8 @@ function present(row: CourseRow) {
   };
 }
 
+function catalogueOnly(course:ReturnType<typeof present>){return{...course,enrolled:false,materials:course.materials.map((m)=>({id:m.id,title:m.title,kind:m.kind,source:m.source,sectionId:m.sectionId,sectionTitle:m.sectionTitle,unitTitle:m.unitTitle,estimatedMinutes:m.estimatedMinutes,outcomeIds:m.outcomeIds,required:m.required})),activities:course.activities.map((entry)=>{const a=entry&&typeof entry==="object"?entry as Record<string,unknown>:{};return{id:a.id,kind:a.kind,title:a.title,required:a.required,passMark:a.passMark};}),assessmentConfig:{passMark:Number((course.assessmentConfig as {passMark?:number}).passMark)||70,attempts:String((course.assessmentConfig as {attempts?:string}).attempts||"1"),questionCount:Array.isArray((course.assessmentConfig as {questions?:unknown[]}).questions)?(course.assessmentConfig as {questions:unknown[]}).questions.length:0}};}
+
 function normalizedPayload(payload: Record<string, unknown>) {
   const title = String(payload.title ?? "").trim().slice(0, 240); const code = String(payload.code ?? "").trim().toUpperCase().slice(0, 80);
   const discipline = String(payload.discipline ?? "").trim().slice(0, 160); const description = String(payload.description ?? "").trim().slice(0, 5000);
@@ -67,7 +72,7 @@ function normalizedPayload(payload: Record<string, unknown>) {
   const assessmentConfig = payload.assessmentConfig && typeof payload.assessmentConfig === "object" ? payload.assessmentConfig as Record<string, unknown> : {};
   const questions = Array.isArray(assessmentConfig.questions) ? assessmentConfig.questions : [];
   const questionLimit = Math.min(100, Math.max(1, Number(payload.questionLimit) || 10));
-  const quality = evaluateCourseQuality({ title, description, design, materials, questionCount: questions.slice(0, questionLimit).length });
+  const quality = evaluateCourseQuality({ title, description, design, materials, questionCount: questions.slice(0, questionLimit).length, assessmentConfig: assessmentConfig as AssessmentConfigRecord, activities: activities as Parameters<typeof evaluateCourseQuality>[0]["activities"] });
   return { title, code, discipline, description, design, materials, activities, assessmentModes, assessmentConfig, questionLimit, quality };
 }
 
@@ -88,10 +93,12 @@ export async function GET() {
   if (account.profile.role === "learner") rows = await db.prepare(`${select} WHERE c.status = 'active' ORDER BY c.activated_at DESC, c.created_at DESC LIMIT 100`).all<CourseRow>();
   else if (account.profile.role === "facilitator") rows = await db.prepare(`${select} WHERE c.created_by_email = ? OR c.status = 'active' ORDER BY c.updated_at DESC, c.created_at DESC LIMIT 150`).bind(account.profile.email).all<CourseRow>();
   else rows = await db.prepare(`${select} ORDER BY CASE c.status WHEN 'pending_review' THEN 0 WHEN 'active' THEN 1 WHEN 'draft' THEN 2 ELSE 3 END, c.updated_at DESC, c.created_at DESC LIMIT 250`).all<CourseRow>();
+  if(account.profile.role==="learner"){const enrolledRows=await db.prepare("SELECT course_code FROM enrollments WHERE user_email=? AND status IN ('active','completed')").bind(account.profile.email).all<{course_code:string}>();const enrolled=new Set(enrolledRows.results.map(r=>r.course_code));return Response.json({courses:rows.results.map(present).map(course=>enrolled.has(course.code)?{...course,enrolled:true,assessmentConfig:learnerSafeAssessmentConfig(course.assessmentConfig as AssessmentConfigRecord,course.questionLimit)}:catalogueOnly(course))});}
   return Response.json({ courses: rows.results.map(present) });
 }
 
 export async function POST(request: Request) {
+  const originError=rejectCrossSiteMutation(request);if(originError)return originError;
   const account = await requireActiveProfile(["facilitator", "admin"]);
   if (account.error || !account.profile) return account.error;
   const payload = await request.json() as Record<string, unknown>; const course = normalizedPayload(payload);
@@ -103,10 +110,12 @@ export async function POST(request: Request) {
   const status = submissionMode === "review" ? "pending_review" : "draft";
   const result = await db.prepare("INSERT INTO course_drafts (code, title, discipline, description, materials_json, activities_json, assessment_modes_json, assessment_config_json, design_json, gate_required, question_limit, certificate_enabled, status, created_by_email, submitted_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CASE WHEN ? = 'pending_review' THEN CURRENT_TIMESTAMP ELSE NULL END, CURRENT_TIMESTAMP)")
     .bind(course.code, course.title, course.discipline, course.description, JSON.stringify(course.materials), JSON.stringify(course.activities), JSON.stringify(course.assessmentModes), JSON.stringify(course.assessmentConfig), JSON.stringify(course.design), payload.gateRequired === false ? 0 : 1, course.questionLimit, payload.certificateEnabled === false ? 0 : 1, status, account.profile.email, status).run();
+  await recordAudit(account.profile.email,"course.created",{courseCode:course.code,status});
   return Response.json({ course: { id: result.meta.last_row_id, code: course.code, title: course.title, discipline: course.discipline, status, versionNumber: 1 }, quality: course.quality }, { status: 201 });
 }
 
 export async function PUT(request: Request) {
+  const originError=rejectCrossSiteMutation(request);if(originError)return originError;
   const account = await requireActiveProfile(["facilitator", "admin"]);
   if (account.error || !account.profile) return account.error;
   const payload = await request.json() as Record<string, unknown>; const id = Number(payload.id); const expectedVersion = Number(payload.expectedVersion);
@@ -127,17 +136,18 @@ export async function PUT(request: Request) {
   const result = await db.prepare("UPDATE course_drafts SET code = ?, title = ?, discipline = ?, description = ?, materials_json = ?, activities_json = ?, assessment_modes_json = ?, assessment_config_json = ?, design_json = ?, gate_required = ?, question_limit = ?, certificate_enabled = ?, status = ?, version_number = version_number + 1, submitted_at = CASE WHEN ? = 'pending_review' THEN CURRENT_TIMESTAMP ELSE submitted_at END, review_comment = CASE WHEN ? = 'pending_review' THEN NULL ELSE review_comment END, reviewed_by_email = CASE WHEN ? = 'pending_review' THEN NULL ELSE reviewed_by_email END, reviewed_at = CASE WHEN ? = 'pending_review' THEN NULL ELSE reviewed_at END, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND version_number = ?")
     .bind(course.code, course.title, course.discipline, course.description, JSON.stringify(course.materials), JSON.stringify(course.activities), JSON.stringify(course.assessmentModes), JSON.stringify(course.assessmentConfig), JSON.stringify(course.design), payload.gateRequired === false ? 0 : 1, course.questionLimit, payload.certificateEnabled === false ? 0 : 1, status, status, status, status, status, id, expectedVersion).run();
   if (!result.meta.changes) return Response.json({ error: "The draft version changed before it could be saved." }, { status: 409 });
+  await recordAudit(account.profile.email,"course.saved",{courseId:id,courseCode:course.code,status,version:expectedVersion+1});
   return Response.json({ course: { id, code: course.code, title: course.title, status, versionNumber: expectedVersion + 1 }, quality: course.quality });
 }
 
 export async function PATCH(request: Request) {
+  const originError=rejectCrossSiteMutation(request);if(originError)return originError;
   const account = await requireActiveProfile(["admin"]);
   if (account.error || !account.profile) return account.error;
   const payload = await request.json() as {
     id?: number;
     status?: "active" | "pending_review" | "rejected";
     comment?: string;
-    administrativeOverride?: boolean;
   };
   if (!payload.id || !["active", "pending_review", "rejected"].includes(payload.status ?? "")) return Response.json({ error: "Choose a course and valid review decision." }, { status: 400 });
   const reviewComment = String(payload.comment ?? "").trim().slice(0, 4000);
@@ -145,32 +155,19 @@ export async function PATCH(request: Request) {
   const active = payload.status === "active"; const db = getRawDb();
   const course = await db.prepare("SELECT code, title, description, design_json, materials_json, activities_json, assessment_config_json, created_by_email, status FROM course_drafts WHERE id = ? LIMIT 1").bind(payload.id).first<{ code: string; title: string; description: string; design_json: string; materials_json: string; activities_json: string; assessment_config_json: string; created_by_email: string; status: string }>();
   if (!course) return Response.json({ error: "Course was not found." }, { status: 404 });
-  let administrativeOverride = false;
   if (active) {
     const design = normalizeCourseDesign(parseJson(course.design_json, {})); const materials = normalizeMaterials(parseJson(course.materials_json, []));
-    const assessment = parseJson<{ questions?: unknown[] }>(course.assessment_config_json, {});
-    const quality = evaluateCourseQuality({ title: course.title, description: course.description, design, materials, questionCount: assessment.questions?.length ?? 0 });
-    const reviewable = course.status === "pending_review" || course.status === "rejected";
-    if (!reviewable) {
-      return Response.json({ error: "Only a course awaiting review or a returned course can be published.", quality }, { status: 409 });
-    }
-    const standardApproval = course.status === "pending_review" && quality.ready;
-    administrativeOverride = !standardApproval;
-    if (administrativeOverride && payload.administrativeOverride !== true) {
-      return Response.json({
-        error: "This course requires a recorded administrator exception before it can be published.",
-        quality,
-        requiresAdministrativeOverride: true,
-      }, { status: 409 });
-    }
-    if (administrativeOverride && !reviewComment) {
-      return Response.json({ error: "Add an administrator justification before publishing this course as an exception.", quality }, { status: 400 });
-    }
+    const assessment = parseJson<AssessmentConfigRecord>(course.assessment_config_json, {});
+    const activities=parseJson<Parameters<typeof evaluateCourseQuality>[0]["activities"]>(course.activities_json,[]);
+    const quality = evaluateCourseQuality({ title: course.title, description: course.description, design, materials, questionCount: assessment.questions?.length ?? 0, assessmentConfig:assessment,activities });
+    if (course.status !== "pending_review") return Response.json({ error: "Only a course awaiting review can be published.", quality }, { status: 409 });
+    if(!quality.ready)return Response.json({error:"Publication is blocked until every quality check passes.",quality},{status:409});
   }
   const decisionComment = reviewComment || (active ? "Approved for publication." : null);
   const result = await db.prepare("UPDATE course_drafts SET status = ?, activated_by_email = ?, activated_at = CASE WHEN ? = 1 THEN CURRENT_TIMESTAMP ELSE NULL END, review_comment = ?, reviewed_by_email = ?, reviewed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
     .bind(payload.status, account.profile.email, active ? 1 : 0, decisionComment, account.profile.email, payload.id).run();
   if (!result.meta.changes) return Response.json({ error: "Course was not found." }, { status: 404 });
+  await recordAudit(account.profile.email,active?"course.published":"course.returned",{courseId:payload.id,courseCode:course.code,comment:decisionComment});
   if (active) {
     let activities: { id?: string; kind?: string; title?: string; instructions?: string; notebookKey?: string; notebookFileName?: string; templateUrl?: string; rubric?: string; maxMark?: number; passMark?: number; attemptsAllowed?: number; dueAt?: string }[] = [];
     try { activities = JSON.parse(course.activities_json || "[]") as typeof activities; } catch { activities = []; }
@@ -181,5 +178,5 @@ export async function PATCH(request: Request) {
         .bind(course.code, activity.title ?? "Colab coding activity", activity.instructions ?? "Complete the notebook in free Google Colab and submit your evidence.", activity.notebookKey, activity.notebookFileName, activity.templateUrl || null, activity.rubric ?? "Assess correctness, interpretation and reproducibility.", Math.min(1000, Math.max(1, Number(activity.maxMark) || 100)), Math.min(100, Math.max(1, Number(activity.passMark) || 60)), Math.min(10, Math.max(1, Number(activity.attemptsAllowed) || 2)), activity.dueAt || null, course.created_by_email).run();
     }
   }
-  return Response.json({ updated: true, status: payload.status, administrativeOverride });
+  return Response.json({ updated: true, status: payload.status });
 }

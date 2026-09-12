@@ -1,3 +1,5 @@
+import { validateAssessmentForPublication, type AssessmentConfigRecord } from "@/lib/assessment-policy";
+
 export type LearningOutcome = {
   id: string;
   statement: string;
@@ -52,6 +54,7 @@ export type CourseMaterialRecord = {
   transcriptLanguage?: string;
   transcriptSource?: string;
   transcriptPublished?: boolean;
+  required?: boolean;
 };
 
 export const defaultCourseDesign = (): CourseDesign => ({
@@ -136,8 +139,10 @@ export function evaluateCourseQuality(input: {
   design: CourseDesign;
   materials: CourseMaterialRecord[];
   questionCount: number;
+  assessmentConfig?: AssessmentConfigRecord;
+  activities?: { required?: boolean; title?: string; instructions?: string; rubric?: string; passMark?: number; attemptsAllowed?: number }[];
 }) {
-  const { title = "", description = "", design, materials, questionCount } = input;
+  const { title = "", description = "", design, materials, questionCount, assessmentConfig, activities = [] } = input;
   const sectionIds = new Set(design.sections.map((section) => section.id));
   const mappedOutcomes = new Set(materials.flatMap((material) => material.outcomeIds ?? []));
   const checks: CourseQualityCheck[] = [
@@ -148,7 +153,8 @@ export function evaluateCourseQuality(input: {
     { id: "structure", label: "Structured curriculum", passed: design.sections.length >= 1 && materials.length >= 2 && materials.every((material) => material.sectionId && sectionIds.has(material.sectionId)), detail: "Add at least two learning blocks and place every block in a section." },
     { id: "alignment", label: "Outcome alignment", passed: design.outcomes.length > 0 && design.outcomes.every((outcome) => mappedOutcomes.has(outcome.id)), detail: "Map at least one learning block to every course outcome." },
     { id: "accessible", label: "Accessible learning content", passed: Boolean(design.accessibilityStatement) && materials.every((material) => material.kind === "Watch" ? Boolean(material.transcriptPublished && material.transcript) : Boolean(material.accessibilityChecked)), detail: "Confirm accessibility for each block and provide reviewed transcripts for published video or audio." },
-    { id: "assessment", label: "Assessment evidence", passed: questionCount >= 1, detail: "Author at least one scored assessment question." },
+    { id: "assessment", label: "Assessment evidence", passed: assessmentConfig ? validateAssessmentForPublication(assessmentConfig, questionCount || 100).valid : questionCount >= 1, detail: assessmentConfig ? (validateAssessmentForPublication(assessmentConfig, questionCount || 100).issues[0] ?? "Author at least one scored assessment question.") : "Author at least one scored assessment question." },
+    { id: "activities", label: "Authentic activity settings", passed: activities.every((activity) => !activity.required || Boolean(activity.title?.trim() && activity.instructions?.trim() && activity.rubric?.trim() && Number(activity.passMark) > 0 && Number(activity.attemptsAllowed) > 0)), detail: "Required activities need instructions, a rubric, pass mark and attempt limit." },
   ];
   const passed = checks.filter((check) => check.passed).length;
   return { checks, score: Math.round((passed / checks.length) * 100), ready: passed === checks.length };

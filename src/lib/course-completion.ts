@@ -11,7 +11,7 @@ type CourseActivity = {
 
 export type CompletionRequirement = {
   id: string;
-  type: "identity" | "content" | "assessment" | "virtual_lab" | "colab";
+  type: "identity" | "assessment" | "content" | "virtual_lab" | "colab";
   label: string;
   complete: boolean;
   evidence?: string;
@@ -40,6 +40,8 @@ export type IssuedCertificate = {
   expires_at: string | null;
   revoked_at: string | null;
   revocation_reason: string | null;
+  facilitator_name:string|null; facilitator_title:string|null; facilitator_signature_key:string|null;
+  provost_name:string|null; provost_title:string|null; provost_signature_key:string|null;
 };
 
 const parseActivities = (value: string) => {
@@ -53,23 +55,14 @@ const parseActivities = (value: string) => {
 
 export async function evaluateCourseCompletion(userEmail: string, courseCode: string): Promise<CompletionEvaluation | null> {
   const db = getRawDb();
-  const course = await db.prepare("SELECT code, title, materials_json, activities_json, design_json, certificate_enabled FROM course_drafts WHERE code = ? AND status = 'active' LIMIT 1")
-    .bind(courseCode).first<{ code: string; title: string; materials_json: string; activities_json: string; design_json: string; certificate_enabled: number }>();
+  const course = await db.prepare("SELECT code, title, materials_json, activities_json, design_json, certificate_enabled, created_by_email FROM course_drafts WHERE code = ? AND status = 'active' LIMIT 1")
+    .bind(courseCode).first<{ code: string; title: string; materials_json:string; activities_json: string; design_json: string; certificate_enabled: number; created_by_email:string }>();
   if (!course) return null;
 
   const user = await db.prepare("SELECT full_name, status, identity_status FROM users WHERE email = ? AND role = 'learner' LIMIT 1")
     .bind(userEmail).first<{ full_name: string; status: string; identity_status: string }>();
   const assessment = await db.prepare("SELECT score, passed, completed_at FROM assessment_attempts WHERE user_email = ? AND course_code = ? LIMIT 1")
     .bind(userEmail, course.code).first<{ score: number; passed: number; completed_at: string }>();
-
-  let materialIds: string[] = [];
-  try {
-    const parsed = JSON.parse(course.materials_json || "[]") as { id?: string }[];
-    materialIds = Array.isArray(parsed) ? parsed.map((item, index) => String(item?.id || `material-${index + 1}`)) : [];
-  } catch { materialIds = []; }
-  const completedContent = materialIds.length ? await db.prepare("SELECT material_id FROM course_content_progress WHERE user_email = ? AND course_code = ?")
-    .bind(userEmail, course.code).all<{ material_id: string }>() : { results: [] as { material_id: string }[] };
-  const completedMaterialIds = new Set(completedContent.results.map((item) => item.material_id));
 
   const requirements: CompletionRequirement[] = [
     {
@@ -80,13 +73,6 @@ export async function evaluateCourseCompletion(userEmail: string, courseCode: st
       evidence: user?.identity_status ?? "not_submitted",
     },
     {
-      id: "learning-content",
-      type: "content",
-      label: "All learning-manual sections completed",
-      complete: materialIds.length > 0 && materialIds.every((id) => completedMaterialIds.has(id)),
-      evidence: `${materialIds.filter((id) => completedMaterialIds.has(id)).length} of ${materialIds.length} sections complete`,
-    },
-    {
       id: "course-assessment",
       type: "assessment",
       label: "Course assessment passed",
@@ -94,6 +80,12 @@ export async function evaluateCourseCompletion(userEmail: string, courseCode: st
       evidence: assessment ? `${assessment.score}% · ${assessment.completed_at}` : "No passing attempt recorded",
     },
   ];
+
+  let materials:{id?:string;title?:string;required?:boolean}[]=[];try{materials=JSON.parse(course.materials_json||"[]");}catch{}
+  for(const [index,material] of materials.map((item,index)=>({...item,resolvedId:String(item.id??`material-${index+1}`)})).filter(item=>item.required!==false).entries()){
+    const progress=await db.prepare("SELECT completed,completed_at FROM learning_progress WHERE user_email=? AND course_code=? AND material_id=?").bind(userEmail,course.code,material.resolvedId).first<{completed:number;completed_at:string|null}>();
+    requirements.push({id:`content-${material.resolvedId}`,type:"content",label:material.title?.trim()||`Required lesson ${index+1}`,complete:Boolean(progress?.completed),evidence:progress?.completed?`Completed ${progress.completed_at??"during this enrolment"}`:"Open the lesson and select Continue"});
+  }
 
   for (const [index, activity] of parseActivities(course.activities_json).filter((item) => item.required !== false).entries()) {
     if (activity.kind === "virtual_lab") {
@@ -153,11 +145,14 @@ export async function issueCertificateIfComplete(userEmail: string, courseCode: 
   const learner = await db.prepare("SELECT full_name FROM users WHERE email = ? AND role = 'learner' LIMIT 1")
     .bind(userEmail).first<{ full_name: string }>();
   if (!learner) return { evaluation, certificate: null };
+  const course=await db.prepare("SELECT created_by_email FROM course_drafts WHERE code=? AND status='active'").bind(courseCode).first<{created_by_email:string}>();
+  const facilitator=course?await db.prepare("SELECT signatory_name,signatory_title,file_key FROM certificate_signatures WHERE signature_key=?").bind(`facilitator:${course.created_by_email}`).first<{signatory_name:string;signatory_title:string;file_key:string}>():null;
+  const provost=await db.prepare("SELECT signatory_name,signatory_title,file_key FROM certificate_signatures WHERE signature_key='provost'").first<{signatory_name:string;signatory_title:string;file_key:string}>();
   const requirementsJson = JSON.stringify({ evaluatedAt: new Date().toISOString(), requirements: evaluation.requirements });
   const certificateCode = `UCC-${new Date().getUTCFullYear()}-${crypto.randomUUID().replaceAll("-", "").slice(0, 12).toUpperCase()}`;
-  await db.prepare("INSERT OR IGNORE INTO certificates (certificate_code, user_email, learner_name, course_code, course_title, issuer_name, requirements_json) VALUES (?, ?, ?, ?, ?, 'University of Cape Coast', ?)")
-    .bind(certificateCode, userEmail, learner.full_name, evaluation.courseCode, evaluation.courseTitle, requirementsJson).run();
-  const certificate = await db.prepare("SELECT certificate_code, learner_name, course_code, course_title, issuer_name, requirements_json, credential_type, status, issued_at, expires_at, revoked_at, revocation_reason FROM certificates WHERE user_email = ? AND course_code = ? LIMIT 1")
+  await db.prepare(`INSERT OR IGNORE INTO certificates(certificate_code,user_email,learner_name,course_code,course_title,issuer_name,requirements_json,facilitator_name,facilitator_title,facilitator_signature_key,provost_name,provost_title,provost_signature_key) VALUES(?,?,?,?,?,'University of Cape Coast',?,?,?,?,?,?,?)`)
+    .bind(certificateCode,userEmail,learner.full_name,evaluation.courseCode,evaluation.courseTitle,requirementsJson,facilitator?.signatory_name??null,facilitator?.signatory_title??null,facilitator?.file_key??null,provost?.signatory_name??null,provost?.signatory_title??null,provost?.file_key??null).run();
+  const certificate = await db.prepare("SELECT certificate_code,learner_name,course_code,course_title,issuer_name,requirements_json,credential_type,status,issued_at,expires_at,revoked_at,revocation_reason,facilitator_name,facilitator_title,facilitator_signature_key,provost_name,provost_title,provost_signature_key FROM certificates WHERE user_email = ? AND course_code = ? LIMIT 1")
     .bind(userEmail, courseCode).first<IssuedCertificate>();
   return { evaluation, certificate };
 }
