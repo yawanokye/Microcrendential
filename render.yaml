@@ -4,7 +4,9 @@ services:
     runtime: docker
     plan: starter
     dockerfilePath: ./Dockerfile
-    healthCheckPath: /api/health
+    # Deployment liveness must test the running service, not optional setup.
+    # /api/health remains the detailed configuration-readiness diagnostic.
+    healthCheckPath: /api/health/live
     autoDeploy: true
     envVars:
       - key: NODE_ENV

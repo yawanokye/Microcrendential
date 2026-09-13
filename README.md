@@ -180,3 +180,4 @@ YouTube transcript extraction works only when YouTube exposes a usable caption t
 - [Docker deployments](https://render.com/docs/docker)
 - [Blueprint specification](https://render.com/docs/blueprint-spec)
 - [Persistent disks](https://render.com/docs/disks)
+Render uses `/api/health/live` as its deployment liveness probe. It returns `200` when the application can access its database, allowing the instance to become live. `/api/health` remains the stricter configuration-readiness diagnostic and can report `503 configuration_required` when mandatory operational setup—such as `INITIAL_ADMIN_EMAIL`—is incomplete.
