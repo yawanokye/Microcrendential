@@ -1,9 +1,9 @@
 import { requireActiveProfile } from "@/lib/accounts";
+import { recordAudit } from "@/lib/audit";
 import { extractReadableContent } from "@/lib/document-content";
 import { buildManualCourseProposal } from "@/lib/manual-course-import";
-import { putStoredFile } from "@/lib/render-storage";
 import { rejectCrossSiteMutation } from "@/lib/request-security";
-import { recordAudit } from "@/lib/audit";
+import { putStoredFile } from "@/lib/render-storage";
 
 const allowedExtensions = new Set(["pdf", "docx", "txt", "md", "html", "htm", "rtf"]);
 const maximumBytes = 25 * 1024 * 1024;
@@ -25,7 +25,7 @@ export async function POST(request: Request) {
 
   const extension = file.name.toLowerCase().split(".").pop() ?? "";
   if (!allowedExtensions.has(extension)) {
-    return Response.json({ error: "Use a searchable PDF, DOCX, TXT, Markdown, HTML or RTF manual. Legacy .doc files should be saved as .docx first." }, { status: 415 });
+    return Response.json({ error: "Use a searchable PDF, DOCX, TXT, Markdown, HTML or RTF manual. Save legacy .doc files as .docx first." }, { status: 415 });
   }
 
   try {
@@ -34,7 +34,7 @@ export async function POST(request: Request) {
     const extracted = extractReadableContent(body, file.name, mimeType);
     if (extracted.text.trim().length < 200 || extracted.wordCount < 35) {
       return Response.json({
-        error: "This manual did not expose enough readable text. Upload a searchable PDF or DOCX. If it is a scanned PDF, run OCR first and try again.",
+        error: "This manual did not expose enough readable text. Upload a searchable PDF or DOCX. Run OCR first for a scanned PDF.",
         conversionNote: extracted.note,
       }, { status: 422 });
     }
@@ -54,14 +54,11 @@ export async function POST(request: Request) {
       plainText: extracted.text,
       conversionNote: extracted.note,
     });
-
     await recordAudit(account.profile.email, "course.manual_imported", {
       fileName: file.name,
       wordCount: extracted.wordCount,
       sections: proposal.counts.sections,
-      importer: "compatibility",
     });
-
     return Response.json({ proposal }, { status: 201 });
   } catch (error) {
     return Response.json({
