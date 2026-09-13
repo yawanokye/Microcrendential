@@ -63,7 +63,7 @@ Public-link imports reject private, loopback and internal-network addresses, val
 
 The completion engine evaluates four governed evidence classes: active verified learner identity, a passing course assessment, every required virtual practical, and every required Colab notebook activity. Optional activities do not delay issuance. When all configured requirements pass, the enrolment is marked complete and one certificate is issued for that learner/course pair.
 
-The certificate records the issuer as **University of Cape Coast**, the learner and course, the requirements snapshot, issue time and live governance status. Its QR encodes the full public verification URL using a standards-based QR matrix with error correction. Administrators can revoke or restore the record, and a scan always reflects the current registry status rather than a static image claim.
+The certificate records the issuer as **University of Cape Coast**, the learner and course, credit value, delivery mode, requirements snapshot, issue time and live governance status. The learner wallet and printable/PDF view use the supplied UCC CoDE certificate artwork and original crest asset; the untouched reference template is retained in `certificate-assets/`. Its QR encodes the full public verification URL using a standards-based QR matrix with error correction. Administrators can revoke or restore the record, and a scan always reflects the current registry status rather than a static image claim.
 
 ## 1. Upload to GitHub
 

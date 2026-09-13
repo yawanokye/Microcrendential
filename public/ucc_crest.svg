@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300" role="img" aria-labelledby="title desc">
+  <title id="title">University of Cape Coast crest</title>
+  <desc id="desc">Stylised blue, red and yellow UCC crest used on the certificate template.</desc>
+  <rect width="300" height="300" fill="#fff"/>
+  <path d="M47 26h206v120c0 70-40 102-103 126C87 248 47 216 47 146z" fill="#fff" stroke="#2e3094" stroke-width="7"/>
+  <path d="M50 30h200v75H50z" fill="#ed1b24" stroke="#2e3094" stroke-width="6"/>
+  <path d="M58 142c40-20 68 18 92 0s52-20 92 0v27c-40-20-68 18-92 0s-52-20-92 0zM58 191c40-20 68 18 92 0s52-20 92 0v27c-40-20-68 18-92 0s-52-20-92 0z" fill="#2e3094"/>
+  <circle cx="150" cy="145" r="44" fill="#fdf003" stroke="#2e3094" stroke-width="6"/><path d="M126 169c18-35 24-63 47-38 10 11 2 25-11 26 18 12 3 30-13 18-10 11-24 4-23-6z" fill="#ed1b24"/>
+  <path d="M72 66c33-22 58-16 78 15-25-9-51-8-78-15zm156 0c-33-22-58-16-78 15 25-9 51-8 78-15z" fill="#fdf003" stroke="#2e3094" stroke-width="4"/>
+  <path d="M37 246l32-16 22 24-30 20zM263 246l-32-16-22 24 30 20z" fill="#ed1b24" stroke="#2e3094" stroke-width="5"/>
+  <path d="M88 259c39 12 85 15 124 0" fill="none" stroke="#ed1b24" stroke-width="15"/>
+  <text x="150" y="270" text-anchor="middle" fill="#fff" font-family="Arial" font-weight="700" font-size="13" letter-spacing="2">VERITAS · LUMEN</text>
+</svg>

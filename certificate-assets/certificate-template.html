@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{credential_title}} | University of Cape Coast</title>
+  <link rel="stylesheet" href="certificate-template.css">
+</head>
+<body>
+  <main class="certificate-page" aria-label="University of Cape Coast microcredential certificate">
+    <section class="certificate-frame">
+      <header class="certificate-header">
+        <div class="institution-lockup"><img class="ucc-logo" src="assets/ucc_crest.png" alt="University of Cape Coast crest"><div class="institution-text"><div class="university-name">UNIVERSITY OF CAPE COAST</div><div class="college-name">COLLEGE OF DISTANCE EDUCATION</div><div class="brand-rule"></div></div></div>
+        <div class="verified-pill"><span class="status-check">✓</span><span>{{credential_status_label}}</span></div>
+      </header>
+      <section class="certificate-content"><div class="eyebrow">DIGITAL MICRO-CREDENTIAL</div><h1>Certificate of Achievement</h1><div class="gold-rule"></div><p class="presented-to">This certificate is presented to</p><p class="recipient-name">{{recipient_name}}</p><div class="recipient-rule"></div><p class="achievement-statement">for successfully completing and passing the assessed requirements for</p><h2>{{credential_title}}</h2><p class="issuer-line">A verified University of Cape Coast microcredential issued through CoDE</p></section>
+      <section class="credential-details"><div class="detail-card"><span class="detail-label">Credential code</span><span class="detail-value">{{credential_code}}</span></div><div class="detail-card"><span class="detail-label">Credit value</span><span class="detail-value">{{credit_value}}</span></div><div class="detail-card"><span class="detail-label">Learning mode</span><span class="detail-value">{{learning_mode}}</span></div><div class="detail-card"><span class="detail-label">Issued</span><span class="detail-value">{{issued_date}}</span></div></section>
+      <footer class="certificate-footer"><div class="signature-block"><div class="signature-name">{{provost_name}}</div><div class="signature-line"></div><div class="signature-role">Provost, College of Distance Education</div></div><div class="signature-block"><div class="signature-name">{{facilitator_name}}</div><div class="signature-line"></div><div class="signature-role">Facilitator</div></div><div class="verification-meta"><div class="meta-rule"></div><div>Credential ID: {{credential_id}}</div><div>Verification status: {{credential_status_label}}</div><a href="{{verification_url}}">Verify online</a></div><div class="qr-block"><a href="{{verification_url}}"><img class="qr-code" src="{{qr_code_data_uri}}" alt="QR code for credential verification"></a><span>SCAN TO VERIFY</span></div></footer>
+      <p class="legal-note">This is a verified microcredential record. It is not a degree or a substitute for a degree.</p>
+    </section>
+  </main>
+</body>
+</html>
