@@ -2,11 +2,15 @@ import { requireActiveProfile } from "@/lib/accounts";
 import { extractReadableContent } from "@/lib/document-content";
 import { buildManualCourseProposal } from "@/lib/manual-course-import";
 import { putStoredFile } from "@/lib/render-storage";
+import { rejectCrossSiteMutation } from "@/lib/request-security";
+import { recordAudit } from "@/lib/audit";
 
 const allowedExtensions = new Set(["pdf", "docx", "txt", "md", "html", "htm", "rtf"]);
 const maximumBytes = 25 * 1024 * 1024;
 
 export async function POST(request: Request) {
+  const origin = rejectCrossSiteMutation(request);
+  if (origin) return origin;
   const account = await requireActiveProfile(["facilitator", "admin"]);
   if (account.error || !account.profile) return account.error;
 
@@ -49,6 +53,13 @@ export async function POST(request: Request) {
       readableHtml: extracted.html,
       plainText: extracted.text,
       conversionNote: extracted.note,
+    });
+
+    await recordAudit(account.profile.email, "course.manual_imported", {
+      fileName: file.name,
+      wordCount: extracted.wordCount,
+      sections: proposal.counts.sections,
+      importer: "compatibility",
     });
 
     return Response.json({ proposal }, { status: 201 });
