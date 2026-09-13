@@ -181,3 +181,5 @@ YouTube transcript extraction works only when YouTube exposes a usable caption t
 - [Blueprint specification](https://render.com/docs/blueprint-spec)
 - [Persistent disks](https://render.com/docs/disks)
 Render uses `/api/health/live` as its deployment liveness probe. It returns `200` when the application can access its database, allowing the instance to become live. `/api/health` remains the stricter configuration-readiness diagnostic and can report `503 configuration_required` when mandatory operational setup—such as `INITIAL_ADMIN_EMAIL`—is incomplete.
+
+When upgrading by browser upload, replace the complete repository contents. The compatibility file at `src/lib/manual-course-import.ts` overwrites an obsolete implementation from earlier releases; the maintained manual-import implementation is `src/app/api/course-design/from-manual/route.ts` and includes the certificate credit-value field through `defaultCourseDesign()`.
