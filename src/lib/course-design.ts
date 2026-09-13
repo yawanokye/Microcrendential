@@ -22,6 +22,7 @@ export type CourseDesign = {
   enrolmentMode: "open" | "application" | "invitation";
   priceGhs: number;
   certificateFeeGhs: number;
+  creditValue: number;
   intendedAudience: string;
   prerequisites: string;
   accessibilityStatement: string;
@@ -66,6 +67,7 @@ export const defaultCourseDesign = (): CourseDesign => ({
   enrolmentMode: "open",
   priceGhs: 0,
   certificateFeeGhs: 0,
+  creditValue: 0,
   intendedAudience: "Professionals, students and lifelong learners seeking applied capability in this field.",
   prerequisites: "No formal prerequisite. Basic digital literacy and reliable internet access are recommended.",
   accessibilityStatement: "Readable HTML, keyboard-accessible activities, descriptive labels and reviewed transcripts will be provided wherever applicable.",
@@ -111,6 +113,7 @@ export function normalizeCourseDesign(value: unknown): CourseDesign {
   const expectedHours = Math.min(500, Math.max(1, Number(input.expectedHours) || fallback.expectedHours));
   const priceGhs = Math.min(1_000_000, Math.max(0, Number(input.priceGhs) || 0));
   const certificateFeeGhs = Math.min(1_000_000, Math.max(0, Number(input.certificateFeeGhs) || 0));
+  const creditValue = Math.min(60, Math.max(0, Number(input.creditValue) || 0));
   return {
     category: categories.has(input.category as CourseDesign["category"]) ? input.category as CourseDesign["category"] : fallback.category,
     deliveryPattern: deliveries.has(input.deliveryPattern as CourseDesign["deliveryPattern"]) ? input.deliveryPattern as CourseDesign["deliveryPattern"] : fallback.deliveryPattern,
@@ -121,6 +124,7 @@ export function normalizeCourseDesign(value: unknown): CourseDesign {
     enrolmentMode: "open",
     priceGhs,
     certificateFeeGhs,
+    creditValue,
     intendedAudience: String(input.intendedAudience || "").trim().slice(0, 2000),
     prerequisites: String(input.prerequisites || "").trim().slice(0, 2000),
     accessibilityStatement: String(input.accessibilityStatement || "").trim().slice(0, 2000),

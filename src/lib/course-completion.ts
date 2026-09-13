@@ -23,6 +23,8 @@ export type CompletionEvaluation = {
   certificateEnabled: boolean;
   certificateFeeGhs: number;
   certificatePaymentRequired: boolean;
+  creditValue: number;
+  learningMode: string;
   complete: boolean;
   requirements: CompletionRequirement[];
 };
@@ -40,6 +42,8 @@ export type IssuedCertificate = {
   expires_at: string | null;
   revoked_at: string | null;
   revocation_reason: string | null;
+  credit_value: number;
+  learning_mode: string;
   facilitator_name:string|null; facilitator_title:string|null; facilitator_signature_key:string|null;
   provost_name:string|null; provost_title:string|null; provost_signature_key:string|null;
 };
@@ -127,6 +131,8 @@ export async function evaluateCourseCompletion(userEmail: string, courseCode: st
     certificateEnabled: Boolean(course.certificate_enabled),
     certificateFeeGhs: design.certificateFeeGhs,
     certificatePaymentRequired: design.certificateFeeGhs > 0 && !paidCertificate,
+    creditValue: design.creditValue,
+    learningMode: design.deliveryPattern,
     complete: requirements.every((requirement) => requirement.complete),
     requirements,
   };
@@ -150,9 +156,9 @@ export async function issueCertificateIfComplete(userEmail: string, courseCode: 
   const provost=await db.prepare("SELECT signatory_name,signatory_title,file_key FROM certificate_signatures WHERE signature_key='provost'").first<{signatory_name:string;signatory_title:string;file_key:string}>();
   const requirementsJson = JSON.stringify({ evaluatedAt: new Date().toISOString(), requirements: evaluation.requirements });
   const certificateCode = `UCC-${new Date().getUTCFullYear()}-${crypto.randomUUID().replaceAll("-", "").slice(0, 12).toUpperCase()}`;
-  await db.prepare(`INSERT OR IGNORE INTO certificates(certificate_code,user_email,learner_name,course_code,course_title,issuer_name,requirements_json,facilitator_name,facilitator_title,facilitator_signature_key,provost_name,provost_title,provost_signature_key) VALUES(?,?,?,?,?,'University of Cape Coast',?,?,?,?,?,?,?)`)
-    .bind(certificateCode,userEmail,learner.full_name,evaluation.courseCode,evaluation.courseTitle,requirementsJson,facilitator?.signatory_name??null,facilitator?.signatory_title??null,facilitator?.file_key??null,provost?.signatory_name??null,provost?.signatory_title??null,provost?.file_key??null).run();
-  const certificate = await db.prepare("SELECT certificate_code,learner_name,course_code,course_title,issuer_name,requirements_json,credential_type,status,issued_at,expires_at,revoked_at,revocation_reason,facilitator_name,facilitator_title,facilitator_signature_key,provost_name,provost_title,provost_signature_key FROM certificates WHERE user_email = ? AND course_code = ? LIMIT 1")
+  await db.prepare(`INSERT OR IGNORE INTO certificates(certificate_code,user_email,learner_name,course_code,course_title,issuer_name,requirements_json,credit_value,learning_mode,facilitator_name,facilitator_title,facilitator_signature_key,provost_name,provost_title,provost_signature_key) VALUES(?,?,?,?,?,'University of Cape Coast',?,?,?,?,?,?,?,?,?)`)
+    .bind(certificateCode,userEmail,learner.full_name,evaluation.courseCode,evaluation.courseTitle,requirementsJson,evaluation.creditValue,evaluation.learningMode,facilitator?.signatory_name??null,facilitator?.signatory_title??null,facilitator?.file_key??null,provost?.signatory_name??null,provost?.signatory_title??null,provost?.file_key??null).run();
+  const certificate = await db.prepare("SELECT certificate_code,learner_name,course_code,course_title,issuer_name,requirements_json,credential_type,status,issued_at,expires_at,revoked_at,revocation_reason,credit_value,learning_mode,facilitator_name,facilitator_title,facilitator_signature_key,provost_name,provost_title,provost_signature_key FROM certificates WHERE user_email = ? AND course_code = ? LIMIT 1")
     .bind(userEmail, courseCode).first<IssuedCertificate>();
   return { evaluation, certificate };
 }

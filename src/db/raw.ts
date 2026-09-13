@@ -331,6 +331,8 @@ export function getRawDb() {
   ensureColumn("certificates", "provost_name", "TEXT");
   ensureColumn("certificates", "provost_title", "TEXT");
   ensureColumn("certificates", "provost_signature_key", "TEXT");
+  ensureColumn("certificates", "credit_value", "INTEGER NOT NULL DEFAULT 0");
+  ensureColumn("certificates", "learning_mode", "TEXT NOT NULL DEFAULT 'blended'");
   const selfEnrolmentMigration = database.prepare("SELECT migration_key FROM platform_migrations WHERE migration_key = '0014_existing_courses_self_enrolment'").get() as { migration_key?: string } | undefined;
   if (!selfEnrolmentMigration) {
     database.exec(`UPDATE course_drafts

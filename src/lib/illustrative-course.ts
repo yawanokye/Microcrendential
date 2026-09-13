@@ -108,6 +108,7 @@ export function buildIllustrativeCourseTemplate(origin: string, assets: Illustra
     enrolmentMode: "open",
     priceGhs: 0,
     certificateFeeGhs: 0,
+    creditValue: 0,
     intendedAudience: "Public-sector and local-government officers, NGO staff, lecturers, graduate students, business professionals and community leaders who need to interpret data and justify practical decisions.",
     prerequisites: "Basic computer and spreadsheet skills, access to a laptop or tablet with a reliable internet connection, and willingness to use free Google Colab. No prior programming experience is required.",
     accessibilityStatement: "All core lessons are supplied as structured readable HTML; downloadable documents have meaningful headings; videos include facilitator-reviewed English transcripts; images use descriptive labels; activities support keyboard navigation; and reasonable learning-support requests are referred through the UCC learner-support process.",
