@@ -1,7 +1,7 @@
 import { requireActiveProfile } from "@/lib/accounts";
 import { defaultCourseDesign, type CourseDesign, type CourseMaterialRecord, type LearningOutcome } from "@/lib/course-design";
 import { generateCourseDesignSuggestion, type AiCourseSuggestion } from "@/lib/ai-course-studio";
-import { extractReadableContent, textToReadableHtml } from "@/lib/document-content";
+import { escapeHtml, extractReadableContent, textToReadableHtml } from "@/lib/document-content";
 import { putStoredFile } from "@/lib/render-storage";
 import { rejectCrossSiteMutation } from "@/lib/request-security";
 import { recordAudit } from "@/lib/audit";
@@ -60,7 +60,8 @@ function sectionBodies(html: string, text: string, count: number) {
 function buildMaterials(html: string, text: string, sections: ReturnType<typeof deriveSections>, outcomes: LearningOutcome[], original: { key: string; name: string; type: string }, source: string): CourseMaterialRecord[] {
   const bodies = sectionBodies(html, text, sections.length);
   return sections.map((section, index) => {
-    const readableHtml = bodies[index] || `<h2>${section.title}</h2><p>Review the facilitator manual content related to this section.</p>`;
+    const sectionBody = bodies[index] || `<p>Review the facilitator manual content related to this section.</p>`;
+    const readableHtml = /^\s*<h[1-3]>/i.test(sectionBody) ? sectionBody : `<h2>${escapeHtml(section.title)}</h2>${sectionBody}`;
     const readable = readableHtml.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
     return {
       id: `manual-material-${index + 1}`,
