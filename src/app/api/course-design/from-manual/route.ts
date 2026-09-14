@@ -1,5 +1,6 @@
 import { requireActiveProfile } from "@/lib/accounts";
-import { defaultCourseDesign, type CourseMaterialRecord, type LearningOutcome } from "@/lib/course-design";
+import { defaultCourseDesign, type CourseDesign, type CourseMaterialRecord, type LearningOutcome } from "@/lib/course-design";
+import { generateCourseDesignSuggestion, type AiCourseSuggestion } from "@/lib/ai-course-studio";
 import { extractReadableContent, textToReadableHtml } from "@/lib/document-content";
 import { putStoredFile } from "@/lib/render-storage";
 import { rejectCrossSiteMutation } from "@/lib/request-security";
@@ -100,11 +101,12 @@ export async function POST(request: Request) {
   catch (error) { return Response.json({ error: error instanceof Error ? error.message : "The manual could not be read." }, { status: 422 }); }
   if (extracted.text.length < 200) return Response.json({ error: "The manual did not expose enough readable text. For a scanned PDF, run OCR or upload an accessible DOCX version." }, { status: 422 });
   const fileKey = await putStoredFile("course-materials", file, { contentType: file.type || "application/octet-stream", originalName: file.name, ownerEmail: account.profile.email, evidenceKind: "course-material" });
-  const title = candidateTitle(extracted.text, file.name);
+  let title = candidateTitle(extracted.text, file.name);
+  let discipline = "Interdisciplinary";
   const extractedObjectives = extractObjectives(extracted.text);
-  const outcomes = deriveOutcomes(extractedObjectives);
-  const sections = deriveSections(extracted.text);
-  const design = {
+  let outcomes = deriveOutcomes(extractedObjectives);
+  let sections = deriveSections(extracted.text);
+  let design: CourseDesign = {
     ...defaultCourseDesign(),
     enrolmentMode: "open" as const,
     priceGhs: 0,
@@ -119,9 +121,39 @@ export async function POST(request: Request) {
     skills: [...new Set(outcomes.map((item) => item.skill))],
   };
   const descriptionSource = sentences(extracted.text).slice(0, 4).join(" ");
-  const description = (descriptionSource.length >= 80 ? descriptionSource : `This microcredential uses the uploaded facilitator manual to build practical understanding and assess authentic application of ${title}.`).slice(0, 1200);
+  let description = (descriptionSource.length >= 80 ? descriptionSource : `This microcredential uses the uploaded facilitator manual to build practical understanding and assess authentic application of ${title}.`).slice(0, 1200);
+  let aiSuggestion: AiCourseSuggestion | null = null;
+  let aiModel: string | null = null;
+  let aiWarning = "";
+  if (form.get("useAi") !== "false") {
+    try {
+      const generated = await generateCourseDesignSuggestion({ title, discipline, description, design, sourceText: extracted.text, workload: "balanced", instruction: "Convert this facilitator manual into a coherent, academically defensible microcredential while retaining the uploaded manual as the source document." });
+      aiSuggestion = generated.suggestion;
+      aiModel = generated.model;
+      title = aiSuggestion.title;
+      discipline = aiSuggestion.discipline;
+      description = aiSuggestion.description;
+      outcomes = aiSuggestion.outcomes;
+      sections = aiSuggestion.sections;
+      design = {
+        ...design,
+        intendedAudience: aiSuggestion.intendedAudience,
+        prerequisites: aiSuggestion.prerequisites,
+        accessibilityStatement: aiSuggestion.accessibilityStatement,
+        objectives: aiSuggestion.objectives,
+        outcomes,
+        skills: aiSuggestion.skills,
+        sections,
+        enrolmentMode: "open",
+        priceGhs: 0,
+        certificateFeeGhs: 0,
+      };
+    } catch (error) {
+      aiWarning = error instanceof Error ? error.message : "OpenAI enhancement was unavailable.";
+    }
+  }
   const materials = buildMaterials(extracted.html, extracted.text, sections, outcomes, { key: fileKey, name: file.name, type: file.type || "application/octet-stream" }, account.profile.full_name || account.profile.email);
-  const questions = outcomes.slice(0, 3).map((outcome, index) => ({
+  const questions = aiSuggestion?.assessmentQuestions.map((question, index) => ({ ...question, id: `ai-manual-question-${index + 1}` })) ?? outcomes.slice(0, 3).map((outcome, index) => ({
     id: `manual-question-${index + 1}`,
     type: index === 0 ? "Short answer" : "Scenario response",
     prompt: index === 0 ? `Explain the central concept addressed by this outcome: ${outcome.statement}` : `Apply this outcome to a realistic professional or community situation: ${outcome.statement}`,
@@ -132,12 +164,12 @@ export async function POST(request: Request) {
     learnerAdvice: "Refer directly to the course manual and explain how the guidance supports your answer.",
     outcomeIds: [outcome.id],
   }));
-  await recordAudit(account.profile.email, "course.manual_imported", { fileName: file.name, wordCount: extracted.wordCount, sections: sections.length });
+  await recordAudit(account.profile.email, "course.manual_imported", { fileName: file.name, wordCount: extracted.wordCount, sections: sections.length, aiEnhanced: Boolean(aiSuggestion), aiModel });
   return Response.json({
     draft: {
       title,
       code: `UCC-MC-${String(Date.now()).slice(-6)}`,
-      discipline: "Interdisciplinary",
+      discipline,
       description,
       design,
       materials,
@@ -149,6 +181,9 @@ export async function POST(request: Request) {
       certificateEnabled: true,
     },
     extraction: { fileName: file.name, wordCount: extracted.wordCount, conversionNote: extracted.note },
-    warning: "Automatic extraction creates an editable draft, not an approved course. The facilitator must verify the title, objectives, outcomes, sequencing, accessibility, assessment answers, copyright and attribution before submission.",
+    ai: { requested: form.get("useAi") !== "false", enhanced: Boolean(aiSuggestion), model: aiModel, fallbackReason: aiWarning || null },
+    warning: aiSuggestion
+      ? "OpenAI strengthened this editable draft. The facilitator must still verify the source fidelity, title, outcomes, sequencing, accessibility, assessment answers, copyright and attribution before submission."
+      : `Rule-based extraction created this editable draft${aiWarning ? ` because AI enhancement was unavailable: ${aiWarning}` : ""}. Facilitator verification and academic approval remain compulsory.`,
   }, { status: 201 });
 }
