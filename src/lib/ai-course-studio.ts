@@ -108,6 +108,80 @@ export const aiMediaAnalysisSchema = z.object({
 export type AiMediaAnalysis = z.infer<typeof aiMediaAnalysisSchema>;
 export type AiWorkload = "fast" | "balanced" | "quality";
 
+function limitItems<T>(value: T[], maximum: number) {
+  return value.slice(0, maximum);
+}
+
+function clampInteger(value: number, minimum: number, maximum: number) {
+  return Math.min(maximum, Math.max(minimum, Math.round(value)));
+}
+
+function normalizeQuestion(value: Record<string, unknown>) {
+  return {
+    ...value,
+    options: Array.isArray(value.options) ? limitItems(value.options, 6) : value.options,
+    points: typeof value.points === "number" ? clampInteger(value.points, 1, 100) : value.points,
+    outcomeIds: Array.isArray(value.outcomeIds) ? limitItems(value.outcomeIds, 6) : value.outcomeIds,
+  };
+}
+
+/**
+ * Model output can be structurally correct while exceeding editorial limits.
+ * Normalize harmless overages before Zod performs the final trust-boundary check.
+ */
+export function normalizeAiCourseSuggestion(value: unknown): AiCourseSuggestion {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return aiCourseSuggestionSchema.parse(value);
+  const candidate = value as Record<string, unknown>;
+  return aiCourseSuggestionSchema.parse({
+    ...candidate,
+    objectives: Array.isArray(candidate.objectives) ? limitItems(candidate.objectives, 8) : candidate.objectives,
+    outcomes: Array.isArray(candidate.outcomes) ? limitItems(candidate.outcomes, 10) : candidate.outcomes,
+    skills: Array.isArray(candidate.skills) ? limitItems(candidate.skills, 20) : candidate.skills,
+    sections: Array.isArray(candidate.sections) ? limitItems(candidate.sections, 12) : candidate.sections,
+    learningBlocks: Array.isArray(candidate.learningBlocks)
+      ? limitItems(candidate.learningBlocks, 24).map((block) => {
+          if (!block || typeof block !== "object" || Array.isArray(block)) return block;
+          const normalized = block as Record<string, unknown>;
+          return {
+            ...normalized,
+            estimatedMinutes: typeof normalized.estimatedMinutes === "number"
+              ? clampInteger(normalized.estimatedMinutes, 3, 240)
+              : normalized.estimatedMinutes,
+            outcomeIds: Array.isArray(normalized.outcomeIds) ? limitItems(normalized.outcomeIds, 6) : normalized.outcomeIds,
+          };
+        })
+      : candidate.learningBlocks,
+    resourceSuggestions: Array.isArray(candidate.resourceSuggestions) ? limitItems(candidate.resourceSuggestions, 12) : candidate.resourceSuggestions,
+    activitySuggestions: Array.isArray(candidate.activitySuggestions)
+      ? limitItems(candidate.activitySuggestions, 12).map((activity) => {
+          if (!activity || typeof activity !== "object" || Array.isArray(activity)) return activity;
+          const normalized = activity as Record<string, unknown>;
+          return {
+            ...normalized,
+            outcomeIds: Array.isArray(normalized.outcomeIds) ? limitItems(normalized.outcomeIds, 6) : normalized.outcomeIds,
+          };
+        })
+      : candidate.activitySuggestions,
+    assessmentQuestions: Array.isArray(candidate.assessmentQuestions)
+      ? limitItems(candidate.assessmentQuestions, 12).map((question) => question && typeof question === "object" && !Array.isArray(question) ? normalizeQuestion(question as Record<string, unknown>) : question)
+      : candidate.assessmentQuestions,
+  });
+}
+
+export function normalizeAiMediaAnalysis(value: unknown): AiMediaAnalysis {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return aiMediaAnalysisSchema.parse(value);
+  const candidate = value as Record<string, unknown>;
+  return aiMediaAnalysisSchema.parse({
+    ...candidate,
+    chapters: Array.isArray(candidate.chapters) ? limitItems(candidate.chapters, 30) : candidate.chapters,
+    objectives: Array.isArray(candidate.objectives) ? limitItems(candidate.objectives, 8) : candidate.objectives,
+    assessmentQuestions: Array.isArray(candidate.assessmentQuestions)
+      ? limitItems(candidate.assessmentQuestions, 10).map((question) => question && typeof question === "object" && !Array.isArray(question) ? normalizeQuestion(question as Record<string, unknown>) : question)
+      : candidate.assessmentQuestions,
+    accessibilityNotes: Array.isArray(candidate.accessibilityNotes) ? limitItems(candidate.accessibilityNotes, 12) : candidate.accessibilityNotes,
+  });
+}
+
 const jsonSchema = {
   course: {
     type: "object",
@@ -220,7 +294,7 @@ export async function generateCourseDesignSuggestion(input: {
     headers: { authorization: `Bearer ${apiKey}`, "content-type": "application/json" },
     body: JSON.stringify({
       model,
-      instructions: "You are an expert university instructional designer. Produce an editable course-design recommendation grounded only in the supplied course and source material. Use observable outcome verbs and align every lesson, activity and question to valid outcome IDs. Draft concise but substantive learning blocks in Markdown. Recommend resource search queries and preferred reputable sources, never fabricated URLs or unverified licence claims. Suggest authentic activities with assessable evidence and rubrics. Do not invent accreditation, ownership, citations, fees or institutional approval. Preserve open self-enrolment and zero fees because those are platform defaults. All output is a draft for facilitator and academic review.",
+      instructions: "You are an expert university instructional designer. Produce an editable course-design recommendation grounded only in the supplied course and source material. Use observable outcome verbs and align every lesson, activity and question to valid outcome IDs. Draft concise but substantive learning blocks in Markdown. Each learning block must take between 3 and 240 minutes. Return no more than 12 assessment questions. Recommend resource search queries and preferred reputable sources, never fabricated URLs or unverified licence claims. Suggest authentic activities with assessable evidence and rubrics. Do not invent accreditation, ownership, citations, fees or institutional approval. Preserve open self-enrolment and zero fees because those are platform defaults. All output is a draft for facilitator and academic review.",
       input: JSON.stringify(payload),
       text: { format: { type: "json_schema", name: "ucc_course_design_suggestion", strict: true, schema: jsonSchema.course } },
     }),
@@ -230,7 +304,7 @@ export async function generateCourseDesignSuggestion(input: {
   if (!response.ok) throw new Error(result.error?.message || `OpenAI returned HTTP ${response.status}.`);
   const output = openAiOutputText(result);
   if (!output) throw new Error("OpenAI returned no structured course design.");
-  return { suggestion: aiCourseSuggestionSchema.parse(parseJsonText(output)), model, workload };
+  return { suggestion: normalizeAiCourseSuggestion(parseJsonText(output)), model, workload };
 }
 
 type VertexServiceAccount = { client_email: string; private_key: string; token_uri?: string };
@@ -300,5 +374,5 @@ export async function analyseMediaWithVertex(input: { sourceUrl: string; mimeTyp
   if (!response.ok) throw new Error(result.error?.message || `Vertex AI returned HTTP ${response.status}.`);
   const output = result.candidates?.[0]?.content?.parts?.map((part) => part.text || "").join("").trim();
   if (!output) throw new Error("Gemini returned no structured media analysis.");
-  return { analysis: aiMediaAnalysisSchema.parse(parseJsonText(output)), model: status.vertex.model };
+  return { analysis: normalizeAiMediaAnalysis(parseJsonText(output)), model: status.vertex.model };
 }
