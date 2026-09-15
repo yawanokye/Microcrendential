@@ -1,7 +1,6 @@
 import { requireActiveProfile } from "@/lib/accounts";
-import { defaultCourseDesign, type CourseDesign, type CourseMaterialRecord, type LearningOutcome } from "@/lib/course-design";
-import { generateCourseDesignSuggestion, type AiCourseSuggestion } from "@/lib/ai-course-studio";
-import { escapeHtml, extractReadableContent, textToReadableHtml } from "@/lib/document-content";
+import { defaultCourseDesign, type CourseMaterialRecord, type LearningOutcome } from "@/lib/course-design";
+import { extractReadableContent, textToReadableHtml } from "@/lib/document-content";
 import { putStoredFile } from "@/lib/render-storage";
 import { rejectCrossSiteMutation } from "@/lib/request-security";
 import { recordAudit } from "@/lib/audit";
@@ -38,11 +37,58 @@ function deriveOutcomes(objectives: string[]): LearningOutcome[] {
   });
 }
 
-function deriveSections(text: string) {
+function deriveSections(text: string, preferredCount?: number) {
   const headingLines = text.split(/\n+/).map(cleanLine).filter((line) => line.length >= 4 && line.length <= 100 && (/^(module|unit|chapter|section|topic|part)\s+\w+/i.test(line) || /^[A-Z][A-Z\s&:,()-]{5,}$/.test(line)));
-  const titles = [...new Set(headingLines.map((line) => titleCase(line.toLowerCase())))].slice(0, 6);
-  const finalTitles = titles.length >= 2 ? titles : ["Orientation and foundations", "Core concepts and guided practice", "Application and assessment"];
+  const titles = [...new Set(headingLines.map((line) => titleCase(line.toLowerCase())))].slice(0, 12);
+  const fallbackTitles = ["Orientation and foundations", "Core concepts", "Guided practice", "Professional application", "Evidence and reflection", "Assessment and next steps"];
+  const requested = preferredCount ? Math.min(12, Math.max(1, preferredCount)) : Math.min(12, Math.max(3, titles.length));
+  const finalTitles = Array.from({ length: requested }, (_, index) => titles[index] || fallbackTitles[index] || `Learning unit ${index + 1}`);
   return finalTitles.map((title, index) => ({ id: `manual-section-${index + 1}`, title, description: `Learning from the uploaded manual organised around ${title.toLowerCase()}.` }));
+}
+
+function buildActivities(sections: ReturnType<typeof deriveSections>) {
+  return sections.map((section, index) => ({
+    id: `manual-activity-${index + 1}`,
+    kind: "virtual_lab" as const,
+    title: `Guided application: ${section.title}`,
+    instructions: `Use the ideas and examples in ${section.title} to complete a short authentic task. Record the decision you made, the evidence from the manual that informed it, and one improvement you would make after feedback.`,
+    required: false,
+    passMark: 60,
+    attemptsAllowed: 2,
+    maxMark: 100,
+    rubric: "Assess accurate use of the section, quality of application, supporting evidence and reflection.",
+    discipline: "All",
+  }));
+}
+
+async function recommendVideos(sections: ReturnType<typeof deriveSections>) {
+  const apiKey = process.env.YOUTUBE_API_KEY?.trim();
+  if (!apiKey) return sections.map((section, index) => ({
+    id: `manual-video-${index + 1}`,
+    sectionId: section.id,
+    sectionTitle: section.title,
+    title: `Find an open teaching video for ${section.title}`,
+    source: "YouTube search",
+    url: `https://www.youtube.com/results?search_query=${encodeURIComponent(`${section.title} educational lecture`)}`,
+    externalUrl: `https://www.youtube.com/results?search_query=${encodeURIComponent(`${section.title} educational lecture`)}`,
+    note: "Review the presenter, accuracy, licence, captions and accessibility before approving this resource.",
+  }));
+
+  return Promise.all(sections.map(async (section, index) => {
+    try {
+      const endpoint = new URL("https://www.googleapis.com/youtube/v3/search");
+      endpoint.searchParams.set("part", "snippet"); endpoint.searchParams.set("type", "video"); endpoint.searchParams.set("maxResults", "1");
+      endpoint.searchParams.set("safeSearch", "strict"); endpoint.searchParams.set("q", `${section.title} educational lecture`); endpoint.searchParams.set("key", apiKey);
+      const response = await fetch(endpoint, { signal: AbortSignal.timeout(8_000) });
+      const data = await response.json() as { items?: { id?: { videoId?: string }; snippet?: { title?: string; channelTitle?: string } }[] };
+      const item = response.ok ? data.items?.[0] : undefined; const videoId = item?.id?.videoId;
+      if (!videoId) throw new Error("No reviewed result");
+      return { id: `manual-video-${index + 1}`, sectionId: section.id, sectionTitle: section.title, title: item?.snippet?.title || section.title, source: `${item?.snippet?.channelTitle || "YouTube"} · YouTube`, url: `https://www.youtube-nocookie.com/embed/${videoId}`, externalUrl: `https://www.youtube.com/watch?v=${videoId}`, note: "AI-discovered recommendation. Facilitator review of accuracy, licence and captions is required." };
+    } catch {
+      const searchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(`${section.title} educational lecture`)}`;
+      return { id: `manual-video-${index + 1}`, sectionId: section.id, sectionTitle: section.title, title: `Find an open teaching video for ${section.title}`, source: "YouTube search", url: searchUrl, externalUrl: searchUrl, note: "Review the presenter, accuracy, licence, captions and accessibility before approving this resource." };
+    }
+  }));
 }
 
 function sectionBodies(html: string, text: string, count: number) {
@@ -60,8 +106,7 @@ function sectionBodies(html: string, text: string, count: number) {
 function buildMaterials(html: string, text: string, sections: ReturnType<typeof deriveSections>, outcomes: LearningOutcome[], original: { key: string; name: string; type: string }, source: string): CourseMaterialRecord[] {
   const bodies = sectionBodies(html, text, sections.length);
   return sections.map((section, index) => {
-    const sectionBody = bodies[index] || `<p>Review the facilitator manual content related to this section.</p>`;
-    const readableHtml = /^\s*<h[1-3]>/i.test(sectionBody) ? sectionBody : `<h2>${escapeHtml(section.title)}</h2>${sectionBody}`;
+    const readableHtml = bodies[index] || `<h2>${section.title}</h2><p>Review the facilitator manual content related to this section.</p>`;
     const readable = readableHtml.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
     return {
       id: `manual-material-${index + 1}`,
@@ -92,6 +137,7 @@ export async function POST(request: Request) {
   if (account.error || !account.profile) return account.error;
   const form = await request.formData();
   const file = form.get("file");
+  const preferredSections = Math.min(12, Math.max(1, Number(form.get("preferredSections")) || 0)) || undefined;
   if (!(file instanceof File)) return Response.json({ error: "Choose a PDF, DOCX, text, Markdown, HTML or RTF course manual." }, { status: 400 });
   if (file.size > 25 * 1024 * 1024) return Response.json({ error: "Course manuals must be 25 MB or smaller." }, { status: 413 });
   const extension = file.name.toLowerCase().split(".").pop() ?? "";
@@ -102,12 +148,11 @@ export async function POST(request: Request) {
   catch (error) { return Response.json({ error: error instanceof Error ? error.message : "The manual could not be read." }, { status: 422 }); }
   if (extracted.text.length < 200) return Response.json({ error: "The manual did not expose enough readable text. For a scanned PDF, run OCR or upload an accessible DOCX version." }, { status: 422 });
   const fileKey = await putStoredFile("course-materials", file, { contentType: file.type || "application/octet-stream", originalName: file.name, ownerEmail: account.profile.email, evidenceKind: "course-material" });
-  let title = candidateTitle(extracted.text, file.name);
-  let discipline = "Interdisciplinary";
+  const title = candidateTitle(extracted.text, file.name);
   const extractedObjectives = extractObjectives(extracted.text);
-  let outcomes = deriveOutcomes(extractedObjectives);
-  let sections = deriveSections(extracted.text);
-  let design: CourseDesign = {
+  const outcomes = deriveOutcomes(extractedObjectives);
+  const sections = deriveSections(extracted.text, preferredSections);
+  const design = {
     ...defaultCourseDesign(),
     enrolmentMode: "open" as const,
     priceGhs: 0,
@@ -122,39 +167,11 @@ export async function POST(request: Request) {
     skills: [...new Set(outcomes.map((item) => item.skill))],
   };
   const descriptionSource = sentences(extracted.text).slice(0, 4).join(" ");
-  let description = (descriptionSource.length >= 80 ? descriptionSource : `This microcredential uses the uploaded facilitator manual to build practical understanding and assess authentic application of ${title}.`).slice(0, 1200);
-  let aiSuggestion: AiCourseSuggestion | null = null;
-  let aiModel: string | null = null;
-  let aiWarning = "";
-  if (form.get("useAi") !== "false") {
-    try {
-      const generated = await generateCourseDesignSuggestion({ title, discipline, description, design, sourceText: extracted.text, workload: "balanced", instruction: "Convert this facilitator manual into a coherent, academically defensible microcredential while retaining the uploaded manual as the source document." });
-      aiSuggestion = generated.suggestion;
-      aiModel = generated.model;
-      title = aiSuggestion.title;
-      discipline = aiSuggestion.discipline;
-      description = aiSuggestion.description;
-      outcomes = aiSuggestion.outcomes;
-      sections = aiSuggestion.sections;
-      design = {
-        ...design,
-        intendedAudience: aiSuggestion.intendedAudience,
-        prerequisites: aiSuggestion.prerequisites,
-        accessibilityStatement: aiSuggestion.accessibilityStatement,
-        objectives: aiSuggestion.objectives,
-        outcomes,
-        skills: aiSuggestion.skills,
-        sections,
-        enrolmentMode: "open",
-        priceGhs: 0,
-        certificateFeeGhs: 0,
-      };
-    } catch (error) {
-      aiWarning = error instanceof Error ? error.message : "OpenAI enhancement was unavailable.";
-    }
-  }
+  const description = (descriptionSource.length >= 80 ? descriptionSource : `This microcredential uses the uploaded facilitator manual to build practical understanding and assess authentic application of ${title}.`).slice(0, 1200);
   const materials = buildMaterials(extracted.html, extracted.text, sections, outcomes, { key: fileKey, name: file.name, type: file.type || "application/octet-stream" }, account.profile.full_name || account.profile.email);
-  const questions = aiSuggestion?.assessmentQuestions.map((question, index) => ({ ...question, id: `ai-manual-question-${index + 1}` })) ?? outcomes.slice(0, 3).map((outcome, index) => ({
+  const activities = buildActivities(sections);
+  const videoRecommendations = await recommendVideos(sections);
+  const questions = outcomes.slice(0, 3).map((outcome, index) => ({
     id: `manual-question-${index + 1}`,
     type: index === 0 ? "Short answer" : "Scenario response",
     prompt: index === 0 ? `Explain the central concept addressed by this outcome: ${outcome.statement}` : `Apply this outcome to a realistic professional or community situation: ${outcome.statement}`,
@@ -165,16 +182,16 @@ export async function POST(request: Request) {
     learnerAdvice: "Refer directly to the course manual and explain how the guidance supports your answer.",
     outcomeIds: [outcome.id],
   }));
-  await recordAudit(account.profile.email, "course.manual_imported", { fileName: file.name, wordCount: extracted.wordCount, sections: sections.length, aiEnhanced: Boolean(aiSuggestion), aiModel });
+  await recordAudit(account.profile.email, "course.manual_imported", { fileName: file.name, wordCount: extracted.wordCount, sections: sections.length });
   return Response.json({
     draft: {
       title,
       code: `UCC-MC-${String(Date.now()).slice(-6)}`,
-      discipline,
+      discipline: "Interdisciplinary",
       description,
       design,
       materials,
-      activities: [],
+      activities,
       assessmentModes: ["Objective quiz", "Applied assignment"],
       assessmentConfig: { passMark: 60, attempts: "2 attempts", questions, questionFiles: [] },
       gateRequired: true,
@@ -182,9 +199,7 @@ export async function POST(request: Request) {
       certificateEnabled: true,
     },
     extraction: { fileName: file.name, wordCount: extracted.wordCount, conversionNote: extracted.note },
-    ai: { requested: form.get("useAi") !== "false", enhanced: Boolean(aiSuggestion), model: aiModel, fallbackReason: aiWarning || null },
-    warning: aiSuggestion
-      ? "OpenAI strengthened this editable draft. The facilitator must still verify the source fidelity, title, outcomes, sequencing, accessibility, assessment answers, copyright and attribution before submission."
-      : `Rule-based extraction created this editable draft${aiWarning ? ` because AI enhancement was unavailable: ${aiWarning}` : ""}. Facilitator verification and academic approval remain compulsory.`,
+    videoRecommendations,
+    warning: "Automatic extraction creates an editable draft, not an approved course. The facilitator must verify the title, objectives, outcomes, sequencing, accessibility, assessment answers, copyright and attribution before submission.",
   }, { status: 201 });
 }

@@ -65,18 +65,12 @@ export function textToReadableHtml(value: string) {
     if (!line) { closeList(); continue; }
     const heading = line.match(/^(#{1,4})\s+(.+)$/);
     if (heading) { closeList(); html.push(`<h${heading[1].length}>${inlineMarkup(heading[2])}</h${heading[1].length}>`); continue; }
-    const structuralHeading = line.match(/^(module|unit|chapter|section|topic|part)\s+(?:\d+|[ivxlcdm]+)\b[:.\s-]*(.*)$/i);
-    if (structuralHeading && line.length <= 140) { closeList(); html.push(`<h2>${inlineMarkup(line)}</h2>`); continue; }
-    const numberedHeading = line.match(/^\d+(?:\.\d+)+\s+(.+)$/);
-    if (numberedHeading && line.length <= 120) { closeList(); html.push(`<h3>${inlineMarkup(line)}</h3>`); continue; }
-    const allCapsHeading = /^[A-Z][A-Z0-9\s&,:;()/'’-]{3,100}$/.test(line) && /[A-Z]{3}/.test(line);
-    if (allCapsHeading) { closeList(); html.push(`<h2>${inlineMarkup(line.replace(/:$/, ""))}</h2>`); continue; }
     const unordered = line.match(/^[-*•]\s+(.+)$/);
     if (unordered) { if (list !== "ul") { closeList(); list = "ul"; html.push("<ul>"); } html.push(`<li>${inlineMarkup(unordered[1])}</li>`); continue; }
     const ordered = line.match(/^\d+[.)]\s+(.+)$/);
     if (ordered) { if (list !== "ol") { closeList(); list = "ol"; html.push("<ol>"); } html.push(`<li>${inlineMarkup(ordered[1])}</li>`); continue; }
     closeList();
-    if (/^[A-Z][^.!?]{2,100}:$/.test(line)) html.push(`<h3>${inlineMarkup(line.slice(0, -1))}</h3>`);
+    if (/^[A-Z][^.!?]{2,80}:$/.test(line)) html.push(`<h3>${inlineMarkup(line.slice(0, -1))}</h3>`);
     else html.push(`<p>${inlineMarkup(line)}</p>`);
   }
   closeList();

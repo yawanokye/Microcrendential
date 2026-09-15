@@ -1,5 +1,5 @@
 import { defaultCourseDesign, type CourseDesign, type CourseMaterialRecord, type LearningOutcome } from "@/lib/course-design";
-import { escapeHtml, textToReadableHtml } from "@/lib/document-content";
+import { textToReadableHtml } from "@/lib/document-content";
 
 export type ManualImportGroup = "blueprint" | "outcomes" | "content" | "assessment";
 export type ManualImportStatus = "confirmed" | "suggested" | "needs_review" | "missing";
@@ -141,8 +141,7 @@ export function buildManualCourseProposal(input: BuildInput): ManualCoursePropos
   };
   const blocks = contentBlocks(input, sections.length);
   const materials: CourseMaterialRecord[] = sections.map((section, index) => {
-    const sectionBody = blocks[index] || "<p>Review this section of the uploaded manual.</p>";
-    const readableHtml = /^\s*<h[1-3]>/i.test(sectionBody) ? sectionBody : `<h2>${escapeHtml(section.title)}</h2>${sectionBody}`;
+    const readableHtml = blocks[index] || `<h2>${section.title}</h2><p>Review this section of the uploaded manual.</p>`;
     const plainText = readableHtml.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
     return {
       id: `manual-material-${index + 1}`,

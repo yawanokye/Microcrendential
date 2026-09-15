@@ -5,7 +5,7 @@ import Image from "next/image";
 import {
   Activity, AlertTriangle, ArrowLeft, Award, Beaker, Bell, BookOpen, CalendarDays, CheckCircle2, ChevronDown, ChevronRight, CirclePlay, ClipboardCheck, Clock3,
   Code2, Eye, FileCheck2, FileText, FlaskConical, Gauge, GraduationCap, GripVertical, HeartPulse, LayoutDashboard, Menu,
-  MessageSquareText, Microscope, Pencil, QrCode, RotateCcw, Search, Settings, ShieldCheck, Sigma, Sparkles, Stethoscope, Undo2, Upload, Users, Video, Wrench, X,
+  MessageSquareText, Microscope, Pencil, QrCode, RotateCcw, Search, Settings, ShieldCheck, Sigma, Stethoscope, Undo2, Upload, Users, Video, Wrench, X,
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -22,6 +22,13 @@ type AssessmentQuestion = { id: string; type: string; prompt: string; options: s
 type AssessmentSourceFile = { name: string; size: string; type: string; key?: string; url?: string };
 type CourseMaterial = CourseMaterialRecord;
 type CourseActivity = { id: string; kind: "colab" | "virtual_lab"; title: string; instructions: string; required: boolean; passMark: number; attemptsAllowed: number; maxMark?: number; dueAt?: string; rubric?: string; notebookKey?: string; notebookFileName?: string; templateUrl?: string; practicalId?: string; discipline?: string };
+type ManualVideoRecommendation = { id: string; sectionId: string; sectionTitle: string; title: string; source: string; url: string; externalUrl: string; note: string };
+type ManualImportReview = {
+  draft: { code: string; title: string; discipline: string; description: string; design: CourseDesign; materials: CourseMaterial[]; activities: CourseActivity[]; assessmentModes: string[]; assessmentConfig: { passMark?: number; attempts?: string; questions?: AssessmentQuestion[]; questionFiles?: AssessmentSourceFile[] }; gateRequired: boolean; questionLimit: number; certificateEnabled: boolean };
+  extraction?: { fileName?: string; wordCount?: number; conversionNote?: string };
+  warning?: string;
+  videoRecommendations: ManualVideoRecommendation[];
+};
 type Course = { code: string; title: string; school: string; progress: number; modules: string; accent: string; next: string; enrolled?: boolean; discipline?: string; published?: boolean; description?: string; materials?: CourseMaterial[]; activities?: CourseActivity[]; assessmentConfig?: { passMark?: number; attempts?: string; questions?: AssessmentQuestion[]; questionCount?: number }; design?: CourseDesign; facilitatorName?: string; createdByEmail?: string; certificateEnabled?: boolean; status?: string; id?: number; versionNumber?: number; updatedAt?: string };
 type ColabAssignment = { id: number; courseCode: string; courseTitle: string; title: string; instructions: string; templateFileName: string; templateUrl?: string | null; openUrl: string; directOpen: boolean; rubric: string; maxMark: number; passMark: number; attemptsAllowed: number; dueAt?: string | null; status: string; createdByEmail: string; createdAt: string; latestSubmission?: { id: number; status: string; mark?: number | null; passed: boolean; attemptNumber: number; feedback: string } | null };
 type ColabSubmission = { id: number; assignmentId: number; assignmentTitle: string; courseCode: string; courseTitle: string; learnerEmail: string; learnerName: string; attemptNumber: number; submissionType: "file" | "link"; notebookFileName?: string | null; notebookUrl?: string | null; status: string; mark?: number | null; passed: boolean; feedback: string; maxMark: number; passMark: number; submittedAt: string; assessedAt?: string | null };
@@ -29,13 +36,6 @@ type VirtualLabSubmission = { id: number; practicalId: string; discipline: strin
 type LabObservation = { trial: string; input: number; result: number; note: string };
 type PortalRole = "learner" | "facilitator" | "admin";
 type StudioStepId = "details" | "outcomes" | "content" | "activities" | "assessment" | "review";
-type AiWorkload = "fast" | "balanced" | "quality";
-type AiIntegrationStatus = { openai: { configured: boolean; model: string; models: Record<AiWorkload, string>; routing: Record<AiWorkload, string>; purpose: string }; vertex: { configured: boolean; model: string; purpose: string }; humanApprovalRequired: boolean };
-type AiResourceSuggestion = { title: string; type: "Watch" | "Read"; searchQuery: string; preferredSource: string; reason: string; licenceRequirement: string };
-type AiActivitySuggestion = { title: string; type: "discussion" | "case_study" | "project" | "reflection" | "colab" | "virtual_lab"; instructions: string; evidence: string; required: boolean; rubric: string; outcomeIds: string[] };
-type AiAssessmentQuestion = Omit<AssessmentQuestion, "id" | "outcomeIds"> & { outcomeIds: string[] };
-type AiCourseSuggestion = { title: string; discipline: string; description: string; intendedAudience: string; prerequisites: string; accessibilityStatement: string; objectives: string[]; outcomes: CourseDesign["outcomes"]; skills: string[]; sections: CourseDesign["sections"]; learningBlocks: { title: string; sectionId: string; contentMarkdown: string; estimatedMinutes: number; outcomeIds: string[] }[]; resourceSuggestions: AiResourceSuggestion[]; activitySuggestions: AiActivitySuggestion[]; assessmentQuestions: AiAssessmentQuestion[]; rationale: string };
-type AiMediaAnalysis = { title: string; language: string; summary: string; transcript: string; chapters: { title: string; startTime: string; endTime: string; summary: string }[]; objectives: string[]; assessmentQuestions: AiAssessmentQuestion[]; accessibilityNotes: string[] };
 
 const disciplines = ["Education", "Humanities & Social Sciences", "Business & Management", "Science", "Technology & Engineering", "Health Sciences", "Agriculture & Natural Resources", "Creative Arts & Design", "Interdisciplinary"];
 
@@ -579,8 +579,8 @@ function VideoTranscriptDialog({ material, onClose, onComplete, completeLabel = 
     <div className={showTranscript ? "video-transcript-layout" : "video-transcript-layout video-only"}>
       <div className="commercial-content-body">
         {isPdfFile ? <details className="protected-pdf-viewer original-document-viewer"><summary><FileText /> View the original uploaded PDF</summary><header><div><FileText /><span><b>Original manual</b><small>Original layout · searchable and zoomable when supported by your browser</small></span></div><a href={originalFile} target="_blank" rel="noreferrer">Open full screen</a></header><iframe src={`${originalFile}#toolbar=1&navpanes=0&view=FitH`} title={`${material.title} PDF`} loading="lazy" /></details> : null}
-        {isPdfFile && material.readableHtml ? <article className="readable-course-document guided-rich-reading" dangerouslySetInnerHTML={{ __html: material.readableHtml }} /> : null}
-        {!isPdfFile && material.readableHtml ? <article className="readable-course-document guided-rich-reading" dangerouslySetInnerHTML={{ __html: material.readableHtml }} /> : null}
+        {isPdfFile && material.readableHtml ? <article className="readable-course-document" dangerouslySetInnerHTML={{ __html: material.readableHtml }} /> : null}
+        {!isPdfFile && material.readableHtml ? <article className="readable-course-document" dangerouslySetInnerHTML={{ __html: material.readableHtml }} /> : null}
         {!isPdfFile && !material.readableHtml && material.kind === "Watch" && material.url ? <div className="transcript-video"><iframe src={material.url} title={material.title} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen /></div> : null}
         {!isPdfFile && !material.readableHtml && isMediaFile ? material.mimeType?.startsWith("audio/") ? <audio controls src={originalFile} /> : <video controls src={originalFile} /> : null}
         {!isPdfFile && !material.readableHtml && material.kind === "Embed" && material.url ? <iframe className="sandboxed-resource" src={material.url} title={material.title} sandbox="allow-scripts allow-same-origin allow-forms allow-popups" /> : null}
@@ -590,7 +590,7 @@ function VideoTranscriptDialog({ material, onClose, onComplete, completeLabel = 
       </div>
       {showTranscript && <section className="learner-transcript"><header><div><FileText /><b>Facilitator-reviewed transcript</b></div><span>{material.transcript?.split(/\s+/).filter(Boolean).length ?? 0} words</span></header><pre>{material.transcript}</pre></section>}
     </div>
-    {onComplete && <footer className="lesson-dialog-actions"><span><CheckCircle2 /> You have reached the end of this lesson. Progress saves to your learner record.</span><button className="dialog-primary" onClick={onComplete}>{completeLabel} <ChevronRight /></button></footer>}
+    {onComplete && <footer className="lesson-dialog-actions"><span><CheckCircle2 /> Progress saves to your learner record</span><button className="dialog-primary" onClick={onComplete}>{completeLabel} <ChevronRight /></button></footer>}
   </DialogContent></Dialog>;
 }
 
@@ -1238,7 +1238,6 @@ function FacilitatorStudio({ email, query, setQuery }: { email: string; query: s
   type StudioDraft = { id: number; code: string; title: string; discipline: string; description: string; design: CourseDesign; materials: Material[]; activities: CourseActivity[]; assessmentModes: string[]; assessmentConfig: { passMark?: number; attempts?: string; questions?: AssessmentQuestion[]; questionFiles?: AssessmentSourceFile[] }; gateRequired: boolean; questionLimit: number; certificateEnabled: boolean; status: string; createdByEmail: string; versionNumber: number; updatedAt?: string; reviewComment?: string | null; reviewedAt?: string | null };
   const [step, setStep] = useState<StudioStepId>("details");
   const [portfolioOpen, setPortfolioOpen] = useState(false);
-  const [studioToolsOpen, setStudioToolsOpen] = useState(false);
   const [courseTitle, setCourseTitle] = useState("Community Data Skills for Decision-Making");
   const [courseCode, setCourseCode] = useState("DRAFT-MC 001");
   const [description, setDescription] = useState("A practical microcredential that develops evidence-based decision skills through guided learning and authentic assessment.");
@@ -1303,7 +1302,6 @@ function FacilitatorStudio({ email, query, setQuery }: { email: string; query: s
   const [attempts, setAttempts] = useState("3");
   const [questionFiles, setQuestionFiles] = useState<AssessmentSourceFile[]>([]);
   const [questions, setQuestions] = useState<AssessmentQuestion[]>([]);
-  const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null);
   const [questionType, setQuestionType] = useState("Multiple choice");
   const [whiteboardEnabled, setWhiteboardEnabled] = useState(false);
   const [questionPrompt, setQuestionPrompt] = useState("");
@@ -1331,29 +1329,13 @@ function FacilitatorStudio({ email, query, setQuery }: { email: string; query: s
   const [manualFile, setManualFile] = useState<File | null>(null);
   const [importingManual, setImportingManual] = useState(false);
   const [manualImportInfo, setManualImportInfo] = useState("");
-  const [aiStatus, setAiStatus] = useState<AiIntegrationStatus | null>(null);
-  const [aiInstruction, setAiInstruction] = useState("");
-  const [aiWorkload, setAiWorkload] = useState<AiWorkload>("quality");
-  const [aiWorking, setAiWorking] = useState(false);
-  const [aiSuggestion, setAiSuggestion] = useState<AiCourseSuggestion | null>(null);
-  const [aiReviewOpen, setAiReviewOpen] = useState(false);
-  const [aiApplyGroups, setAiApplyGroups] = useState({ blueprint: true, outcomes: true, assessment: true });
-  const [aiQuestionSelection, setAiQuestionSelection] = useState<number[]>([]);
-  const [aiAssessmentMode, setAiAssessmentMode] = useState<"replace" | "append">("replace");
-  const [aiAssessmentImportNotice, setAiAssessmentImportNotice] = useState("");
-  const [aiMediaUrl, setAiMediaUrl] = useState("");
-  const [aiMediaKind, setAiMediaKind] = useState<"video" | "audio">("video");
-  const [mediaAnalysis, setMediaAnalysis] = useState<AiMediaAnalysis | null>(null);
-  const [analysingMedia, setAnalysingMedia] = useState(false);
-  const [mediaReviewOpen, setMediaReviewOpen] = useState(false);
-  const [ideaText, setIdeaText] = useState("");
-  const [ideaFile, setIdeaFile] = useState<File | null>(null);
-  const [ideaInstruction, setIdeaInstruction] = useState("");
-  const [generatingIdeaCourse, setGeneratingIdeaCourse] = useState(false);
-  const [ideaResourceSuggestions, setIdeaResourceSuggestions] = useState<AiResourceSuggestion[]>([]);
-  const [ideaActivitySuggestions, setIdeaActivitySuggestions] = useState<AiActivitySuggestion[]>([]);
-  const [ideaRationale, setIdeaRationale] = useState("");
-  const [ideaReviewOpen, setIdeaReviewOpen] = useState(false);
+  const [manualReviewOpen, setManualReviewOpen] = useState(false);
+  const [manualReview, setManualReview] = useState<ManualImportReview | null>(null);
+  const [preferredManualSections, setPreferredManualSections] = useState(0);
+  const [approvedManualSections, setApprovedManualSections] = useState<string[]>([]);
+  const [approvedManualActivities, setApprovedManualActivities] = useState<string[]>([]);
+  const [approvedManualVideos, setApprovedManualVideos] = useState<string[]>([]);
+  const [approvedManualQuestions, setApprovedManualQuestions] = useState<string[]>([]);
   const refreshDrafts = useCallback(async () => {
     setLoadingDrafts(true);
     try {
@@ -1364,12 +1346,6 @@ function FacilitatorStudio({ email, query, setQuery }: { email: string; query: s
     finally { setLoadingDrafts(false); }
   }, [email]);
   useEffect(() => { void refreshDrafts(); }, [refreshDrafts]);
-  useEffect(() => {
-    fetch("/api/course-ai/status")
-      .then((response) => response.ok ? response.json() : null)
-      .then((result: AiIntegrationStatus | null) => setAiStatus(result))
-      .catch(() => setAiStatus(null));
-  }, []);
   const loadIllustrativeCourse = async () => {
     setLoadingIllustrativeCourse(true);
     try {
@@ -1401,130 +1377,38 @@ function FacilitatorStudio({ email, query, setQuery }: { email: string; query: s
       setLoadingIllustrativeCourse(false);
     }
   };
-  const createCourseFromManual = async () => {
+  const createCourseFromManual = async (sectionCount = preferredManualSections) => {
     if (!manualFile) return toast.error("Choose a course manual first.");
     setImportingManual(true);
     try {
-      const body = new FormData(); body.append("file", manualFile); body.append("useAi", "true");
+      const body = new FormData(); body.append("file", manualFile); if (sectionCount > 0) body.append("preferredSections", String(sectionCount));
       const response = await fetch("/api/course-design/from-manual", { method: "POST", body });
-      const result = await response.json() as { draft?: Omit<StudioDraft, "id" | "status" | "createdByEmail" | "versionNumber">; extraction?: { fileName?: string; wordCount?: number; conversionNote?: string }; ai?: { requested?: boolean; enhanced?: boolean; model?: string | null; fallbackReason?: string | null }; warning?: string; error?: string };
+      const result = await response.json() as Partial<ManualImportReview> & { error?: string };
       if (!response.ok || !result.draft) throw new Error(result.error ?? "The course manual could not be converted.");
-      const draft = result.draft;
-      setDraftId(null); setRevisionId(null); setDraftVersion(1); setDraftStatus("new"); setCourseCode(draft.code); setCourseTitle(draft.title); setDiscipline(draft.discipline); setDescription(draft.description);
-      setDesign({ ...draft.design, enrolmentMode: "open" }); setMaterials(draft.materials); setCourseActivities(draft.activities); setAssessmentModes(draft.assessmentModes);
-      setGateRequired(draft.gateRequired); setQuestionLimit(draft.questionLimit); setCertificateEnabled(draft.certificateEnabled); setPassMark(draft.assessmentConfig?.passMark ?? 60); setAttempts(draft.assessmentConfig?.attempts ?? "2"); setQuestions(draft.assessmentConfig?.questions ?? []); setEditingQuestionId(null); setQuestionFiles(draft.assessmentConfig?.questionFiles ?? []);
-      setContentSectionId(draft.design.sections[0]?.id ?? "section-1"); setContentOutcomeIds(draft.design.outcomes[0]?.id ? [draft.design.outcomes[0].id] : []); setQuestionOutcomeIds(draft.design.outcomes[0]?.id ? [draft.design.outcomes[0].id] : []);
-      setAiAssessmentImportNotice(`${draft.assessmentConfig?.questions?.length ?? 0} questions generated from the uploaded manual are in the Question Bank for facilitator approval. Verify each question against the original document before submission.`); setStep("details"); setPortfolioOpen(false); setLearnerPreviewOpen(false); setIllustrativeTemplateLoaded(false);
-      setManualImportInfo(`${result.extraction?.fileName ?? manualFile.name} · ${(result.extraction?.wordCount ?? 0).toLocaleString()} words extracted · ${result.ai?.enhanced ? `strengthened with ${result.ai.model ?? "OpenAI"}` : "rule-based fallback used"}. ${result.warning ?? "Review every generated field before submission."}`);
-      toast.success(result.ai?.enhanced ? "AI-assisted course draft generated" : "Editable fallback draft generated", { description: "Review every stage and complete the side checks before saving or submitting." });
+      const review: ManualImportReview = { draft: result.draft, extraction: result.extraction, warning: result.warning, videoRecommendations: result.videoRecommendations ?? [] };
+      setManualReview(review); setApprovedManualSections(review.draft.design.sections.map((item) => item.id)); setApprovedManualActivities(review.draft.activities.map((item) => item.id));
+      setApprovedManualVideos(review.videoRecommendations.filter((item) => item.externalUrl.includes("watch?v=")).map((item) => item.id)); setApprovedManualQuestions(review.draft.assessmentConfig?.questions?.map((item) => item.id) ?? []);
+      setPreferredManualSections(review.draft.design.sections.length); setManualReviewOpen(true);
+      toast.success("Proposed course design is ready for review", { description: "Approve or edit the units, activities, video recommendations and assessment before anything enters the Studio." });
     } catch (error) { toast.error(error instanceof Error ? error.message : "The course manual could not be converted."); }
     finally { setImportingManual(false); }
   };
-  const requestAiDesignReview = async () => {
-    if (!aiStatus?.openai.configured) return toast.error("OpenAI is not configured", { description: "Add OPENAI_API_KEY to the Render service environment, then redeploy." });
-    setAiWorking(true);
-    try {
-      const response = await fetch("/api/course-ai/design", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ title: courseTitle, discipline, description, design, questionCount: questions.length, instruction: aiInstruction, workload: aiWorkload }) });
-      const result = await response.json() as { suggestion?: AiCourseSuggestion; model?: string; workload?: AiWorkload; error?: string };
-      if (!response.ok || !result.suggestion) throw new Error(result.error ?? "OpenAI could not prepare a course-design review.");
-      setAiSuggestion(result.suggestion); setAiApplyGroups({ blueprint: true, outcomes: true, assessment: true }); setAiQuestionSelection(result.suggestion.assessmentQuestions.map((_, index) => index)); setAiAssessmentMode("replace"); setAiReviewOpen(true);
-      toast.success("AI recommendations are ready", { description: `Review the proposed changes before applying them. Model: ${result.model ?? aiStatus.openai.models[aiWorkload]}.` });
-    } catch (error) { toast.error(error instanceof Error ? error.message : "OpenAI course-design review failed."); }
-    finally { setAiWorking(false); }
-  };
-  const applyAiDesignSuggestion = () => {
-    if (!aiSuggestion) return;
-    const approvedAiQuestions = aiSuggestion.assessmentQuestions.filter((_, index) => aiQuestionSelection.includes(index)).slice(0, aiAssessmentMode === "append" ? Math.max(0, 100 - questions.length) : 100);
-    const targetOutcomes = aiApplyGroups.outcomes ? aiSuggestion.outcomes : design.outcomes;
-    const validOutcomeIds = new Set(targetOutcomes.map((outcome) => outcome.id));
-    const importedQuestions = approvedAiQuestions.map((question) => {
-      const mappedOutcomes = question.outcomeIds.filter((id) => validOutcomeIds.has(id));
-      return { ...question, id: crypto.randomUUID(), outcomeIds: mappedOutcomes.length ? mappedOutcomes : targetOutcomes[0]?.id ? [targetOutcomes[0].id] : [] };
-    });
-    if (aiApplyGroups.blueprint) {
-      setCourseTitle(aiSuggestion.title); setDiscipline(aiSuggestion.discipline); setDescription(aiSuggestion.description);
-      setDesign((current) => ({ ...current, intendedAudience: aiSuggestion.intendedAudience, prerequisites: aiSuggestion.prerequisites, accessibilityStatement: aiSuggestion.accessibilityStatement, enrolmentMode: "open" }));
-    }
-    if (aiApplyGroups.outcomes) {
-      setDesign((current) => ({ ...current, objectives: aiSuggestion.objectives, outcomes: aiSuggestion.outcomes, skills: aiSuggestion.skills, sections: aiSuggestion.sections, enrolmentMode: "open" }));
-      setMaterials((items) => items.map((material, index) => {
-        const section = aiSuggestion.sections[index % aiSuggestion.sections.length];
-        const outcome = aiSuggestion.outcomes[index % aiSuggestion.outcomes.length];
-        return { ...material, sectionId: section?.id, sectionTitle: section?.title, outcomeIds: outcome ? [outcome.id] : [] };
-      }));
-      setContentSectionId(aiSuggestion.sections[0]?.id ?? "section-1"); setContentOutcomeIds(aiSuggestion.outcomes[0]?.id ? [aiSuggestion.outcomes[0].id] : []); setQuestionOutcomeIds(aiSuggestion.outcomes[0]?.id ? [aiSuggestion.outcomes[0].id] : []);
-    }
-    if (aiApplyGroups.assessment) {
-      setQuestions((current) => aiAssessmentMode === "append" ? [...current, ...importedQuestions] : importedQuestions);
-      setEditingQuestionId(null);
-      const resultingQuestionCount = aiAssessmentMode === "append" ? questions.length + importedQuestions.length : importedQuestions.length;
-      setQuestionLimit((current) => Math.min(100, Math.max(current, resultingQuestionCount)));
-      setAiAssessmentImportNotice(`${importedQuestions.length} AI-generated question${importedQuestions.length === 1 ? "" : "s"} ${aiAssessmentMode === "append" ? "added to" : "placed in"} the Question Bank. Review every answer, rubric, mark and outcome mapping before submitting the course.`);
-      setStep("assessment");
-    }
-    setAiReviewOpen(false); setAiSuggestion(null); setAiQuestionSelection([]);
-    toast.success(aiApplyGroups.assessment ? "AI assessment imported into the Question Bank" : "Selected AI recommendations applied", { description: aiApplyGroups.assessment ? "The questions are editable and not published. Check them in Assessment before submitting." : "They remain an editable draft and must pass facilitator and UCC academic review." });
-  };
-  const analysePreviewMedia = async () => {
-    const sourceUrl = previewResource?.externalUrl || aiMediaUrl.trim();
-    if (!sourceUrl) return toast.error("Paste a public YouTube URL or an authorised gs:// media URI.");
-    if (!aiStatus?.vertex.configured) return toast.error("Gemini Flash is not configured", { description: "Add the Google Cloud project and Vertex service-account credentials in Render." });
-    setAnalysingMedia(true); setMediaAnalysis(null);
-    try {
-      const response = await fetch("/api/course-ai/media", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ sourceUrl, mimeType: aiMediaKind === "audio" ? "audio/mpeg" : "video/mp4", outcomeIds: design.outcomes.map((outcome) => outcome.id), instruction: `Prepare this ${aiMediaKind} for the course ${courseTitle || "currently being designed"}.` }) });
-      const result = await response.json() as { analysis?: AiMediaAnalysis; model?: string; error?: string };
-      if (!response.ok || !result.analysis) throw new Error(result.error ?? "Gemini Flash could not analyse this media.");
-      setMediaAnalysis(result.analysis); setResourceTranscript(result.analysis.transcript); setTranscriptLanguage(result.analysis.language); setTranscriptSource(`${result.model ?? aiStatus.vertex.model} media analysis`); setTranscriptFileName(""); setPublishTranscript(true); setMediaReviewOpen(true);
-      toast.success("Gemini media analysis ready", { description: `${result.analysis.chapters.length} chapters and ${result.analysis.assessmentQuestions.length} editable questions generated for facilitator review.` });
-    } catch (error) { toast.error(error instanceof Error ? error.message : "Gemini media analysis failed."); }
-    finally { setAnalysingMedia(false); }
-  };
-  const addMediaAssessmentQuestions = () => {
-    if (!mediaAnalysis) return 0;
-    const validOutcomeIds = new Set(design.outcomes.map((outcome) => outcome.id));
-    const available = Math.max(0, 100 - questions.length);
-    const additions = mediaAnalysis.assessmentQuestions.slice(0, available).map((question) => ({ ...question, id: crypto.randomUUID(), outcomeIds: question.outcomeIds.filter((id) => validOutcomeIds.has(id)).length ? question.outcomeIds.filter((id) => validOutcomeIds.has(id)) : design.outcomes[0]?.id ? [design.outcomes[0].id] : [] }));
-    if (!additions.length) { toast.error("The maximum question-bank size of 100 has been reached."); return 0; }
-    setQuestions((items) => [...items, ...additions]);
-    setQuestionLimit((current) => Math.max(current, questions.length + additions.length));
-    toast.success(`${additions.length} media question${additions.length === 1 ? "" : "s"} added`, { description: "Check every answer, outcome mapping, mark and feedback before submission." });
-    return additions.length;
-  };
-  const searchSuggestedResource = async (suggestion: AiResourceSuggestion) => {
-    setQuery(suggestion.searchQuery); setSearching(true);
-    try {
-      const response = await fetch(`/api/resource-search?q=${encodeURIComponent(suggestion.searchQuery)}`);
-      const result = await response.json() as { resources?: LearningResource[]; youtubeSearchUrl?: string; error?: string };
-      if (!response.ok) throw new Error(result.error ?? "The resource search could not be completed.");
-      setOnlineResources(result.resources?.length ? result.resources : openResources); setYoutubeSearchUrl(result.youtubeSearchUrl ?? `https://www.youtube.com/results?search_query=${encodeURIComponent(suggestion.searchQuery)}`); setStep("content"); setIdeaReviewOpen(false);
-      toast.success("Verified resource search prepared", { description: "Review relevance, licence, accessibility and attribution before embedding any result." });
-    } catch (error) { toast.error(error instanceof Error ? error.message : "The resource search could not be completed."); }
-    finally { setSearching(false); }
-  };
-  const prepareSuggestedActivity = (suggestion: AiActivitySuggestion) => {
-    if (suggestion.type === "colab" || suggestion.type === "virtual_lab") {
-      setActivityKind(suggestion.type); setActivityTitle(suggestion.title); setActivityInstructions(`${suggestion.instructions}\n\nRequired evidence: ${suggestion.evidence}`); setActivityRequired(suggestion.required); setActivityRubric(suggestion.rubric); setStep("activities");
-    } else {
-      setContentMode("text"); setContentTitle(suggestion.title); setContentText(`## Activity instructions\n${suggestion.instructions}\n\n## Evidence to submit\n${suggestion.evidence}\n\n## Assessment criteria\n${suggestion.rubric}`); setContentFormat("text"); setContentOutcomeIds(suggestion.outcomeIds); setStep("content");
-    }
-    setIdeaReviewOpen(false);
-    toast.success("Suggestion moved into the editor", { description: "Review and adapt it before adding it to the course sequence." });
-  };
-  const generateCourseFromIdea = async () => {
-    if (ideaText.trim().length < 40 && !ideaFile) return toast.error("Describe the course idea in at least 40 characters or upload a synopsis.");
-    if (!aiStatus?.openai.configured) return toast.error("OpenAI is not configured", { description: "Add OPENAI_API_KEY to the Render service environment, then redeploy." });
-    setGeneratingIdeaCourse(true);
-    try {
-      const body = new FormData(); body.append("idea", ideaText); body.append("instruction", ideaInstruction); if (ideaFile) body.append("file", ideaFile);
-      const response = await fetch("/api/course-ai/from-idea", { method: "POST", body });
-      const result = await response.json() as { draft?: Omit<StudioDraft, "id" | "status" | "createdByEmail" | "versionNumber">; resourceSuggestions?: AiResourceSuggestion[]; activitySuggestions?: AiActivitySuggestion[]; rationale?: string; model?: string; warning?: string; error?: string };
-      if (!response.ok || !result.draft) throw new Error(result.error ?? "OpenAI could not build a course from this idea.");
-      const draft = result.draft;
-      setDraftId(null); setRevisionId(null); setDraftVersion(1); setDraftStatus("new"); setCourseCode(draft.code); setCourseTitle(draft.title); setDiscipline(draft.discipline); setDescription(draft.description); setDesign({ ...draft.design, enrolmentMode: "open", priceGhs: 0, certificateFeeGhs: 0 }); setMaterials(draft.materials); setCourseActivities(draft.activities); setAssessmentModes(draft.assessmentModes); setGateRequired(draft.gateRequired); setQuestionLimit(draft.questionLimit); setCertificateEnabled(draft.certificateEnabled); setPassMark(draft.assessmentConfig?.passMark ?? 60); setAttempts(draft.assessmentConfig?.attempts ?? "2"); setQuestions(draft.assessmentConfig?.questions ?? []); setEditingQuestionId(null); setQuestionFiles(draft.assessmentConfig?.questionFiles ?? []);
-      setContentSectionId(draft.design.sections[0]?.id ?? "section-1"); setContentOutcomeIds(draft.design.outcomes[0]?.id ? [draft.design.outcomes[0].id] : []); setQuestionOutcomeIds(draft.design.outcomes[0]?.id ? [draft.design.outcomes[0].id] : []); setIdeaResourceSuggestions(result.resourceSuggestions ?? []); setIdeaActivitySuggestions(result.activitySuggestions ?? []); setIdeaRationale(result.rationale ?? ""); setAiAssessmentImportNotice(`${draft.assessmentConfig?.questions?.length ?? 0} AI-generated questions are in the Question Bank for facilitator approval. Review every answer, rubric, mark and outcome mapping before submission.`); setStep("details"); setPortfolioOpen(false); setIllustrativeTemplateLoaded(false); setIdeaReviewOpen(true);
-      toast.success("Complete AI-assisted draft created", { description: `${draft.materials.length} learning blocks and ${draft.assessmentConfig?.questions?.length ?? 0} questions are ready for facilitator review. Model: ${result.model ?? aiStatus.openai.models.balanced}.` });
-    } catch (error) { toast.error(error instanceof Error ? error.message : "The course could not be generated from this idea."); }
-    finally { setGeneratingIdeaCourse(false); }
+  const applyApprovedManualDesign = () => {
+    if (!manualReview) return;
+    if (approvedManualSections.length === 0) return toast.error("Approve at least one section before creating the course.");
+    const draft = manualReview.draft; const sectionIds = new Set(approvedManualSections); const videoIds = new Set(approvedManualVideos);
+    const approvedSections = draft.design.sections.filter((item) => sectionIds.has(item.id));
+    const approvedMaterials = draft.materials.filter((item) => !item.sectionId || sectionIds.has(item.sectionId));
+    const videoMaterials: CourseMaterial[] = manualReview.videoRecommendations.filter((item) => videoIds.has(item.id) && sectionIds.has(item.sectionId) && item.externalUrl.includes("watch?v=")).map((item) => ({ id: item.id, title: item.title, kind: "Watch", source: item.source, url: item.url, externalUrl: item.externalUrl, sectionId: item.sectionId, sectionTitle: item.sectionTitle, unitTitle: "Recommended supporting video", estimatedMinutes: 10, accessibilityChecked: false, required: false, license: "YouTube resource; facilitator must verify licence and attribution", transcriptPublished: false }));
+    const approvedActivities = draft.activities.filter((item) => approvedManualActivities.includes(item.id) && sectionIds.has(item.id.replace("manual-activity", "manual-section")));
+    const approvedQuestions = (draft.assessmentConfig?.questions ?? []).filter((item) => approvedManualQuestions.includes(item.id));
+    setDraftId(null); setRevisionId(null); setDraftVersion(1); setDraftStatus("new"); setCourseCode(draft.code); setCourseTitle(draft.title); setDiscipline(draft.discipline); setDescription(draft.description);
+    setDesign({ ...draft.design, sections: approvedSections, enrolmentMode: "open" }); setMaterials([...approvedMaterials, ...videoMaterials]); setCourseActivities(approvedActivities); setAssessmentModes(draft.assessmentModes);
+    setGateRequired(draft.gateRequired); setQuestionLimit(Math.max(draft.questionLimit, approvedQuestions.length)); setCertificateEnabled(draft.certificateEnabled); setPassMark(draft.assessmentConfig?.passMark ?? 60); setAttempts(draft.assessmentConfig?.attempts ?? "2"); setQuestions(approvedQuestions); setQuestionFiles(draft.assessmentConfig?.questionFiles ?? []);
+    setContentSectionId(approvedSections[0]?.id ?? "section-1"); setContentOutcomeIds(draft.design.outcomes[0]?.id ? [draft.design.outcomes[0].id] : []); setQuestionOutcomeIds(draft.design.outcomes[0]?.id ? [draft.design.outcomes[0].id] : []);
+    setStep("details"); setPortfolioOpen(false); setLearnerPreviewOpen(false); setIllustrativeTemplateLoaded(false); setManualReviewOpen(false);
+    setManualImportInfo(`${manualReview.extraction?.fileName ?? manualFile?.name ?? "Manual"} · ${(manualReview.extraction?.wordCount ?? 0).toLocaleString()} words · ${approvedSections.length} approved units · ${approvedActivities.length} activities · ${approvedQuestions.length} assessment questions.`);
+    toast.success("Approved manual design added to the Course Studio", { description: "The original file is retained and each approved unit now contains its own readable HTML lesson." });
   };
   const loadDraft = async (course: StudioDraft) => {
     let editable = course;
@@ -1539,8 +1423,8 @@ function FacilitatorStudio({ email, query, setQuery }: { email: string; query: s
     } else setRevisionId(null);
     setDraftId(course.id); setDraftVersion(editable.versionNumber); setDraftStatus(editable.status); setCourseCode(editable.code); setCourseTitle(editable.title); setDiscipline(editable.discipline); setDescription(editable.description);
     setDesign(editable.design ?? defaultCourseDesign()); setMaterials(editable.materials ?? []); setCourseActivities(editable.activities ?? []); setAssessmentModes(editable.assessmentModes ?? []);
-    setGateRequired(editable.gateRequired); setQuestionLimit(editable.questionLimit); setCertificateEnabled(editable.certificateEnabled); setPassMark(editable.assessmentConfig?.passMark ?? 70); setAttempts(editable.assessmentConfig?.attempts ?? "3"); setQuestions(editable.assessmentConfig?.questions ?? []); setEditingQuestionId(null); setQuestionFiles(editable.assessmentConfig?.questionFiles ?? []);
-    setContentSectionId(editable.design?.sections?.[0]?.id ?? "section-1"); setContentOutcomeIds(editable.design?.outcomes?.[0]?.id ? [editable.design.outcomes[0].id] : []); setAiAssessmentImportNotice(""); setStep("details"); setPortfolioOpen(false); setIllustrativeTemplateLoaded(false);
+    setGateRequired(editable.gateRequired); setQuestionLimit(editable.questionLimit); setCertificateEnabled(editable.certificateEnabled); setPassMark(editable.assessmentConfig?.passMark ?? 70); setAttempts(editable.assessmentConfig?.attempts ?? "3"); setQuestions(editable.assessmentConfig?.questions ?? []); setQuestionFiles(editable.assessmentConfig?.questionFiles ?? []);
+    setContentSectionId(editable.design?.sections?.[0]?.id ?? "section-1"); setContentOutcomeIds(editable.design?.outcomes?.[0]?.id ? [editable.design.outcomes[0].id] : []); setStep("details"); setPortfolioOpen(false); setIllustrativeTemplateLoaded(false);
     if (course.status !== "active") toast.success(`Loaded version ${course.versionNumber}`, { description: course.title });
   };
   const importCourseContent = async () => {
@@ -1705,13 +1589,13 @@ function FacilitatorStudio({ email, query, setQuery }: { email: string; query: s
     }
     setPreviewPractical(practical);
   };
-  const openResourcePreview = (resource: LearningResource) => { setPreviewResource(resource); setResourceTranscript(resource.transcript ?? ""); setTranscriptLanguage(resource.transcriptLanguage ?? "English"); setTranscriptFileName(""); setTranscriptSource(resource.transcript ? "Supplied transcript" : ""); setPublishTranscript(true); setMediaAnalysis(null); };
+  const openResourcePreview = (resource: LearningResource) => { setPreviewResource(resource); setResourceTranscript(resource.transcript ?? ""); setTranscriptLanguage(resource.transcriptLanguage ?? "English"); setTranscriptFileName(""); setTranscriptSource(resource.transcript ? "Supplied transcript" : ""); setPublishTranscript(true); };
   const addResource = (resource: LearningResource) => {
     const transcript = resourceTranscript.trim() || resource.transcript?.trim() || "";
     if (publishTranscript && resource.source.includes("YouTube") && !transcript) return toast.error("Extract, paste or upload a transcript before choosing to publish it with the video.");
     const section = design.sections.find((item) => item.id === contentSectionId) ?? design.sections[0];
     setMaterials((items) => [...items, { id: crypto.randomUUID(), title: resource.title, kind: resource.type, source: resource.source, url: resource.url, externalUrl: resource.externalUrl, sectionId: section?.id, sectionTitle: section?.title, unitTitle: contentUnitTitle, estimatedMinutes: 10, outcomeIds: contentOutcomeIds, accessibilityChecked: resource.type !== "Watch" || Boolean(transcript && publishTranscript), license: resource.license, transcript: transcript || undefined, transcriptLanguage: transcript ? transcriptLanguage : undefined, transcriptSource: transcript ? transcriptSource || "Facilitator supplied" : undefined, transcriptPublished: Boolean(transcript && publishTranscript) }]);
-    setPreviewResource(null); setYoutubeUrl(""); setResourceTranscript(""); setTranscriptFileName(""); setTranscriptSource(""); setMediaAnalysis(null);
+    setPreviewResource(null); setYoutubeUrl(""); setResourceTranscript(""); setTranscriptFileName(""); setTranscriptSource("");
     toast.success("Approved resource embedded", { description: transcript && publishTranscript ? `${resource.title} and its reviewed transcript were published together.` : `${resource.title} was added without a learner-visible transcript.` });
   };
   const searchOnline = async () => {
@@ -1785,15 +1669,9 @@ function FacilitatorStudio({ email, query, setQuery }: { email: string; query: s
     }
     if (uploaded.length) { setQuestionFiles((items) => [...items, ...uploaded]); toast.success(`${uploaded.length} question file${uploaded.length === 1 ? "" : "s"} uploaded`); }
   };
-  const editQuestion = (question: AssessmentQuestion) => {
-    const options = question.options?.length ? [...question.options] : ["", "", "", ""];
-    while (options.length < 4) options.push("");
-    setEditingQuestionId(question.id); setQuestionType(question.type); setQuestionPrompt(question.prompt); setQuestionOptions(options); setCorrectOptionIndex(question.correctAnswer ? options.findIndex((option) => option === question.correctAnswer) : null); setCorrectAnswer(question.correctAnswer ?? ""); setPairRows(question.pairs?.length ? question.pairs : [{ left: "", right: "", image: "" }, { left: "", right: "", image: "" }]); setQuestionVideoUrl(question.videoUrl ?? ""); setVideoMode(question.videoMode ?? "part"); setVideoStart(question.videoStart ?? 0); setVideoEnd(question.videoEnd ?? 30); setQuestionPoints(question.points); setQuestionOutcomeIds(question.outcomeIds ?? []); setMarkingScheme(question.scheme ?? ""); setFeedbackCorrect(question.feedbackCorrect ?? ""); setFeedbackIncorrect(question.feedbackIncorrect ?? ""); setLearnerAdvice(question.learnerAdvice ?? ""); setWhiteboardEnabled(Boolean(question.whiteboardEnabled));
-    requestAnimationFrame(() => document.getElementById("assessment-question-editor")?.scrollIntoView({ behavior: "smooth", block: "start" }));
-  };
   const addQuestion = () => {
     if (!questionPrompt.trim()) return toast.error("Enter the assessment question");
-    if (!editingQuestionId && questions.length >= questionLimit) return toast.error(`This assessment is limited to ${questionLimit} questions.`);
+    if (questions.length >= questionLimit) return toast.error(`This assessment is limited to ${questionLimit} questions.`);
     const usesOptions = questionType === "Multiple choice" || questionType === "True / false" || questionType === "Video question";
     const options = questionType === "True / false" ? ["True", "False"] : questionOptions.map((item) => item.trim()).filter(Boolean);
     const selectedAnswer = questionType === "Multiple choice" || (questionType === "Video question" && options.length) ? (correctOptionIndex === null ? "" : questionOptions[correctOptionIndex]?.trim()) : correctAnswer.trim();
@@ -1803,10 +1681,10 @@ function FacilitatorStudio({ email, query, setQuery }: { email: string; query: s
     if (usesOptions && !selectedAnswer) return toast.error("Use the button beside an option to select the correct answer");
     if (usesPairs && pairs.length < 2) return toast.error("Add at least two complete matching pairs");
     if (questionType === "Video question" && !questionVideoUrl.trim()) return toast.error("Paste the video link for this question");
-    const question: AssessmentQuestion = { id: editingQuestionId ?? crypto.randomUUID(), type: questionType, prompt: questionPrompt.trim(), options: usesPairs ? [] : options, correctAnswer: selectedAnswer, points: questionPoints, scheme: markingScheme.trim(), feedbackCorrect: feedbackCorrect.trim(), feedbackIncorrect: feedbackIncorrect.trim(), learnerAdvice: learnerAdvice.trim(), outcomeIds: questionOutcomeIds, pairs: usesPairs ? pairs : undefined, videoUrl: questionType === "Video question" ? questionVideoUrl.trim() : undefined, videoMode: questionType === "Video question" ? videoMode : undefined, videoStart: questionType === "Video question" ? videoStart : undefined, videoEnd: questionType === "Video question" ? videoEnd : undefined, whiteboardEnabled };
-    setQuestions((items) => editingQuestionId ? items.map((item) => item.id === editingQuestionId ? question : item) : [...items, question]);
-    const wasEditing = Boolean(editingQuestionId); setEditingQuestionId(null); setQuestionPrompt(""); setQuestionOptions(["", "", "", ""]); setCorrectOptionIndex(null); setCorrectAnswer(""); setPairRows([{ left: "", right: "", image: "" }, { left: "", right: "", image: "" }]); setQuestionVideoUrl(""); setMarkingScheme(""); setWhiteboardEnabled(false);
-    toast.success(wasEditing ? "Assessment question updated" : "Assessment question added");
+    const question: AssessmentQuestion = { id: crypto.randomUUID(), type: questionType, prompt: questionPrompt.trim(), options: usesPairs ? [] : options, correctAnswer: selectedAnswer, points: questionPoints, scheme: markingScheme.trim(), feedbackCorrect: feedbackCorrect.trim(), feedbackIncorrect: feedbackIncorrect.trim(), learnerAdvice: learnerAdvice.trim(), outcomeIds: questionOutcomeIds, pairs: usesPairs ? pairs : undefined, videoUrl: questionType === "Video question" ? questionVideoUrl.trim() : undefined, videoMode: questionType === "Video question" ? videoMode : undefined, videoStart: questionType === "Video question" ? videoStart : undefined, videoEnd: questionType === "Video question" ? videoEnd : undefined, whiteboardEnabled };
+    setQuestions((items) => [...items, question]);
+    setQuestionPrompt(""); setQuestionOptions(["", "", "", ""]); setCorrectOptionIndex(null); setCorrectAnswer(""); setPairRows([{ left: "", right: "", image: "" }, { left: "", right: "", image: "" }]); setQuestionVideoUrl(""); setMarkingScheme(""); setWhiteboardEnabled(false);
+    toast.success("Assessment question added");
   };
   const saveCourse = async (submissionMode: "draft" | "review") => {
     if (!courseTitle.trim() || !courseCode.trim() || !discipline) return toast.error("Course title, code and discipline are required");
@@ -1831,36 +1709,21 @@ function FacilitatorStudio({ email, query, setQuery }: { email: string; query: s
     }
   };
   const startNewCourse = () => {
-    const nextDesign = defaultCourseDesign(); setDraftId(null); setRevisionId(null); setDraftVersion(1); setDraftStatus("new"); setCourseTitle(""); setCourseCode(""); setDescription(""); setDiscipline("Interdisciplinary"); setDesign(nextDesign); setMaterials([]); setCourseActivities([]); setQuestions([]); setEditingQuestionId(null); setQuestionFiles([]); setAssessmentModes(["Objective quiz"]); setContentSectionId(nextDesign.sections[0].id); setContentOutcomeIds([nextDesign.outcomes[0].id]); setAiAssessmentImportNotice(""); setStep("details"); setPortfolioOpen(false); setIllustrativeTemplateLoaded(false);
+    const nextDesign = defaultCourseDesign(); setDraftId(null); setRevisionId(null); setDraftVersion(1); setDraftStatus("new"); setCourseTitle(""); setCourseCode(""); setDescription(""); setDiscipline("Interdisciplinary"); setDesign(nextDesign); setMaterials([]); setCourseActivities([]); setQuestions([]); setQuestionFiles([]); setAssessmentModes(["Objective quiz"]); setContentSectionId(nextDesign.sections[0].id); setContentOutcomeIds([nextDesign.outcomes[0].id]); setStep("details"); setPortfolioOpen(false); setIllustrativeTemplateLoaded(false);
   };
 
-  return <div className="authoring-shell moodle-studio-layout">
-    <aside className="moodle-studio-nav" aria-label="Course Studio navigation">
-      <header><span><Settings /></span><div><p>Course administration</p><b>Build and manage</b></div></header>
-      <nav>
-        {studioSteps.map((item) => {
-          const complete = stepComplete(item);
-          const remaining = item.checks.filter((check) => !check.passed).length;
-          return <button type="button" key={item.id} className={`${step === item.id ? "active" : ""} ${complete ? "complete" : ""}`} onClick={() => setStep(item.id)} aria-current={step === item.id ? "step" : undefined}><span>{complete ? <CheckCircle2 /> : item.number}</span><div><b>{item.label}</b><small>{complete ? "Complete" : `${remaining} ${remaining === 1 ? "check" : "checks"} remaining`}</small></div><ChevronRight /></button>;
-        })}
-      </nav>
-      <section className="moodle-quick-tools"><p>Quick tools</p><button type="button" onClick={() => { setPortfolioOpen(true); requestAnimationFrame(() => document.getElementById("studio-course-portfolio")?.scrollIntoView({ behavior: "smooth" })); }}><BookOpen /> My courses</button><button type="button" onClick={() => { setStudioToolsOpen(true); requestAnimationFrame(() => document.getElementById("studio-authoring-tools")?.scrollIntoView({ behavior: "smooth" })); }}><Sparkles /> AI & import tools</button><button type="button" onClick={() => setLearnerPreviewOpen(true)}><Eye /> Preview as student</button><button type="button" disabled={saving} onClick={() => void saveCourse("draft")}><FileCheck2 /> Save draft</button></section>
-      <footer><span>{studioProgress}%</span><div><b>Course readiness</b><Progress value={studioProgress} /></div></footer>
-    </aside>
+  return <div className="authoring-shell">
     <section className="authoring-main page-panel">
       <section className="studio-command-bar">
         <div><p className="eyebrow">CURRENT COURSE</p><h2>{courseTitle || "New microcredential"}</h2><p>{courseCode || "Course code not set"} · Version {draftVersion}</p></div>
         <div className="studio-command-actions"><span className={`draft-state ${draftStatus}`}>{draftStatus.replaceAll("_", " ")}</span><button className="secondary-action" onClick={() => setLearnerPreviewOpen(true)}><Eye /> Preview as student</button><button className="dialog-primary" disabled={saving} onClick={() => void saveCourse("draft")}><FileCheck2 /> {saving ? "Saving…" : "Save draft"}</button></div>
       </section>
 
-      <section id="studio-course-portfolio" className={`course-portfolio compact ${portfolioOpen ? "open" : ""}`}>
+      <section className={`course-portfolio compact ${portfolioOpen ? "open" : ""}`}>
         <header><div><p className="eyebrow">MY COURSE PORTFOLIO</p><h3>Drafts, reviews and live offerings</h3></div><div className="portfolio-header-actions"><button className="portfolio-new" onClick={startNewCourse}><BookOpen /> New course</button><button className="portfolio-toggle" type="button" aria-expanded={portfolioOpen} onClick={() => setPortfolioOpen((open) => !open)}>{portfolioOpen ? "Hide courses" : `Open courses (${drafts.length})`} <ChevronDown /></button></div></header>
         {portfolioOpen && (loadingDrafts ? <div className="empty-state">Loading course versions…</div> : <div>{drafts.map((course) => <article key={course.id} className={draftId === course.id ? "selected" : ""}><span className={`portfolio-status ${course.status}`}>{course.status.replaceAll("_", " ")}</span><div><b>{course.title}</b><small>{course.code} · version {course.versionNumber} · {course.updatedAt ? new Date(course.updatedAt).toLocaleDateString() : "recently updated"}</small></div><div className="portfolio-actions"><button onClick={() => void loadDraft(course)}>{course.status === "active" ? "Create controlled revision" : "Continue editing"}</button></div>{course.reviewComment && <p className="review-feedback"><MessageSquareText /> <span><b>{course.status === "rejected" ? "Changes requested" : "Review note"}</b>{course.reviewComment}</span></p>}</article>)}{drafts.length === 0 && <div className="empty-state">Your first course draft will appear here after saving.</div>}</div>)}
       </section>
 
-      <details id="studio-authoring-tools" className="moodle-authoring-tools" open={studioToolsOpen} onToggle={(event) => setStudioToolsOpen(event.currentTarget.open)}>
-        <summary><span><Sparkles /></span><div><b>Course creation tools</b><small>AI assistance, manual import and the complete facilitator tutorial</small></div><em>{studioToolsOpen ? "Hide tools" : "Open tools"}</em><ChevronDown /></summary>
-        <div className="moodle-authoring-tools-grid">
       <section className="illustrative-guide-card">
         <div className="illustrative-guide-icon"><GraduationCap /></div>
         <div className="illustrative-guide-copy">
@@ -1876,41 +1739,30 @@ function FacilitatorStudio({ email, query, setQuery }: { email: string; query: s
         </div>
       </section>
 
-      <section className="ai-copilot-card">
-        <div className="ai-copilot-icon"><Sparkles /></div>
-        <div className="ai-copilot-copy">
-          <p className="eyebrow">AI COURSE COPILOT · HUMAN APPROVAL REQUIRED</p>
-          <h2>Strengthen the current course with OpenAI</h2>
-          <p>Review the existing blueprint and propose clearer positioning, measurable outcomes, aligned sections and assessment questions. Nothing is applied until you inspect and approve the suggested groups.</p>
-          <div className="ai-provider-status">
-            <span className={aiStatus?.openai.configured ? "ready" : "not-ready"}><i /> OpenAI · {aiStatus?.openai.configured ? "Luna + Terra + Sol" : "configuration required"}</span>
-            <span className={aiStatus?.vertex.configured ? "ready" : "not-ready"}><i /> Gemini media · {aiStatus?.vertex.configured ? aiStatus.vertex.model : "configuration required"}</span>
-            <span className="governed"><ShieldCheck /> Facilitator review + UCC approval</span>
-          </div>
-        </div>
-        <div className="ai-copilot-actions">
-          <label><b>AI review depth</b><select value={aiWorkload} onChange={(event) => setAiWorkload(event.target.value as AiWorkload)}><option value="fast">Quick refinement · {aiStatus?.openai.models.fast ?? "Luna"}</option><option value="balanced">Full redesign · {aiStatus?.openai.models.balanced ?? "Terra"}</option><option value="quality">Rigorous academic review · {aiStatus?.openai.models.quality ?? "Sol"}</option></select><small>{aiStatus?.openai.routing[aiWorkload] ?? "Choose the cost, speed and depth appropriate to this task."}</small></label>
-          <label><b>What should the AI improve?</b><textarea value={aiInstruction} onChange={(event) => setAiInstruction(event.target.value)} placeholder="Optional: focus on workplace application, accessibility, beginner learners, stronger assessment alignment…" /></label>
-          <button className="dialog-primary" disabled={aiWorking || !aiStatus?.openai.configured} onClick={() => void requestAiDesignReview()}><Sparkles /> {aiWorking ? "Preparing recommendations…" : "Review course with AI"}</button>
-          {!aiStatus?.openai.configured && <small>Configure the server-side OpenAI key to enable this control. Existing manual extraction remains available.</small>}
-          <div className="ai-media-quickstart"><label><b>Analyse video/audio with Gemini Flash</b><span className="ai-media-source-row"><select aria-label="Media type" value={aiMediaKind} onChange={(event) => setAiMediaKind(event.target.value as "video" | "audio")}><option value="video">Video</option><option value="audio">Audio</option></select><input value={aiMediaUrl} onChange={(event) => setAiMediaUrl(event.target.value)} placeholder={aiMediaKind === "video" ? "Public YouTube URL or authorised gs:// video" : "Authorised gs:// audio URI"} /></span></label><button className="secondary-action" disabled={analysingMedia || !aiStatus?.vertex.configured || !aiMediaUrl.trim()} onClick={() => void analysePreviewMedia()}><Video /> {analysingMedia ? "Analysing media…" : "Generate transcript and chapters"}</button></div>
-        </div>
-      </section>
-
-      <section className="idea-to-course-card">
-        <div className="idea-to-course-heading"><span><Sparkles /></span><div><p className="eyebrow">THIRD PATH · IDEA OR SYNOPSIS → COMPLETE COURSE DRAFT</p><h2>Ask AI to build a course from your concept</h2><p>Type a concept or upload a synopsis. OpenAI will prepare the blueprint, learning content, resource-search recommendations, activity ideas, rubrics and assessment questions as a new unsaved draft.</p></div></div>
-        <div className="idea-to-course-inputs"><label><b>Course idea or synopsis</b><textarea value={ideaText} onChange={(event) => setIdeaText(event.target.value)} placeholder="Example: A six-hour foundation microcredential that helps district officers interpret community data and communicate evidence-based recommendations…" /></label><label className="idea-file-upload"><Upload /><span><b>{ideaFile?.name ?? "Upload optional synopsis"}</b><small>PDF, DOCX, TXT, Markdown, HTML or RTF · 10 MB maximum</small></span><input type="file" accept=".pdf,.docx,.txt,.md,.html,.htm,.rtf" onChange={(event) => setIdeaFile(event.target.files?.[0] ?? null)} /></label><label><b>Additional design direction</b><input value={ideaInstruction} onChange={(event) => setIdeaInstruction(event.target.value)} placeholder="Optional audience, level, duration, discipline or preferred evidence" /></label></div>
-        <div className="idea-to-course-footer"><div><CheckCircle2 /> Builds editable lessons <CheckCircle2 /> Suggests verified searches <CheckCircle2 /> Proposes activities and assessments</div><button className="dialog-primary" disabled={generatingIdeaCourse || !aiStatus?.openai.configured || (ideaText.trim().length < 40 && !ideaFile)} onClick={() => void generateCourseFromIdea()}><Sparkles /> {generatingIdeaCourse ? "Building the course…" : "Build complete draft with AI"}</button></div>
-      </section>
-
       <section className="manual-import-card">
         <div className="manual-import-icon"><Upload /></div>
-        <div><p className="eyebrow">AI-ASSISTED MANUAL → EDITABLE COURSE DESIGN</p><h2>Generate the Studio fields from an existing manual</h2><p>Upload an accessible PDF, DOCX, TXT, Markdown, HTML or RTF manual. OpenAI strengthens the extracted blueprint, outcomes, syllabus and starter assessment while the original document remains attached. If AI is unavailable, safe rule-based extraction continues.</p><div className="manual-import-notes"><span><CheckCircle2 /> New course defaults to self-enrolment</span><span><CheckCircle2 /> Enrolment and certificate default to free</span><span><ShieldCheck /> Facilitator review remains compulsory</span></div></div>
-        <div className="manual-import-actions"><label><Upload /><b>{manualFile?.name ?? "Choose course manual"}</b><small>Supported formats · maximum 25 MB</small><input type="file" accept=".pdf,.docx,.txt,.md,.html,.htm,.rtf" onChange={(event) => { setManualFile(event.target.files?.[0] ?? null); setManualImportInfo(""); }} /></label><button className="dialog-primary" disabled={!manualFile || importingManual} onClick={() => void createCourseFromManual()}><Sparkles /> {importingManual ? "Extracting and designing…" : aiStatus?.openai.configured ? "Generate with OpenAI" : "Generate editable course"}</button></div>
+        <div><p className="eyebrow">COURSE MANUAL → EDITABLE COURSE DESIGN</p><h2>Generate the Studio fields from an existing manual</h2><p>Upload an accessible PDF, DOCX, TXT, Markdown, HTML or RTF manual. The platform extracts a proposed title, description, objectives, measurable outcomes, skills, syllabus sections, readable lessons and starter assessment items.</p><div className="manual-import-notes"><span><CheckCircle2 /> New course defaults to self-enrolment</span><span><CheckCircle2 /> Enrolment and certificate default to free</span><span><ShieldCheck /> Facilitator review remains compulsory</span></div></div>
+        <div className="manual-import-actions"><label><Upload /><b>{manualFile?.name ?? "Choose course manual"}</b><small>Supported formats · maximum 25 MB</small><input type="file" accept=".pdf,.docx,.txt,.md,.html,.htm,.rtf" onChange={(event) => { setManualFile(event.target.files?.[0] ?? null); setManualImportInfo(""); setPreferredManualSections(0); }} /></label><button className="dialog-primary" disabled={!manualFile || importingManual} onClick={() => void createCourseFromManual()}>{importingManual ? "Analysing the manual…" : "Analyse and review design"}</button></div>
         {manualImportInfo && <div className="manual-import-result"><CheckCircle2 /><p><b>Draft generated</b>{manualImportInfo}</p></div>}
       </section>
-        </div>
-      </details>
+
+      <Dialog open={manualReviewOpen} onOpenChange={setManualReviewOpen}>
+        <DialogContent className="manual-review-dialog">
+          <DialogHeader><p className="eyebrow">AI MANUAL DESIGN · FACILITATOR APPROVAL REQUIRED</p><DialogTitle>Review the proposed course before it enters the Studio</DialogTitle><DialogDescription>{manualReview?.extraction?.fileName} · {(manualReview?.extraction?.wordCount ?? 0).toLocaleString()} words. Nothing below is applied until you approve it.</DialogDescription></DialogHeader>
+          {manualReview && <div className="manual-review-body">
+            <section className="manual-review-control"><div><b>Number of sections or units</b><span>Choose 1–12, then regenerate the proposal from the same original file.</span></div><input aria-label="Preferred number of manual sections" type="number" min="1" max="12" value={preferredManualSections || manualReview.draft.design.sections.length} onChange={(event) => setPreferredManualSections(Math.min(12, Math.max(1, Number(event.target.value))))} /><button disabled={importingManual} onClick={() => void createCourseFromManual(preferredManualSections || manualReview.draft.design.sections.length)}><RotateCcw /> {importingManual ? "Regenerating…" : "Regenerate"}</button></section>
+
+            <section className="manual-review-group"><header><div><p className="eyebrow">1 · STRUCTURE AND HTML CONTENT</p><h3>Approve and edit unit headings</h3><p>Each checked unit becomes a Course Studio section. Its matching portion of the source is placed beneath it as readable HTML; the original uploaded file remains attached.</p></div><span>{approvedManualSections.length}/{manualReview.draft.design.sections.length} approved</span></header><div className="manual-review-list">{manualReview.draft.design.sections.map((section, index) => <article key={section.id} className={approvedManualSections.includes(section.id) ? "approved" : ""}><label className="manual-approval-check"><input type="checkbox" checked={approvedManualSections.includes(section.id)} onChange={(event) => setApprovedManualSections((items) => event.target.checked ? [...new Set([...items, section.id])] : items.filter((id) => id !== section.id))} /><span>{index + 1}</span></label><div><label>Section or unit heading<input value={section.title} onChange={(event) => setManualReview((current) => current ? { ...current, draft: { ...current.draft, design: { ...current.draft.design, sections: current.draft.design.sections.map((item) => item.id === section.id ? { ...item, title: event.target.value } : item) }, materials: current.draft.materials.map((item) => item.sectionId === section.id ? { ...item, sectionTitle: event.target.value, title: item.id === `manual-material-${index + 1}` ? (index === 0 ? `Start here: ${event.target.value}` : event.target.value) : item.title } : item) } } : current)} /></label><label>Purpose and scope<textarea value={section.description} onChange={(event) => setManualReview((current) => current ? { ...current, draft: { ...current.draft, design: { ...current.draft.design, sections: current.draft.design.sections.map((item) => item.id === section.id ? { ...item, description: event.target.value } : item) } } } : current)} /></label><small><FileText /> {manualReview.draft.materials.find((item) => item.sectionId === section.id)?.plainText?.split(/\s+/).filter(Boolean).length ?? 0} source words assigned to this HTML lesson</small></div></article>)}</div></section>
+
+            <section className="manual-review-group"><header><div><p className="eyebrow">2 · SUGGESTED ACTIVITIES</p><h3>Approve activities that support each unit</h3><p>Review the task and rubric summary. Only checked activities populate the Activities stage.</p></div><span>{approvedManualActivities.length}/{manualReview.draft.activities.length} approved</span></header><div className="manual-review-list compact">{manualReview.draft.activities.map((activity, index) => <article key={activity.id} className={approvedManualActivities.includes(activity.id) ? "approved" : ""}><label className="manual-approval-check"><input type="checkbox" checked={approvedManualActivities.includes(activity.id)} onChange={(event) => setApprovedManualActivities((items) => event.target.checked ? [...new Set([...items, activity.id])] : items.filter((id) => id !== activity.id))} /><span>{index + 1}</span></label><div><b>{activity.title}</b><p>{activity.instructions}</p><small><ClipboardCheck /> {activity.rubric}</small></div></article>)}</div></section>
+
+            <section className="manual-review-group"><header><div><p className="eyebrow">3 · YOUTUBE SUPPORT</p><h3>Review suggested teaching videos</h3><p>Open every link and verify academic quality, licence, captions and suitability. Search links help discovery but cannot be published as videos.</p></div><span>{approvedManualVideos.length} selected</span></header><div className="manual-review-list compact">{manualReview.videoRecommendations.map((video, index) => { const publishable = video.externalUrl.includes("watch?v="); return <article key={video.id} className={approvedManualVideos.includes(video.id) ? "approved" : ""}><label className="manual-approval-check"><input type="checkbox" disabled={!publishable} checked={approvedManualVideos.includes(video.id)} onChange={(event) => setApprovedManualVideos((items) => event.target.checked ? [...new Set([...items, video.id])] : items.filter((id) => id !== video.id))} /><span>{index + 1}</span></label><div><b>{video.title}</b><p>{video.sectionTitle} · {video.source}</p><small>{video.note}</small><a href={video.externalUrl} target="_blank" rel="noreferrer"><CirclePlay /> {publishable ? "Preview recommended video" : "Open YouTube search and choose a video"}</a></div></article>; })}</div></section>
+
+            <section className="manual-review-group"><header><div><p className="eyebrow">4 · AI-GENERATED ASSESSMENT</p><h3>Approve questions explicitly</h3><p>Checked questions populate the Assessment stage. You can edit answers, marks, feedback and outcome mapping there before academic submission.</p></div><span>{approvedManualQuestions.length}/{manualReview.draft.assessmentConfig?.questions?.length ?? 0} approved</span></header><div className="manual-review-list compact">{(manualReview.draft.assessmentConfig?.questions ?? []).map((question, index) => <article key={question.id} className={approvedManualQuestions.includes(question.id) ? "approved" : ""}><label className="manual-approval-check"><input type="checkbox" checked={approvedManualQuestions.includes(question.id)} onChange={(event) => setApprovedManualQuestions((items) => event.target.checked ? [...new Set([...items, question.id])] : items.filter((id) => id !== question.id))} /><span>{index + 1}</span></label><div><b>{question.type} · {question.points} marks</b><p>{question.prompt}</p><small><ShieldCheck /> AI draft — facilitator checking and academic approval remain required</small></div></article>)}</div></section>
+          </div>}
+          <div className="manual-review-actions"><button className="secondary-action" onClick={() => setManualReviewOpen(false)}>Keep existing Studio unchanged</button><button className="dialog-primary" onClick={applyApprovedManualDesign}><CheckCircle2 /> Approve selections and create editable course</button></div>
+        </DialogContent>
+      </Dialog>
 
       {illustrativeTemplateLoaded && <section className="illustrative-loaded-banner"><ShieldCheck /><div><b>Illustrative template loaded — not yet saved</b><p>Explore every stage and use Preview as student. Before saving for real delivery, replace the example code, title, dates, external links, files and local case evidence.</p></div><button onClick={() => setTutorialOpen(true)}>View annotations</button></section>}
 
@@ -1971,7 +1823,6 @@ function FacilitatorStudio({ email, query, setQuery }: { email: string; query: s
       </div>}
 
       {step === "assessment" && <div className="assessment-builder">
-        {aiAssessmentImportNotice && <section className="ai-assessment-import-banner"><span><CheckCircle2 /></span><div><p className="eyebrow">AI QUESTIONS IMPORTED · FACILITATOR APPROVAL REQUIRED</p><h3>Review the questions now in this Question Bank</h3><p>{aiAssessmentImportNotice}</p><ol><li>Read each prompt and verify it against the course content.</li><li>Check the answer, marking scheme, feedback and learning-outcome mapping.</li><li>Remove weak questions or add replacements before academic submission.</li></ol></div><button type="button" onClick={() => setAiAssessmentImportNotice("")}>Dismiss</button></section>}
         <div><p className="eyebrow">ASSESSMENT MODES</p><h3>Select one or more evidence methods</h3><p>Objective checks can automatically control progression. Essays and assignments use the facilitator’s marking scheme.</p></div>
         <div className="mode-grid">{[["Objective quiz", "Multiple choice, fill-in and randomized knowledge checks"], ["Video watch + answer", "Require viewing before a question unlocks"], ["Pause check", "Pause the video or lesson at a checkpoint and answer before continuing"], ["Short answer", "Brief constructed response with rubric"], ["Essay / reflection", "Analytical response tied to a local case or personal evidence"], ["Practical assignment", "Upload project, workplace, lab or portfolio evidence"], ["Viva / oral defence", "Facilitator-led oral verification of the learner's submitted work"], ["Authentic evidence", "Require calculations, screenshots, field data, source files or process evidence"]].map(([mode, detail]) => <button key={mode} className={assessmentModes.includes(mode) ? "selected" : ""} onClick={() => toggleMode(mode)}><span>{assessmentModes.includes(mode) ? <CheckCircle2 /> : <FileCheck2 />}</span><div><b>{mode}</b><p>{detail}</p></div></button>)}</div>
         <div className="gate-settings"><div><ShieldCheck /><div><b>Pause, assess understanding and continue</b><p>Stop the lesson at the checkpoint. Unlock the next activity only after the learner meets the pass mark.</p></div></div><Switch checked={gateRequired} onCheckedChange={setGateRequired} /><label>Pass mark<input type="number" value={passMark} onChange={(event) => setPassMark(Number(event.target.value))} min="1" max="100" /><span>%</span></label><label>Attempts<select value={attempts} onChange={(event) => setAttempts(event.target.value)}><option>1</option><option>2</option><option>3</option><option>Unlimited</option></select></label></div>
@@ -1980,9 +1831,9 @@ function FacilitatorStudio({ email, query, setQuery }: { email: string; query: s
         <section className="assessment-integrity-panel"><div><p className="eyebrow">ASSESSMENT INTEGRITY</p><h3>Design for demonstrated performance, not answer recall</h3><p>No online assessment can be made completely AI-proof. Use a mix of controlled video checkpoints, randomized questions, local scenarios, practical evidence, handwritten workings and short oral verification so the learner must demonstrate how the answer was produced.</p></div><div className="integrity-grid"><article><Video /><b>Watch → pause → answer</b><span>Unlock questions only after the configured video segment is viewed.</span></article><article><RotateCcw /><b>Question variation</b><span>Build a larger bank than the displayed question limit and vary prompts, data or cases.</span></article><article><Sigma /><b>Show working</b><span>Require calculations, whiteboard workings, annotated evidence or intermediate steps.</span></article><article><MessageSquareText /><b>Oral verification</b><span>Use a short viva for high-stakes tasks or suspicious/exceptional submissions.</span></article><article><FlaskConical /><b>Authentic task</b><span>Assess a practical, workplace, lab, coding or locally grounded deliverable.</span></article><article><ShieldCheck /><b>Evidence chain</b><span>Require source files, timestamps, drafts, screenshots or process notes where appropriate.</span></article></div></section>
 
         <div className="assessment-source-grid"><section><p className="eyebrow">UPLOAD QUESTION BANK</p><h3>Import test questions or marking material</h3><p>Upload CSV, Excel, Word, PDF or text files. The files are retained with the draft for facilitator and quality review.</p><label className="upload-zone compact-upload"><FileCheck2 /><b>Choose assessment files</b><span>CSV · XLSX · DOCX · PDF · TXT</span><input type="file" multiple accept=".csv,.xls,.xlsx,.doc,.docx,.pdf,.txt" onChange={(event) => handleQuestionFiles(event.target.files)} /></label>{questionFiles.length > 0 && <div className="uploaded-files">{questionFiles.map((file, index) => { const fileHref = file.key ? `/api/uploads?key=${encodeURIComponent(file.key)}` : file.url; return <article key={`${file.name}-${index}`}><FileCheck2 /><div><b>{file.name}</b><span>{file.size} · assessment source</span></div>{fileHref && <a href={fileHref} target="_blank" rel="noreferrer">Open</a>}<button onClick={() => setQuestionFiles((items) => items.filter((_, itemIndex) => itemIndex !== index))}>Remove</button></article>; })}</div>}</section>
-        <section className="question-bank-summary"><p className="eyebrow">QUESTION BANK</p><h3>{questions.length} authored question{questions.length === 1 ? "" : "s"}</h3><p>Every question can carry a correct answer, grading scheme, feedback and learner advice. Open an AI-generated question here to edit and approve its details.</p>{questions.map((question, index) => <article className={editingQuestionId === question.id ? "editing" : ""} key={question.id}><span>{index + 1}</span><div><b>{question.type} · {question.points} point{question.points === 1 ? "" : "s"}{question.whiteboardEnabled ? " · Mathematical whiteboard" : ""}</b><p>{question.prompt}</p><small>{question.outcomeIds?.length ? `${question.outcomeIds.length} outcome mapping${question.outcomeIds.length === 1 ? "" : "s"}` : "Outcome mapping required"} · {question.correctAnswer ? "Answer supplied" : "Answer requires review"}</small></div><div className="question-bank-actions"><button className="edit" onClick={() => editQuestion(question)}><Pencil /> Edit & approve</button><button onClick={() => { setQuestions((items) => items.filter((item) => item.id !== question.id)); if (editingQuestionId === question.id) setEditingQuestionId(null); }}>Remove</button></div></article>)}{questions.length === 0 && <div className="empty-state">No typed questions yet. Use the editor below or upload a question bank.</div>}</section></div>
+        <section className="question-bank-summary"><p className="eyebrow">QUESTION BANK</p><h3>{questions.length} authored question{questions.length === 1 ? "" : "s"}</h3><p>Every question can carry a correct answer, grading scheme, feedback and learner advice.</p>{questions.map((question, index) => <article key={question.id}><span>{index + 1}</span><div><b>{question.type} · {question.points} point{question.points === 1 ? "" : "s"}{question.whiteboardEnabled ? " · Mathematical whiteboard" : ""}</b><p>{question.prompt}</p></div><button onClick={() => setQuestions((items) => items.filter((item) => item.id !== question.id))}>Remove</button></article>)}{questions.length === 0 && <div className="empty-state">No typed questions yet. Use the editor below or upload a question bank.</div>}</section></div>
 
-        <section id="assessment-question-editor" className={`question-editor ${editingQuestionId ? "editing" : ""}`}><div className="editor-heading"><div><p className="eyebrow">{editingQuestionId ? "REVIEWING IMPORTED QUESTION" : "QUESTION EDITOR"}</p><h3>{editingQuestionId ? "Edit and approve this question" : "Write a question and its grading guidance"}</h3>{editingQuestionId && <button type="button" className="cancel-question-edit" onClick={() => { setEditingQuestionId(null); setQuestionPrompt(""); }}>Cancel editing</button>}</div><label>Question type<select value={questionType} onChange={(event) => { setQuestionType(event.target.value); setCorrectAnswer(""); setCorrectOptionIndex(null); }}><option>Multiple choice</option><option>True / false</option><option>Fill in</option><option>Matching</option><option>Drag and drop</option><option>Picture matching</option><option>Video question</option><option>Short answer</option><option>Essay</option><option>Scenario response</option><option>Oral defence prompt</option><option>Evidence upload prompt</option><option>Practical assignment</option></select></label></div><label>Question or task<textarea value={questionPrompt} onChange={(event) => setQuestionPrompt(event.target.value)} placeholder="Enter the question exactly as the learner should see it…" /></label><div className="outcome-mapping compact"><b>Outcomes assessed by this question</b><div>{design.outcomes.map((outcome, index) => <label key={outcome.id} className={questionOutcomeIds.includes(outcome.id) ? "selected" : ""}><input type="checkbox" checked={questionOutcomeIds.includes(outcome.id)} onChange={() => setQuestionOutcomeIds((items) => items.includes(outcome.id) ? items.filter((id) => id !== outcome.id) : [...items, outcome.id])} /><span>LO {index + 1}</span>{outcome.statement}</label>)}</div></div>
+        <section className="question-editor"><div className="editor-heading"><div><p className="eyebrow">QUESTION EDITOR</p><h3>Write a question and its grading guidance</h3></div><label>Question type<select value={questionType} onChange={(event) => { setQuestionType(event.target.value); setCorrectAnswer(""); setCorrectOptionIndex(null); }}><option>Multiple choice</option><option>True / false</option><option>Fill in</option><option>Matching</option><option>Drag and drop</option><option>Picture matching</option><option>Video question</option><option>Short answer</option><option>Essay</option><option>Scenario response</option><option>Oral defence prompt</option><option>Evidence upload prompt</option><option>Practical assignment</option></select></label></div><label>Question or task<textarea value={questionPrompt} onChange={(event) => setQuestionPrompt(event.target.value)} placeholder="Enter the question exactly as the learner should see it…" /></label><div className="outcome-mapping compact"><b>Outcomes assessed by this question</b><div>{design.outcomes.map((outcome, index) => <label key={outcome.id} className={questionOutcomeIds.includes(outcome.id) ? "selected" : ""}><input type="checkbox" checked={questionOutcomeIds.includes(outcome.id)} onChange={() => setQuestionOutcomeIds((items) => items.includes(outcome.id) ? items.filter((id) => id !== outcome.id) : [...items, outcome.id])} /><span>LO {index + 1}</span>{outcome.statement}</label>)}</div></div>
         {(questionType === "Multiple choice" || questionType === "Video question") && <div className="option-editor correct-option-editor">{questionOptions.map((option, index) => <label key={index}><span><input type="radio" name="correct-option" checked={correctOptionIndex === index} onChange={() => setCorrectOptionIndex(index)} /> Correct</span>Option {String.fromCharCode(65 + index)}<input value={option} onChange={(event) => setQuestionOptions((items) => items.map((item, itemIndex) => itemIndex === index ? event.target.value : item))} placeholder={`Answer option ${index + 1}`} /></label>)}</div>}
         {questionType === "True / false" && <div className="truth-selector"><label><input type="radio" name="correct-truth" checked={correctAnswer === "True"} onChange={() => setCorrectAnswer("True")} /> True is correct</label><label><input type="radio" name="correct-truth" checked={correctAnswer === "False"} onChange={() => setCorrectAnswer("False")} /> False is correct</label></div>}
         {["Fill in", "Short answer", "Essay", "Scenario response", "Oral defence prompt", "Evidence upload prompt", "Practical assignment"].includes(questionType) && <label>{questionType === "Fill in" ? "Exact accepted answer" : "Model answer / key points"}<textarea value={correctAnswer} onChange={(event) => setCorrectAnswer(event.target.value)} placeholder={questionType === "Fill in" ? "Type the word or phrase accepted as correct" : "Enter the correct response or model answer…"} /></label>}
@@ -1990,7 +1841,7 @@ function FacilitatorStudio({ email, query, setQuery }: { email: string; query: s
         {questionType === "Video question" && <div className="video-question-editor"><label>Video link<input value={questionVideoUrl} onChange={(event) => setQuestionVideoUrl(event.target.value)} placeholder="Paste YouTube or direct video link" /></label><label>Required viewing<select value={videoMode} onChange={(event) => setVideoMode(event.target.value as typeof videoMode)}><option value="whole">Whole video</option><option value="part">Selected part</option><option value="pause">Pause and answer</option></select></label><label>Start at second<input type="number" min="0" value={videoStart} onChange={(event) => setVideoStart(Math.max(0, Number(event.target.value)))} /></label><label>Questions appear at second<input type="number" min="1" value={videoEnd} onChange={(event) => setVideoEnd(Math.max(videoStart + 1, Number(event.target.value)))} /></label><p><Video /> The learner must finish the configured whole video or segment before this question becomes visible.</p></div>}
         <div className={`whiteboard-setting ${whiteboardEnabled ? "enabled" : ""}`}><span><Sigma /></span><div><b>Mathematical working whiteboard</b><p>Add a drawing board to this question. Learners can write calculations, convert supported handwriting to editable text and correct the transcription before submitting.</p></div><Switch checked={whiteboardEnabled} onCheckedChange={setWhiteboardEnabled} /></div>
         <label className="points-field">Marks / points<input type="number" value={questionPoints} onChange={(event) => setQuestionPoints(Math.max(1, Number(event.target.value)))} min="1" /></label>
-        <label>Marking scheme or rubric<textarea value={markingScheme} onChange={(event) => setMarkingScheme(event.target.value)} placeholder="State the criteria, expected evidence and allocation of marks…" /></label><div className="editor-form-grid"><label>Feedback when correct<textarea value={feedbackCorrect} onChange={(event) => setFeedbackCorrect(event.target.value)} /></label><label>Feedback when incorrect<textarea value={feedbackIncorrect} onChange={(event) => setFeedbackIncorrect(event.target.value)} /></label></div><label>Learner advice and next-step guidance<textarea value={learnerAdvice} onChange={(event) => setLearnerAdvice(event.target.value)} placeholder="Explain what the learner should review or practise next…" /></label><button className="secondary-action add-question" disabled={!editingQuestionId && questions.length >= questionLimit} onClick={addQuestion}><FileCheck2 /> {editingQuestionId ? "Save and approve question" : questions.length >= questionLimit ? `Question limit reached (${questionLimit})` : `Add question ${questions.length + 1} of ${questionLimit}`}</button></section>
+        <label>Marking scheme or rubric<textarea value={markingScheme} onChange={(event) => setMarkingScheme(event.target.value)} placeholder="State the criteria, expected evidence and allocation of marks…" /></label><div className="editor-form-grid"><label>Feedback when correct<textarea value={feedbackCorrect} onChange={(event) => setFeedbackCorrect(event.target.value)} /></label><label>Feedback when incorrect<textarea value={feedbackIncorrect} onChange={(event) => setFeedbackIncorrect(event.target.value)} /></label></div><label>Learner advice and next-step guidance<textarea value={learnerAdvice} onChange={(event) => setLearnerAdvice(event.target.value)} placeholder="Explain what the learner should review or practise next…" /></label><button className="secondary-action add-question" disabled={questions.length >= questionLimit} onClick={addQuestion}><FileCheck2 /> {questions.length >= questionLimit ? `Question limit reached (${questionLimit})` : `Add question ${questions.length + 1} of ${questionLimit}`}</button></section>
         <button className="dialog-primary align-right" disabled={!stepComplete(studioSteps[4])} onClick={() => setStep("review")}>Review course structure <ChevronRight /></button>
       </div>}
 
@@ -2025,35 +1876,6 @@ function FacilitatorStudio({ email, query, setQuery }: { email: string; query: s
         <div className="release-rule"><ShieldCheck /><p><b>Progress rule</b>{gateRequired ? "Learners must meet the pass mark before the next activity unlocks." : "Activities are available without a required assessment gate."}</p></div>
       </details>
     </aside>
-
-    <Dialog open={aiReviewOpen} onOpenChange={setAiReviewOpen}><DialogContent className="ai-review-dialog"><DialogHeader><p className="eyebrow">OPENAI COURSE-DESIGN REVIEW</p><DialogTitle>Choose which recommendations to apply</DialogTitle><DialogDescription>Compare the proposal with your current draft. Applying a group updates only the unsaved editor state; it does not publish or approve the course.</DialogDescription></DialogHeader>
-      {aiSuggestion && <div className="ai-review-content">
-        <section className="ai-review-rationale"><Sparkles /><div><b>Instructional-design rationale</b><p>{aiSuggestion.rationale}</p></div></section>
-        <label className={aiApplyGroups.blueprint ? "selected" : ""}><input type="checkbox" checked={aiApplyGroups.blueprint} onChange={(event) => setAiApplyGroups((current) => ({ ...current, blueprint: event.target.checked }))} /><div><b>Blueprint and learner positioning</b><span>{aiSuggestion.title}</span><p>{aiSuggestion.description}</p><small>{aiSuggestion.discipline} · {aiSuggestion.intendedAudience}</small></div></label>
-        <label className={aiApplyGroups.outcomes ? "selected" : ""}><input type="checkbox" checked={aiApplyGroups.outcomes} onChange={(event) => setAiApplyGroups((current) => ({ ...current, outcomes: event.target.checked }))} /><div><b>Objectives, outcomes, skills and syllabus</b><span>{aiSuggestion.objectives.length} objectives · {aiSuggestion.outcomes.length} measurable outcomes · {aiSuggestion.sections.length} sections</span><ol>{aiSuggestion.outcomes.slice(0, 4).map((outcome) => <li key={outcome.id}>{outcome.statement}<small>{outcome.skill} · {outcome.assessmentMethod}</small></li>)}</ol></div></label>
-        <section className={`ai-assessment-approval ${aiApplyGroups.assessment ? "selected" : ""}`}>
-          <header><label><input type="checkbox" checked={aiApplyGroups.assessment} onChange={(event) => setAiApplyGroups((current) => ({ ...current, assessment: event.target.checked }))} /><span><b>Assessment-question starter set</b><small>Approve individual questions before importing them into Assessment → Question Bank.</small></span></label><em>{aiQuestionSelection.length}/{aiSuggestion.assessmentQuestions.length} selected</em></header>
-          {aiApplyGroups.assessment && <>
-            <div className="ai-assessment-approval-toolbar"><div><b>Step 1 · Select questions to import</b><span>AI suggestions are drafts. Expand each item to check its answer and marking guidance.</span></div><span><button type="button" onClick={() => setAiQuestionSelection(aiSuggestion.assessmentQuestions.map((_, index) => index))}>Select all</button><button type="button" onClick={() => setAiQuestionSelection([])}>Clear</button></span></div>
-            <div className="ai-question-review-list">{aiSuggestion.assessmentQuestions.map((question, index) => { const selected = aiQuestionSelection.includes(index); return <article className={selected ? "selected" : ""} key={`${question.prompt}-${index}`}><label><input type="checkbox" checked={selected} onChange={() => setAiQuestionSelection((current) => current.includes(index) ? current.filter((item) => item !== index) : [...current, index])} /><span><b>{index + 1}. {question.prompt}</b><small>{question.type} · {question.points} mark{question.points === 1 ? "" : "s"} · {(question.outcomeIds ?? []).join(", ") || "Outcome mapping required"}</small></span></label><details><summary>Review answer and marking guidance</summary><div><p><b>Answer / model response</b>{question.correctAnswer || "Facilitator must add an answer."}</p><p><b>Marking guidance</b>{question.scheme || "Facilitator must add marking guidance."}</p><p><b>Learner feedback</b>{question.feedbackCorrect || question.feedbackIncorrect || "Facilitator must add feedback."}</p></div></details></article>; })}</div>
-            <fieldset className="ai-assessment-import-mode"><legend>Step 2 · Choose where approved questions go</legend><label><input type="radio" name="ai-assessment-mode" value="replace" checked={aiAssessmentMode === "replace"} onChange={() => setAiAssessmentMode("replace")} /><span><b>Replace current Question Bank</b><small>Use the approved AI set as the new assessment draft.</small></span></label><label><input type="radio" name="ai-assessment-mode" value="append" checked={aiAssessmentMode === "append"} onChange={() => setAiAssessmentMode("append")} /><span><b>Add to current Question Bank</b><small>Keep existing questions and add the approved AI questions after them.</small></span></label></fieldset>
-            <div className="ai-assessment-destination"><FileCheck2 /><p><b>Step 3 · Approve and import</b>The button below places selected questions in <strong>Assessment → Question Bank</strong> and opens that stage. Nothing is published until the normal UCC review is approved.</p></div>
-          </>}
-        </section>
-        <section className="ai-review-warning"><ShieldCheck /><p><b>Academic control remains with people.</b>Confirm accuracy against source material, remove unsupported claims, verify copyright and accessibility, test each question, preview as a learner and submit through the normal UCC review workflow.</p></section>
-      </div>}
-      <div className="publish-actions"><button className="secondary-action" onClick={() => setAiReviewOpen(false)}>Keep current draft</button><button className="dialog-primary" disabled={!aiSuggestion || (!aiApplyGroups.blueprint && !aiApplyGroups.outcomes && (!aiApplyGroups.assessment || aiQuestionSelection.length === 0))} onClick={applyAiDesignSuggestion}><CheckCircle2 /> {aiApplyGroups.assessment ? `Approve and import ${aiQuestionSelection.length} question${aiQuestionSelection.length === 1 ? "" : "s"}` : "Apply selected recommendations"}</button></div>
-    </DialogContent></Dialog>
-
-    <Dialog open={mediaReviewOpen} onOpenChange={setMediaReviewOpen}><DialogContent className="ai-media-review-dialog"><DialogHeader><p className="eyebrow">GEMINI FLASH · VIDEO AND AUDIO REVIEW</p><DialogTitle>{mediaAnalysis?.title || "Media analysis"}</DialogTitle><DialogDescription>Inspect the transcript, chapters and question suggestions before adding any of them to the course.</DialogDescription></DialogHeader>
-      {mediaAnalysis && <div className="ai-media-review-content"><section><b>Learning summary</b><p>{mediaAnalysis.summary}</p><small>Detected language: {mediaAnalysis.language}</small></section><section><b>Chapters</b><div className="ai-media-chapters">{mediaAnalysis.chapters.map((chapter, index) => <article key={`${chapter.startTime}-${index}`}><span>{chapter.startTime}–{chapter.endTime}</span><b>{chapter.title}</b><p>{chapter.summary}</p></article>)}</div></section><details><summary>Review timestamped transcript</summary><textarea value={resourceTranscript} onChange={(event) => { setResourceTranscript(event.target.value); setTranscriptSource("Facilitator edited Gemini transcript"); }} /></details><section className="ai-review-warning"><ShieldCheck /><p><b>Verification required.</b>Check the transcript against the recording, verify timestamps and names, review copyright and confirm every answer before publishing.</p></section></div>}
-      <div className="publish-actions"><button className="secondary-action" onClick={() => setMediaReviewOpen(false)}>Keep for review</button><button className="dialog-primary" disabled={!mediaAnalysis} onClick={() => { const added = addMediaAssessmentQuestions(); if (added > 0) { setAiAssessmentImportNotice(`${added} media-based AI question${added === 1 ? " was" : "s were"} added to the Question Bank. Review every answer, timestamp, mark and outcome mapping before submission.`); setMediaReviewOpen(false); setStep("assessment"); } }}><FileCheck2 /> Approve & import to Question Bank</button></div>
-    </DialogContent></Dialog>
-
-    <Dialog open={ideaReviewOpen} onOpenChange={setIdeaReviewOpen}><DialogContent className="idea-review-dialog"><DialogHeader><p className="eyebrow">AI-GENERATED COURSE · FACILITATOR REVIEW</p><DialogTitle>Draft created; now verify sources and activities</DialogTitle><DialogDescription>The blueprint, lessons and assessment questions are already in the unsaved Studio. These recommendations help you complete resource and activity selection.</DialogDescription></DialogHeader>
-      <div className="idea-review-content"><section className="ai-review-rationale"><Sparkles /><div><b>Why the course was structured this way</b><p>{ideaRationale}</p></div></section><section><header><div><b>Suggested video and open-resource searches</b><p>AI proposes search terms, not unverified links. Open a search and approve only relevant, accessible and correctly licensed material.</p></div><span>{ideaResourceSuggestions.length}</span></header><div className="idea-suggestion-list">{ideaResourceSuggestions.map((suggestion, index) => <article key={`${suggestion.searchQuery}-${index}`}><span>{suggestion.type}</span><div><b>{suggestion.title}</b><p>{suggestion.reason}</p><small>{suggestion.preferredSource} · {suggestion.licenceRequirement}</small></div><button onClick={() => void searchSuggestedResource(suggestion)}>Search and verify</button></article>)}</div></section><section><header><div><b>Suggested learning activities</b><p>Move one into the relevant editor, then adapt its instructions, evidence and rubric.</p></div><span>{ideaActivitySuggestions.length}</span></header><div className="idea-suggestion-list">{ideaActivitySuggestions.map((suggestion, index) => <article key={`${suggestion.title}-${index}`}><span>{suggestion.type.replaceAll("_", " ")}</span><div><b>{suggestion.title}</b><p>{suggestion.instructions}</p><small>{suggestion.required ? "Required" : "Optional"} · Evidence: {suggestion.evidence}</small></div><button onClick={() => prepareSuggestedActivity(suggestion)}>Prepare in editor</button></article>)}</div></section><section className="ai-review-warning"><ShieldCheck /><p><b>The course is not approved or published.</b>Work through all six Studio stages, mark accessibility checks only after inspection, preview the learner journey and submit the completed version for UCC academic review.</p></section></div>
-      <div className="publish-actions"><button className="secondary-action" onClick={() => { setIdeaReviewOpen(false); setStep("details"); }}>Review blueprint first</button><button className="dialog-primary" onClick={() => { setIdeaReviewOpen(false); setStep("content"); }}><BookOpen /> Review generated lessons</button></div>
-    </DialogContent></Dialog>
 
     <Dialog open={tutorialOpen} onOpenChange={setTutorialOpen}><DialogContent className="studio-tutorial-dialog"><DialogHeader><p className="eyebrow">ANNOTATED FACILITATOR TUTORIAL</p><DialogTitle>Build a review-ready UCC microcredential in six stages</DialogTitle><DialogDescription>Use the example to see what “complete” looks like. Green checks are generated from the same rules used before academic review.</DialogDescription></DialogHeader>
       <div className="studio-tutorial-callout"><ShieldCheck /><div><b>Safe to explore</b><p>Loading the example replaces only the unsaved editor state. Nothing enters your portfolio until you choose Save draft.</p></div></div>
