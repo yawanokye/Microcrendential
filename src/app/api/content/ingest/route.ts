@@ -16,6 +16,25 @@ const placement = (form: FormData) => ({
   outcomeIds: clean(form, "outcomeIds", 2000).split(",").map((item) => item.trim()).filter(Boolean).slice(0, 20),
 });
 
+const inlineAssetKeys = (form: FormData) => clean(form, "inlineAssetKeys", 12_000)
+  .split(",")
+  .map((item) => item.trim())
+  .filter((item) => /^course-materials\/[a-zA-Z0-9/_\-.]+$/.test(item))
+  .slice(0, 40);
+
+function videoUrls(rawUrl: string) {
+  const parsed = new URL(rawUrl); const hostname = parsed.hostname.toLowerCase().replace(/^www\./, "");
+  let videoId = "";
+  if (hostname === "youtu.be") videoId = parsed.pathname.split("/").filter(Boolean)[0] ?? "";
+  if (hostname.endsWith("youtube.com")) videoId = parsed.searchParams.get("v") || parsed.pathname.match(/\/(?:embed|shorts)\/([a-zA-Z0-9_-]{6,})/)?.[1] || "";
+  if (/^[a-zA-Z0-9_-]{6,20}$/.test(videoId)) return { embedUrl: `https://www.youtube-nocookie.com/embed/${videoId}`, externalUrl: `https://www.youtube.com/watch?v=${videoId}` };
+  if (hostname === "vimeo.com" || hostname.endsWith(".vimeo.com")) {
+    const vimeoId = parsed.pathname.match(/\/(\d{6,12})(?:$|\/)/)?.[1];
+    if (vimeoId) return { embedUrl: `https://player.vimeo.com/video/${vimeoId}`, externalUrl: `https://vimeo.com/${vimeoId}` };
+  }
+  return { embedUrl: parsed.toString(), externalUrl: parsed.toString() };
+}
+
 const titleFromUrl = (url: URL) => url.pathname.split("/").filter(Boolean).at(-1)?.replace(/[-_]/g, " ") || url.hostname;
 
 export async function POST(request: Request) {
@@ -33,7 +52,7 @@ export async function POST(request: Request) {
     const inputFormat = clean(form, "inputFormat", 20);
     const readableHtml = inputFormat === "html" ? sanitizeReadableHtml(input) : textToReadableHtml(input);
     const plainText = plainTextFromHtml(readableHtml);
-    material = { id: crypto.randomUUID(), title: requestedTitle || "Readable lesson", kind: "Read", source: sourceLabel, readableHtml, plainText, estimatedMinutes: Math.max(1, Math.ceil(plainText.split(/\s+/).filter(Boolean).length / 200)), accessibilityChecked: true, license: clean(form, "license", 200) || "Course-authored content", ...location };
+    material = { id: crypto.randomUUID(), title: requestedTitle || "Readable lesson", kind: "Read", source: sourceLabel, readableHtml, plainText, inlineAssetKeys: inlineAssetKeys(form), estimatedMinutes: Math.max(1, Math.ceil(plainText.split(/\s+/).filter(Boolean).length / 200)), accessibilityChecked: true, license: clean(form, "license", 200) || "Course-authored content", ...location };
   } else if (mode === "file") {
     const file = form.get("file");
     if (!(file instanceof File)) return Response.json({ error: "Choose a course document or media file." }, { status: 400 });
@@ -50,6 +69,12 @@ export async function POST(request: Request) {
     const kind = extension === "pdf" || readableHtml ? "Read" : file.type.startsWith("video/") || file.type.startsWith("audio/") ? "Watch" : "Download";
     material = { id: crypto.randomUUID(), title: requestedTitle || file.name.replace(/\.[^.]+$/, ""), kind, source: sourceLabel, fileKey, fileName: file.name, mimeType, readableHtml: readableHtml || undefined, plainText: plainText || undefined, estimatedMinutes: Math.max(1, Math.ceil((plainText.split(/\s+/).filter(Boolean).length || 200) / 200)), accessibilityChecked: plainText.length >= 80, license: clean(form, "license", 200) || "Institution-supplied learning material", ...location };
     return Response.json({ material, conversionNote: note }, { status: 201 });
+  } else if (mode === "video") {
+    const rawUrl = clean(form, "url", 3000); if (!rawUrl) return Response.json({ error: "Paste a YouTube, Vimeo or public video link." }, { status: 400 });
+    try {
+      const url = await validatePublicHttpUrl(rawUrl); const links = videoUrls(url.toString()); const transcript = String(form.get("transcript") ?? "").trim().slice(0, 120_000);
+      material = { id: crypto.randomUUID(), title: requestedTitle || "Supporting video", kind: "Watch", source: sourceLabel || url.hostname, url: links.embedUrl, externalUrl: links.externalUrl, estimatedMinutes: Math.max(1, Number(clean(form, "estimatedMinutes", 4)) || 10), accessibilityChecked: Boolean(transcript), license: clean(form, "license", 200) || "External video; licence and attribution review required", transcript: transcript || undefined, transcriptLanguage: transcript ? "English" : undefined, transcriptSource: transcript ? "Facilitator supplied" : undefined, transcriptPublished: Boolean(transcript), ...location };
+    } catch (reason) { return Response.json({ error: reason instanceof Error ? reason.message : "The video link could not be embedded." }, { status: 422 }); }
   } else if (mode === "url") {
     const rawUrl = clean(form, "url", 3000); if (!rawUrl) return Response.json({ error: "Paste a public learning-resource link." }, { status: 400 });
     try {

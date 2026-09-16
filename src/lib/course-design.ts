@@ -42,6 +42,7 @@ export type CourseMaterialRecord = {
   fileKey?: string;
   fileName?: string;
   mimeType?: string;
+  inlineAssetKeys?: string[];
   readableHtml?: string;
   plainText?: string;
   sectionId?: string;

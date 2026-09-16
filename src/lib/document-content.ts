@@ -1,7 +1,7 @@
 import { inflateRawSync, inflateSync } from "node:zlib";
 
 const MAX_READABLE_CHARACTERS = 300_000;
-const allowedTags = new Set(["p", "h1", "h2", "h3", "h4", "h5", "h6", "ul", "ol", "li", "blockquote", "pre", "code", "strong", "b", "em", "i", "u", "br", "hr", "table", "thead", "tbody", "tr", "th", "td", "a"]);
+const allowedTags = new Set(["p", "h1", "h2", "h3", "h4", "h5", "h6", "ul", "ol", "li", "blockquote", "pre", "code", "strong", "b", "em", "i", "u", "br", "hr", "table", "thead", "tbody", "tr", "th", "td", "a", "figure", "figcaption", "img"]);
 
 export const escapeHtml = (value: string) => value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
 
@@ -30,6 +30,14 @@ export function sanitizeReadableHtml(value: string) {
       const href = decodeEntities(hrefMatch?.[1] || hrefMatch?.[2] || hrefMatch?.[3] || "").trim();
       if (/^https?:\/\//i.test(href)) return `<a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">`;
       return "<a>";
+    }
+    if (name === "img") {
+      const srcMatch = tag.match(/\bsrc\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i);
+      const altMatch = tag.match(/\balt\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i);
+      const src = decodeEntities(srcMatch?.[1] || srcMatch?.[2] || srcMatch?.[3] || "").trim();
+      const alt = decodeEntities(altMatch?.[1] || altMatch?.[2] || altMatch?.[3] || "Learning illustration").trim().slice(0, 240);
+      const safeSource = /^https:\/\//i.test(src) || /^\/api\/course-materials\?key=course-materials%2F[a-zA-Z0-9%_.\/-]+$/i.test(src);
+      return safeSource ? `<img src="${escapeHtml(src)}" alt="${escapeHtml(alt)}" loading="lazy">` : "";
     }
     return `<${name}>`;
   }).slice(0, MAX_READABLE_CHARACTERS);

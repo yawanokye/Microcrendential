@@ -28,12 +28,15 @@ function normalizeMaterials(value: unknown): CourseMaterialRecord[] {
     const plainText = plainTextFromHtml(readableHtml) || String(item.plainText ?? "").trim().slice(0, 300_000);
     const outcomeIds = Array.isArray(item.outcomeIds) ? item.outcomeIds.map((outcome) => String(outcome).slice(0, 80)).filter(Boolean).slice(0, 20) : [];
     const fileKey = /^course-materials\/[a-zA-Z0-9/_\-.]+$/.test(String(item.fileKey ?? "")) ? String(item.fileKey) : undefined;
+    const inlineAssetKeys = Array.isArray(item.inlineAssetKeys)
+      ? item.inlineAssetKeys.map(String).filter((key) => /^course-materials\/[a-zA-Z0-9/_\-.]+$/.test(key)).slice(0, 40)
+      : [];
     const url = normalizeUrl(item.url);
     const hasOriginalFile = Boolean(fileKey || item.fileName || item.mimeType);
     return {
       id: String(item.id || `material-${index + 1}`).slice(0, 80), title: String(item.title || "Untitled learning block").trim().slice(0, 240),
       kind: String(item.kind || "Read").trim().slice(0, 50), source: String(item.source || "Course author").trim().slice(0, 240),
-      url, externalUrl: normalizeUrl(item.externalUrl), fileKey,
+      url, externalUrl: normalizeUrl(item.externalUrl), fileKey, inlineAssetKeys: inlineAssetKeys.length ? inlineAssetKeys : undefined,
       fileName: hasOriginalFile ? String(item.fileName || "course-material").slice(0, 240) : undefined,
       mimeType: hasOriginalFile ? String(item.mimeType || "application/octet-stream").slice(0, 120) : undefined,
       readableHtml: readableHtml || undefined, plainText: plainText || undefined,

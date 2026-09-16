@@ -7,7 +7,11 @@ type CandidateCourse = { created_by_email: string; status: string; materials_jso
 function containsFileKey(materialsJson: string, key: string) {
   try {
     const materials = JSON.parse(materialsJson || "[]") as unknown;
-    return Array.isArray(materials) && materials.some((item) => item && typeof item === "object" && (item as { fileKey?: unknown }).fileKey === key);
+    return Array.isArray(materials) && materials.some((item) => {
+      if (!item || typeof item !== "object") return false;
+      const material = item as { fileKey?: unknown; inlineAssetKeys?: unknown };
+      return material.fileKey === key || (Array.isArray(material.inlineAssetKeys) && material.inlineAssetKeys.includes(key));
+    });
   } catch {
     return false;
   }

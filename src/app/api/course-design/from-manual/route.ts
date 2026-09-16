@@ -37,58 +37,11 @@ function deriveOutcomes(objectives: string[]): LearningOutcome[] {
   });
 }
 
-function deriveSections(text: string, preferredCount?: number) {
+function deriveSections(text: string) {
   const headingLines = text.split(/\n+/).map(cleanLine).filter((line) => line.length >= 4 && line.length <= 100 && (/^(module|unit|chapter|section|topic|part)\s+\w+/i.test(line) || /^[A-Z][A-Z\s&:,()-]{5,}$/.test(line)));
-  const titles = [...new Set(headingLines.map((line) => titleCase(line.toLowerCase())))].slice(0, 12);
-  const fallbackTitles = ["Orientation and foundations", "Core concepts", "Guided practice", "Professional application", "Evidence and reflection", "Assessment and next steps"];
-  const requested = preferredCount ? Math.min(12, Math.max(1, preferredCount)) : Math.min(12, Math.max(3, titles.length));
-  const finalTitles = Array.from({ length: requested }, (_, index) => titles[index] || fallbackTitles[index] || `Learning unit ${index + 1}`);
+  const titles = [...new Set(headingLines.map((line) => titleCase(line.toLowerCase())))].slice(0, 6);
+  const finalTitles = titles.length >= 2 ? titles : ["Orientation and foundations", "Core concepts and guided practice", "Application and assessment"];
   return finalTitles.map((title, index) => ({ id: `manual-section-${index + 1}`, title, description: `Learning from the uploaded manual organised around ${title.toLowerCase()}.` }));
-}
-
-function buildActivities(sections: ReturnType<typeof deriveSections>) {
-  return sections.map((section, index) => ({
-    id: `manual-activity-${index + 1}`,
-    kind: "virtual_lab" as const,
-    title: `Guided application: ${section.title}`,
-    instructions: `Use the ideas and examples in ${section.title} to complete a short authentic task. Record the decision you made, the evidence from the manual that informed it, and one improvement you would make after feedback.`,
-    required: false,
-    passMark: 60,
-    attemptsAllowed: 2,
-    maxMark: 100,
-    rubric: "Assess accurate use of the section, quality of application, supporting evidence and reflection.",
-    discipline: "All",
-  }));
-}
-
-async function recommendVideos(sections: ReturnType<typeof deriveSections>) {
-  const apiKey = process.env.YOUTUBE_API_KEY?.trim();
-  if (!apiKey) return sections.map((section, index) => ({
-    id: `manual-video-${index + 1}`,
-    sectionId: section.id,
-    sectionTitle: section.title,
-    title: `Find an open teaching video for ${section.title}`,
-    source: "YouTube search",
-    url: `https://www.youtube.com/results?search_query=${encodeURIComponent(`${section.title} educational lecture`)}`,
-    externalUrl: `https://www.youtube.com/results?search_query=${encodeURIComponent(`${section.title} educational lecture`)}`,
-    note: "Review the presenter, accuracy, licence, captions and accessibility before approving this resource.",
-  }));
-
-  return Promise.all(sections.map(async (section, index) => {
-    try {
-      const endpoint = new URL("https://www.googleapis.com/youtube/v3/search");
-      endpoint.searchParams.set("part", "snippet"); endpoint.searchParams.set("type", "video"); endpoint.searchParams.set("maxResults", "1");
-      endpoint.searchParams.set("safeSearch", "strict"); endpoint.searchParams.set("q", `${section.title} educational lecture`); endpoint.searchParams.set("key", apiKey);
-      const response = await fetch(endpoint, { signal: AbortSignal.timeout(8_000) });
-      const data = await response.json() as { items?: { id?: { videoId?: string }; snippet?: { title?: string; channelTitle?: string } }[] };
-      const item = response.ok ? data.items?.[0] : undefined; const videoId = item?.id?.videoId;
-      if (!videoId) throw new Error("No reviewed result");
-      return { id: `manual-video-${index + 1}`, sectionId: section.id, sectionTitle: section.title, title: item?.snippet?.title || section.title, source: `${item?.snippet?.channelTitle || "YouTube"} · YouTube`, url: `https://www.youtube-nocookie.com/embed/${videoId}`, externalUrl: `https://www.youtube.com/watch?v=${videoId}`, note: "AI-discovered recommendation. Facilitator review of accuracy, licence and captions is required." };
-    } catch {
-      const searchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(`${section.title} educational lecture`)}`;
-      return { id: `manual-video-${index + 1}`, sectionId: section.id, sectionTitle: section.title, title: `Find an open teaching video for ${section.title}`, source: "YouTube search", url: searchUrl, externalUrl: searchUrl, note: "Review the presenter, accuracy, licence, captions and accessibility before approving this resource." };
-    }
-  }));
 }
 
 function sectionBodies(html: string, text: string, count: number) {
@@ -137,7 +90,6 @@ export async function POST(request: Request) {
   if (account.error || !account.profile) return account.error;
   const form = await request.formData();
   const file = form.get("file");
-  const preferredSections = Math.min(12, Math.max(1, Number(form.get("preferredSections")) || 0)) || undefined;
   if (!(file instanceof File)) return Response.json({ error: "Choose a PDF, DOCX, text, Markdown, HTML or RTF course manual." }, { status: 400 });
   if (file.size > 25 * 1024 * 1024) return Response.json({ error: "Course manuals must be 25 MB or smaller." }, { status: 413 });
   const extension = file.name.toLowerCase().split(".").pop() ?? "";
@@ -151,7 +103,7 @@ export async function POST(request: Request) {
   const title = candidateTitle(extracted.text, file.name);
   const extractedObjectives = extractObjectives(extracted.text);
   const outcomes = deriveOutcomes(extractedObjectives);
-  const sections = deriveSections(extracted.text, preferredSections);
+  const sections = deriveSections(extracted.text);
   const design = {
     ...defaultCourseDesign(),
     enrolmentMode: "open" as const,
@@ -169,8 +121,6 @@ export async function POST(request: Request) {
   const descriptionSource = sentences(extracted.text).slice(0, 4).join(" ");
   const description = (descriptionSource.length >= 80 ? descriptionSource : `This microcredential uses the uploaded facilitator manual to build practical understanding and assess authentic application of ${title}.`).slice(0, 1200);
   const materials = buildMaterials(extracted.html, extracted.text, sections, outcomes, { key: fileKey, name: file.name, type: file.type || "application/octet-stream" }, account.profile.full_name || account.profile.email);
-  const activities = buildActivities(sections);
-  const videoRecommendations = await recommendVideos(sections);
   const questions = outcomes.slice(0, 3).map((outcome, index) => ({
     id: `manual-question-${index + 1}`,
     type: index === 0 ? "Short answer" : "Scenario response",
@@ -191,7 +141,7 @@ export async function POST(request: Request) {
       description,
       design,
       materials,
-      activities,
+      activities: [],
       assessmentModes: ["Objective quiz", "Applied assignment"],
       assessmentConfig: { passMark: 60, attempts: "2 attempts", questions, questionFiles: [] },
       gateRequired: true,
@@ -199,7 +149,6 @@ export async function POST(request: Request) {
       certificateEnabled: true,
     },
     extraction: { fileName: file.name, wordCount: extracted.wordCount, conversionNote: extracted.note },
-    videoRecommendations,
     warning: "Automatic extraction creates an editable draft, not an approved course. The facilitator must verify the title, objectives, outcomes, sequencing, accessibility, assessment answers, copyright and attribution before submission.",
   }, { status: 201 });
 }
