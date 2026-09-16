@@ -14,3 +14,18 @@ test("Course Studio AI status reports readiness without exposing credentials", (
     else process.env.OPENAI_API_KEY = previousKey;
   }
 });
+
+test("Course Studio AI timeout is configurable and safely bounded", () => {
+  const previousTimeout = process.env.COURSE_AI_TIMEOUT_SECONDS;
+  try {
+    delete process.env.COURSE_AI_TIMEOUT_SECONDS;
+    assert.equal(courseAiStatus().timeoutSeconds, 120);
+    process.env.COURSE_AI_TIMEOUT_SECONDS = "10";
+    assert.equal(courseAiStatus().timeoutSeconds, 45);
+    process.env.COURSE_AI_TIMEOUT_SECONDS = "600";
+    assert.equal(courseAiStatus().timeoutSeconds, 180);
+  } finally {
+    if (previousTimeout === undefined) delete process.env.COURSE_AI_TIMEOUT_SECONDS;
+    else process.env.COURSE_AI_TIMEOUT_SECONDS = previousTimeout;
+  }
+});

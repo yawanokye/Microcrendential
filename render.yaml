@@ -27,6 +27,8 @@ services:
         sync: false
       - key: COURSE_AI_PROVIDER
         value: auto
+      - key: COURSE_AI_TIMEOUT_SECONDS
+        value: 120
       - key: OPENAI_API_KEY
         sync: false
       - key: OPENAI_COURSE_MODEL
