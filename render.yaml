@@ -25,6 +25,20 @@ services:
         value: https://ucc-microcredential-platform.onrender.com
       - key: PAYSTACK_SECRET_KEY
         sync: false
+      - key: COURSE_AI_PROVIDER
+        value: auto
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_COURSE_MODEL
+        value: gpt-5-mini
+      - key: GOOGLE_CLOUD_PROJECT
+        sync: false
+      - key: GOOGLE_CLOUD_LOCATION
+        value: global
+      - key: GOOGLE_VERTEX_MODEL
+        value: gemini-2.5-flash
+      - key: GOOGLE_VERTEX_SERVICE_ACCOUNT_BASE64
+        sync: false
     disk:
       name: ucc-platform-data
       mountPath: /var/data

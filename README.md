@@ -150,6 +150,15 @@ Learners may attach an optional video, image or PDF evidence file up to 25 MB. O
 | `DATA_DIR` | Yes on Render | Database and protected-upload directory; configured as `/var/data` |
 | `SQLITE_PATH` | Yes on Render | Explicit persistent database path; configured as `/var/data/ucc-microcredentials.sqlite` |
 | `PORT` | Render-managed | HTTP listening port; the Blueprint uses `10000` |
+| `COURSE_AI_PROVIDER` | No | `auto`, `openai` or `vertex`; `auto` uses the available approved provider |
+| `OPENAI_API_KEY` | For OpenAI | Server-side OpenAI API key used only by Course Studio |
+| `OPENAI_COURSE_MODEL` | For OpenAI | OpenAI model used for course proposals; defaults to `gpt-5-mini` |
+| `GOOGLE_CLOUD_PROJECT` | For Vertex AI | Google Cloud project containing Vertex AI |
+| `GOOGLE_CLOUD_LOCATION` | For Vertex AI | Vertex region; defaults to `global` |
+| `GOOGLE_VERTEX_MODEL` | For Vertex AI | Gemini model identifier used for text, YouTube, audio and video analysis |
+| `GOOGLE_VERTEX_SERVICE_ACCOUNT_BASE64` | For Vertex AI | Complete service-account JSON file encoded as one uninterrupted base64 value |
+
+The **AI-assisted Course Studio** displays provider readiness and supports a synopsis, searchable manual, public YouTube link, direct audio/video upload, or improvement of the currently open draft. Every result opens in a facilitator approval preview. Generated sections and selected assessment questions populate the six-stage Studio only after approval; they never publish directly.
 
 ## Data persistence and backups
 
