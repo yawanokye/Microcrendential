@@ -70,6 +70,7 @@ export async function POST(request: Request) {
   } catch (error) {
     const message = error instanceof Error ? error.message : "The AI course proposal could not be generated.";
     const timeout = /timeout|aborted/i.test(message);
-    return Response.json({ error: timeout ? "The AI provider did not finish within 45 seconds. Try fewer sections or a shorter source." : message }, { status: timeout ? 504 : 502 });
+    const timeoutSeconds = courseAiStatus().timeoutSeconds;
+    return Response.json({ error: timeout ? `The AI provider did not finish within ${timeoutSeconds} seconds. Your draft was not changed. Retry with fewer sections, choose another provider, or continue with manual design.` : message }, { status: timeout ? 504 : 502 });
   }
 }

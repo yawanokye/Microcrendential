@@ -102,6 +102,7 @@ const trim = (value: unknown, maximum: number) => String(value ?? "").replace(/\
 const list = (value: unknown, maximum: number, itemMaximum = 500) => Array.isArray(value) ? value.map((item) => trim(item, itemMaximum)).filter(Boolean).slice(0, maximum) : [];
 const clamp = (value: unknown, minimum: number, maximum: number, fallback: number) => Math.min(maximum, Math.max(minimum, Number(value) || fallback));
 const configured = (value: string | undefined) => Boolean(value?.trim());
+const aiTimeoutSeconds = () => clamp(process.env.COURSE_AI_TIMEOUT_SECONDS, 45, 180, 120);
 
 export function courseAiStatus() {
   const openai = configured(process.env.OPENAI_API_KEY);
@@ -109,6 +110,7 @@ export function courseAiStatus() {
   return {
     available: openai || vertex,
     defaultProvider: (process.env.COURSE_AI_PROVIDER || "auto").toLowerCase(),
+    timeoutSeconds: aiTimeoutSeconds(),
     providers: [
       { id: "openai", label: "OpenAI", configured: openai, model: process.env.OPENAI_COURSE_MODEL || "gpt-5-mini", use: "Course structure, lessons, activities and assessment design" },
       { id: "vertex", label: "Google Vertex AI", configured: vertex, model: process.env.GOOGLE_VERTEX_MODEL || "gemini-2.5-flash", use: "Text, documents, public YouTube, audio and video analysis" },
@@ -140,7 +142,7 @@ async function callOpenAi(input: GenerateInput) {
   const apiKey = process.env.OPENAI_API_KEY?.trim(); if (!apiKey) throw new Error("OPENAI_API_KEY is not configured.");
   const model = process.env.OPENAI_COURSE_MODEL?.trim() || "gpt-5-mini";
   const response = await fetch("https://api.openai.com/v1/responses", {
-    method: "POST", signal: AbortSignal.timeout(45_000),
+    method: "POST", signal: AbortSignal.timeout(aiTimeoutSeconds() * 1000),
     headers: { authorization: `Bearer ${apiKey}`, "content-type": "application/json" },
     body: JSON.stringify({ model, instructions: "You are an expert university instructional designer. Produce valid JSON that follows the supplied schema and never claim academic approval.", input: promptFor(input), max_output_tokens: 12_000, text: { format: { type: "json_schema", name: "course_design", strict: true, schema: rawPlanSchema } } }),
   });
@@ -193,7 +195,7 @@ async function callVertex(input: GenerateInput) {
   if (input.media?.dataBase64) parts.push({ inlineData: { mimeType: input.media.mimeType, data: input.media.dataBase64 } });
   if (input.media?.publicUrl) parts.push({ fileData: { mimeType: input.media.mimeType, fileUri: input.media.publicUrl } });
   const response = await fetch(endpoint, {
-    method: "POST", signal: AbortSignal.timeout(45_000), headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+    method: "POST", signal: AbortSignal.timeout(aiTimeoutSeconds() * 1000), headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
     body: JSON.stringify({ systemInstruction: { parts: [{ text: "You are an expert university instructional designer. Return valid JSON only and never claim academic approval." }] }, contents: [{ role: "user", parts }], generationConfig: { temperature: 0.2, maxOutputTokens: 12_000, responseMimeType: "application/json", responseSchema: rawPlanSchema } }),
   });
   const payload = await response.json().catch(() => ({})) as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>; error?: { message?: string } };
