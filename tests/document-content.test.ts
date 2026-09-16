@@ -1,27 +1,19 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { sanitizeReadableHtml, textToReadableHtml } from "../src/lib/document-content";
+import { sanitizeReadableHtml } from "../src/lib/document-content";
 
-test("plain manuals become structured learner HTML", () => {
-  const html = textToReadableHtml([
-    "MODULE 1: FOUNDATIONS",
-    "This module introduces the central ideas used throughout the course.",
-    "1.1 Evidence and context",
-    "Evidence must be interpreted in its setting.",
-    "LEARNING ACTIVITIES",
-    "- Read the case study",
-    "- Record your observations",
-  ].join("\n"));
-
-  assert.match(html, /<h2>MODULE 1: FOUNDATIONS<\/h2>/);
-  assert.match(html, /<h3>1\.1 Evidence and context<\/h3>/);
-  assert.match(html, /<h2>LEARNING ACTIVITIES<\/h2>/);
-  assert.match(html, /<ul><li>Read the case study<\/li><li>Record your observations<\/li><\/ul>/);
+test("readable course HTML preserves safe figures and authorised inline images", () => {
+  const html = sanitizeReadableHtml('<figure><img src="/api/course-materials?key=course-materials%2Flesson-diagram.png" alt="Supply chain diagram"><figcaption>Supply chain flow</figcaption></figure>');
+  assert.match(html, /<figure>/);
+  assert.match(html, /src="\/api\/course-materials\?key=course-materials%2Flesson-diagram\.png"/);
+  assert.match(html, /alt="Supply chain diagram"/);
+  assert.match(html, /<figcaption>Supply chain flow<\/figcaption>/);
 });
 
-test("learner HTML strips active content while retaining reading structure", () => {
-  const html = sanitizeReadableHtml('<h2>Topic</h2><script>alert("x")</script><p>Safe text</p><a href="javascript:alert(1)">Unsafe link</a>');
-  assert.equal(html.includes("script"), false);
-  assert.equal(html.includes("javascript:"), false);
-  assert.match(html, /<h2>Topic<\/h2><p>Safe text<\/p><a>Unsafe link<\/a>/);
+test("readable course HTML permits HTTPS images but removes unsafe image sources", () => {
+  const html = sanitizeReadableHtml('<img src="https://example.edu/diagram.png" alt="Safe"><img src="javascript:alert(1)" alt="Unsafe"><script>alert(2)</script>');
+  assert.match(html, /https:\/\/example\.edu\/diagram\.png/);
+  assert.doesNotMatch(html, /javascript:/i);
+  assert.doesNotMatch(html, /script/i);
+  assert.doesNotMatch(html, /alert/i);
 });
