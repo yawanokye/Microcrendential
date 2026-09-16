@@ -371,6 +371,69 @@
 .manual-import-result { grid-column:2/-1; display:grid; grid-template-columns:24px 1fr; gap:8px; align-items:start; padding:10px 12px; color:#176f60; background:#e7f7f2; border-radius:9px; }
 .manual-import-result svg { width:19px; }
 .manual-import-result p { display:grid; gap:2px; }
+.ai-course-designer { display:grid; gap:16px; margin:18px 22px; padding:22px; border:1px solid #8fc8bc; border-radius:18px; background:linear-gradient(140deg,#f2fbf8 0%,#fff 58%,#f2f6fb 100%); box-shadow:0 12px 34px rgba(17,64,78,.07); }
+.ai-course-designer>header { display:grid; grid-template-columns:48px minmax(0,1fr) minmax(190px,240px); gap:14px; align-items:start; }
+.ai-designer-mark { display:grid; place-items:center; width:48px; height:48px; color:#fff; border-radius:14px; background:linear-gradient(145deg,#117862,#173e5a); box-shadow:0 8px 18px rgba(17,120,98,.2); }
+.ai-designer-mark svg { width:24px; }
+.ai-course-designer h2 { margin:4px 0 6px; color:#10364b; font-size:18px; }
+.ai-course-designer p { margin:0; color:#5c727c; font-size:10px; line-height:1.6; }
+.ai-course-designer>header>label,.ai-source-workspace label { display:grid; gap:6px; color:#244b59; font-size:9px; font-weight:800; }
+.ai-course-designer input,.ai-course-designer select,.ai-course-designer textarea { width:100%; padding:10px 11px; border:1px solid #cfdcdf; border-radius:9px; background:#fff; color:#153a4c; font:inherit; }
+.ai-course-designer textarea { min-height:116px; resize:vertical; line-height:1.55; }
+.ai-provider-status { display:flex; flex-wrap:wrap; gap:8px; align-items:center; padding:10px 12px; border-radius:11px; background:rgba(255,255,255,.75); }
+.ai-provider-status span { display:flex; align-items:center; gap:5px; color:#526b75; font-size:8px; }
+.ai-provider-status span i { width:7px; height:7px; border-radius:50%; background:#bd5b45; }
+.ai-provider-status span.configured i { background:#16906f; box-shadow:0 0 0 3px #ddf4ec; }
+.ai-provider-status strong { display:flex; align-items:center; gap:6px; color:#9b4a2e; font-size:9px; }
+.ai-provider-status svg { width:14px; }
+.ai-source-tabs { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
+.ai-source-tabs button { display:flex; justify-content:center; align-items:center; gap:7px; min-height:42px; padding:8px; border:1px solid #cbdcdf; border-radius:10px; background:#fff; color:#355865; font-size:9px; font-weight:850; }
+.ai-source-tabs button svg { width:16px; }
+.ai-source-tabs button.active { color:#fff; border-color:#0d7663; background:#0d7663; box-shadow:0 7px 16px rgba(13,118,99,.17); }
+.ai-source-workspace { display:grid; grid-template-columns:minmax(0,1fr) minmax(230px,300px); gap:16px; align-items:start; }
+.ai-source-input,.ai-source-workspace>aside { display:grid; gap:11px; }
+.ai-source-workspace>aside { padding:14px; border:1px solid #d8e3e5; border-radius:12px; background:#fff; }
+.ai-source-workspace small { color:#71858d; font-size:8px; font-weight:500; }
+.ai-file-input { position:relative; grid-template-columns:38px minmax(0,1fr)!important; align-items:center; min-height:100px; padding:16px; border:1px dashed #72aa9f; border-radius:12px; background:#fff; cursor:pointer; }
+.ai-file-input>svg { width:27px; color:#0d7865; }
+.ai-file-input span { display:grid; gap:3px; overflow:hidden; }
+.ai-file-input b { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ai-file-input input { position:absolute; inset:0; opacity:0; cursor:pointer; }
+.ai-input-divider { display:flex; align-items:center; gap:10px; color:#829197; font-size:8px; font-weight:900; }
+.ai-input-divider::before,.ai-input-divider::after { content:""; flex:1; border-top:1px solid #dbe4e6; }
+.ai-improve-summary { display:grid; grid-template-columns:42px minmax(0,1fr); gap:12px; align-items:center; min-height:110px; padding:18px; border:1px solid #d8e4e2; border-radius:13px; background:#fff; }
+.ai-improve-summary>svg { width:32px; color:#0d7a66; }
+.ai-improve-summary b { color:#173f51; font-size:11px; }
+.ai-proposal-dialog { width:min(1080px,calc(100vw - 30px))!important; max-width:1080px!important; max-height:92vh; overflow:auto; }
+.ai-proposal-body { display:grid; gap:18px; padding:2px; }
+.ai-proposal-overview { padding:15px; border-radius:12px; background:#eef8f5; }
+.ai-proposal-overview>div { display:flex; justify-content:space-between; gap:14px; margin-bottom:7px; }
+.ai-proposal-overview b { color:#123d50; font-size:14px; }
+.ai-proposal-overview span,.ai-proposal-overview p { color:#5e747d; font-size:10px; }
+.ai-proposal-body>section>header { display:flex; justify-content:space-between; align-items:end; gap:12px; margin-bottom:10px; }
+.ai-proposal-body>section>header h3 { margin:3px 0 0; color:#143d50; font-size:14px; }
+.ai-proposal-body>section>header>span { padding:6px 9px; border-radius:999px; background:#e8f5f1; color:#176a58; font-size:8px; font-weight:850; }
+.ai-proposed-sections { display:grid; gap:10px; }
+.ai-proposed-sections>article { display:grid; grid-template-columns:32px minmax(0,1fr); gap:10px; padding:14px; border:1px solid #d9e4e6; border-radius:12px; background:#fff; }
+.ai-proposed-sections>article>span { display:grid; place-items:center; width:30px; height:30px; border-radius:9px; background:#123f58; color:#fff; font-size:10px; font-weight:900; }
+.ai-proposed-sections>article>div { display:grid; grid-template-columns:1fr 1fr; gap:9px; }
+.ai-proposed-sections label { display:grid; gap:5px; color:#315563; font-size:8px; font-weight:850; }
+.ai-proposed-sections input,.ai-proposed-sections textarea { width:100%; padding:9px; border:1px solid #d2dfe2; border-radius:8px; font:inherit; }
+.ai-proposed-sections textarea { min-height:65px; resize:vertical; }
+.ai-section-summary { grid-column:1/-1; display:grid; gap:7px; padding:10px; border-radius:9px; background:#f5f9fa; color:#58717b; font-size:9px; }
+.ai-section-summary p { margin:0; line-height:1.5; }
+.ai-section-summary>div { display:flex; flex-wrap:wrap; gap:8px; }
+.ai-section-summary a,.ai-section-summary button { display:inline-flex; align-items:center; gap:5px; padding:7px 9px; border:1px solid #bdd6d0; border-radius:8px; background:#fff; color:#0e725f; font-size:8px; font-weight:850; text-decoration:none; }
+.ai-section-summary svg { width:13px; }
+.ai-question-review { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.ai-question-review label { display:grid; grid-template-columns:auto minmax(0,1fr); gap:8px; align-items:start; padding:11px; border:1px solid #d9e3e5; border-radius:10px; cursor:pointer; }
+.ai-question-review label>span { display:grid; gap:3px; }
+.ai-question-review b { color:#254b5a; font-size:9px; line-height:1.45; }
+.ai-question-review small { color:#72858d; font-size:8px; }
+.ai-proposal-warnings { display:grid; grid-template-columns:24px minmax(0,1fr); gap:9px; padding:12px; border-radius:11px; background:#fff8e8; color:#775d25; }
+.ai-proposal-warnings svg { width:20px; }
+.ai-proposal-warnings p { margin:4px 0 0; font-size:8px; }
+.ai-proposal-actions { position:sticky; bottom:-1px; display:flex; justify-content:flex-end; gap:9px; padding:13px 0 2px; background:#fff; border-top:1px solid #e0e7e8; }
 .self-enrolment-policy { grid-column:1/-1; display:grid; grid-template-columns:30px 1fr; gap:9px; align-items:center; padding:12px; color:#155f54; background:#e9f8f4; border:1px solid #90cabe; border-radius:10px; }
 .self-enrolment-policy>svg { width:22px; }
 .self-enrolment-policy span,.self-enrolment-policy b { display:block; }
@@ -385,11 +448,19 @@
 @media (max-width:900px) {
   .manual-import-card { grid-template-columns:48px minmax(0,1fr); }
   .manual-import-actions,.manual-import-result { grid-column:1/-1; }
+  .ai-course-designer>header { grid-template-columns:48px minmax(0,1fr); }
+  .ai-course-designer>header>label { grid-column:1/-1; }
+  .ai-source-workspace { grid-template-columns:1fr; }
 }
 
 @media (max-width:560px) {
   .manual-import-card { grid-template-columns:1fr; margin-left:10px; margin-right:10px; }
   .manual-import-icon { width:44px; height:44px; }
+  .ai-course-designer { margin-left:10px; margin-right:10px; padding:15px; }
+  .ai-course-designer>header { grid-template-columns:1fr; }
+  .ai-source-tabs { grid-template-columns:1fr 1fr; }
+  .ai-proposed-sections>article>div,.ai-question-review { grid-template-columns:1fr; }
+  .ai-proposal-overview>div,.ai-proposal-actions { align-items:stretch; flex-direction:column; }
 }
 @media (max-width:760px) {
   .learner-course-dialog { width:calc(100vw - 14px) !important; max-height:96vh; padding:14px !important; }

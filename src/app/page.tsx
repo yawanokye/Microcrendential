@@ -5,7 +5,7 @@ import Image from "next/image";
 import {
   Activity, AlertTriangle, ArrowLeft, Award, Beaker, Bell, BookOpen, CalendarDays, CheckCircle2, ChevronDown, ChevronRight, CirclePlay, ClipboardCheck, Clock3,
   Code2, Eye, FileCheck2, FileText, FlaskConical, Gauge, GraduationCap, GripVertical, HeartPulse, LayoutDashboard, Menu,
-  MessageSquareText, Microscope, Pencil, QrCode, RotateCcw, Search, Settings, ShieldCheck, Sigma, Stethoscope, Undo2, Upload, Users, Video, Wrench, X,
+  MessageSquareText, Microscope, Pencil, QrCode, RotateCcw, Search, Settings, ShieldCheck, Sigma, Sparkles, Stethoscope, Undo2, Upload, Users, Video, Wrench, X,
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -14,6 +14,7 @@ import { Switch } from "@/components/ui/switch";
 import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
 import { defaultCourseDesign, evaluateCourseQuality, type CourseDesign, type CourseMaterialRecord } from "@/lib/course-design";
+import type { CourseAiProposal } from "@/lib/course-ai";
 import { buildIllustrativeCourseTemplate, type IllustrativeTemplateAssets } from "@/lib/illustrative-course";
 import { labDisciplines, virtualPracticals, type LabDiscipline, type VirtualPractical } from "@/lib/virtual-labs";
 
@@ -1240,6 +1241,58 @@ function sectionVideoPreviewUrl(value: string) {
   } catch { return ""; }
 }
 
+type CourseAiStatus = { available: boolean; defaultProvider: string; providers: Array<{ id: "openai" | "vertex"; label: string; configured: boolean; model: string; use: string }> };
+
+function AiCourseDesigner({ currentDraft, onApprove }: { currentDraft: Record<string, unknown>; onApprove: (draft: CourseAiProposal["draft"], meta: { provider: string; model: string; suggestions: CourseAiProposal["sectionSuggestions"] }) => void }) {
+  const [status, setStatus] = useState<CourseAiStatus | null>(null); const [mode, setMode] = useState<"idea" | "manual" | "media" | "improve">("idea");
+  const [provider, setProvider] = useState<"auto" | "openai" | "vertex">("auto"); const [sectionCount, setSectionCount] = useState(6); const [idea, setIdea] = useState("");
+  const [preferredTitle, setPreferredTitle] = useState(""); const [preferredDiscipline, setPreferredDiscipline] = useState("Interdisciplinary"); const [manual, setManual] = useState<File | null>(null);
+  const [media, setMedia] = useState<File | null>(null); const [youtubeUrl, setYoutubeUrl] = useState(""); const [busy, setBusy] = useState(false); const [proposal, setProposal] = useState<CourseAiProposal | null>(null); const [selectedQuestionIds, setSelectedQuestionIds] = useState<string[]>([]);
+  useEffect(() => { void fetch("/api/course-ai/design").then(async (response) => { if (response.ok) setStatus(await response.json() as CourseAiStatus); }).catch(() => undefined); }, []);
+  const generate = async () => {
+    if (mode === "idea" && idea.trim().length < 30) return toast.error("Describe the course idea in at least 30 characters.");
+    if (mode === "manual" && !manual) return toast.error("Choose a learning manual for AI-assisted design.");
+    if (mode === "media" && !media && !youtubeUrl.trim()) return toast.error("Upload audio/video or paste a public YouTube link.");
+    setBusy(true);
+    try {
+      const body = new FormData(); body.append("mode", mode); body.append("provider", provider); body.append("sectionCount", String(sectionCount)); body.append("preferredTitle", preferredTitle); body.append("preferredDiscipline", preferredDiscipline);
+      if (mode === "idea") body.append("sourceText", idea);
+      if (mode === "improve") body.append("sourceText", JSON.stringify(currentDraft));
+      if (mode === "manual" && manual) body.append("file", manual);
+      if (mode === "media") { if (media) body.append("file", media); if (youtubeUrl.trim()) body.append("youtubeUrl", youtubeUrl.trim()); body.append("sourceText", idea || "Build a practical microcredential from the teachable concepts in this media."); }
+      const response = await fetch("/api/course-ai/design", { method: "POST", body }); const result = await response.json() as { proposal?: CourseAiProposal; error?: string };
+      if (!response.ok || !result.proposal) throw new Error(result.error || "The AI proposal could not be generated.");
+      setProposal(result.proposal); setSelectedQuestionIds(result.proposal.draft.assessmentConfig.questions.map((question) => String(question.id)));
+      toast.success("AI course proposal ready", { description: "Review the sections, activities, resources and assessment before applying anything to Course Studio." });
+    } catch (error) { toast.error(error instanceof Error ? error.message : "The AI proposal could not be generated."); }
+    finally { setBusy(false); }
+  };
+  const updateSection = (sectionId: string, field: "title" | "description", value: string) => setProposal((current) => current ? { ...current, draft: { ...current.draft, design: { ...current.draft.design, sections: current.draft.design.sections.map((section) => section.id === sectionId ? { ...section, [field]: value } : section) } } } : current);
+  const approve = () => {
+    if (!proposal) return; const validSections = new Set(proposal.draft.design.sections.map((section) => section.id)); const titles = new Map(proposal.draft.design.sections.map((section) => [section.id, section.title]));
+    const questions = proposal.draft.assessmentConfig.questions.filter((question) => selectedQuestionIds.includes(String(question.id)));
+    onApprove({ ...proposal.draft, materials: proposal.draft.materials.filter((material) => !material.sectionId || validSections.has(material.sectionId)).map((material) => ({ ...material, sectionTitle: material.sectionId ? titles.get(material.sectionId) : material.sectionTitle })), assessmentConfig: { ...proposal.draft.assessmentConfig, questions }, questionLimit: Math.max(1, questions.length) }, { provider: proposal.provider, model: proposal.model, suggestions: proposal.sectionSuggestions });
+    setProposal(null); toast.success("AI proposal applied as an editable draft", { description: `${questions.length} approved assessment question${questions.length === 1 ? "" : "s"} now appear in the Assessment stage.` });
+  };
+  return <>
+    <section className="ai-course-designer">
+      <header><span className="ai-designer-mark"><Sparkles /></span><div><p className="eyebrow">AI-ASSISTED COURSE STUDIO</p><h2>Build or improve a course with facilitator approval</h2><p>Choose a source. AI proposes the blueprint, section lessons, activities, resource searches and assessment; nothing is applied until you approve the preview.</p></div><label>AI provider<select value={provider} onChange={(event) => setProvider(event.target.value as typeof provider)}><option value="auto">Automatic provider</option><option value="openai">OpenAI</option><option value="vertex">Google Vertex AI</option></select></label></header>
+      <div className="ai-provider-status">{status?.providers.map((item) => <span className={item.configured ? "configured" : "missing"} key={item.id}><i /> <b>{item.label}</b> · {item.configured ? item.model : "not configured"}</span>)}{status && !status.available && <strong><AlertTriangle /> Add an OpenAI key or Vertex service account in Render before generating.</strong>}</div>
+      <nav className="ai-source-tabs" aria-label="AI course source"><button className={mode === "idea" ? "active" : ""} onClick={() => setMode("idea")}><MessageSquareText /> Synopsis or idea</button><button className={mode === "manual" ? "active" : ""} onClick={() => setMode("manual")}><FileText /> Learning manual</button><button className={mode === "media" ? "active" : ""} onClick={() => { setMode("media"); setProvider("vertex"); }}><Video /> Video or audio</button><button className={mode === "improve" ? "active" : ""} onClick={() => setMode("improve")}><Sparkles /> Improve this draft</button></nav>
+      <div className="ai-source-workspace">
+        <div className="ai-source-input">
+          {mode === "idea" && <label>Course synopsis or idea<textarea value={idea} onChange={(event) => setIdea(event.target.value)} placeholder="Describe the topic, target learners, capability they should gain, context and any required assessment…" /></label>}
+          {mode === "manual" && <label className="ai-file-input"><Upload /><span><b>{manual?.name || "Choose a learning manual"}</b><small>Searchable PDF, DOCX, TXT, Markdown, HTML or RTF · 25 MB maximum</small></span><input type="file" accept=".pdf,.docx,.txt,.md,.html,.htm,.rtf" onChange={(event) => setManual(event.target.files?.[0] ?? null)} /></label>}
+          {mode === "media" && <><label className="ai-file-input"><Video /><span><b>{media?.name || "Upload audio or video"}</b><small>MP3, WAV, M4A, AAC, OGG, MP4, WebM or MOV · direct analysis up to 15 MB</small></span><input type="file" accept="audio/*,video/*" onChange={(event) => { setMedia(event.target.files?.[0] ?? null); if (event.target.files?.[0]) setYoutubeUrl(""); }} /></label><div className="ai-input-divider"><span>OR</span></div><label>Public YouTube link<input type="url" value={youtubeUrl} onChange={(event) => { setYoutubeUrl(event.target.value); if (event.target.value) setMedia(null); }} placeholder="https://www.youtube.com/watch?v=…" /></label><label>Optional design instruction<textarea value={idea} onChange={(event) => setIdea(event.target.value)} placeholder="Explain the intended learners, level or practical emphasis…" /></label></>}
+          {mode === "improve" && <div className="ai-improve-summary"><Sparkles /><div><b>Review the course currently open in Studio</b><p>AI will identify gaps and return a complete replacement proposal. Your existing draft remains unchanged until you approve.</p></div></div>}
+        </div>
+        <aside><label>Preferred title<input value={preferredTitle} onChange={(event) => setPreferredTitle(event.target.value)} placeholder="Optional" /></label><label>Discipline<input value={preferredDiscipline} onChange={(event) => setPreferredDiscipline(event.target.value)} /></label><label>Number of sections<input type="number" min="2" max="12" value={sectionCount} onChange={(event) => setSectionCount(Math.min(12, Math.max(2, Number(event.target.value) || 2)))} /><small>The preview will contain exactly this number.</small></label><button className="dialog-primary" disabled={busy || status?.available === false} onClick={() => void generate()}><Sparkles /> {busy ? "Designing course…" : mode === "improve" ? "Review and improve draft" : "Generate approval preview"}</button></aside>
+      </div>
+    </section>
+    <Dialog open={Boolean(proposal)} onOpenChange={(open) => !open && setProposal(null)}><DialogContent className="ai-proposal-dialog"><DialogHeader><p className="eyebrow">FACILITATOR APPROVAL REQUIRED</p><DialogTitle>Review the AI course proposal</DialogTitle><DialogDescription>{proposal ? `${proposal.provider === "openai" ? "OpenAI" : "Google Vertex AI"} · ${proposal.model} · ${proposal.draft.design.sections.length} proposed sections` : "Review before applying."}</DialogDescription></DialogHeader>{proposal && <div className="ai-proposal-body"><section className="ai-proposal-overview"><div><b>{proposal.draft.title}</b><span>{proposal.draft.discipline} · {proposal.draft.design.expectedHours} hours · self-enrolment · free by default</span></div><p>{proposal.draft.description}</p></section><section><header><div><p className="eyebrow">PROPOSED COURSE SECTIONS</p><h3>Edit headings or purposes before approval</h3></div><span>{proposal.draft.design.sections.length} sections</span></header><div className="ai-proposed-sections">{proposal.draft.design.sections.map((section, index) => { const suggestion = proposal.sectionSuggestions.find((item) => item.sectionId === section.id); const sectionMaterials = proposal.draft.materials.filter((material) => material.sectionId === section.id); return <article key={section.id}><span>{index + 1}</span><div><label>Section heading<input value={section.title} onChange={(event) => updateSection(section.id, "title", event.target.value)} /></label><label>Section purpose<textarea value={section.description} onChange={(event) => updateSection(section.id, "description", event.target.value)} /></label><div className="ai-section-summary"><b>{sectionMaterials.length} generated learning blocks</b><p><strong>Activity:</strong> {suggestion?.activityTitle} — {suggestion?.activitySummary}</p><div><a href={suggestion?.youtubeSearchUrl} target="_blank" rel="noreferrer"><Video /> Review suggested YouTube results</a><button type="button" onClick={() => { navigator.clipboard.writeText(suggestion?.openResourceQuery || section.title); toast.success("Open-resource search phrase copied"); }}><Search /> Copy open-resource search</button></div></div></div></article>; })}</div></section><section><header><div><p className="eyebrow">ASSESSMENT PROPOSAL</p><h3>Select the questions to populate the Assessment stage</h3></div><span>{selectedQuestionIds.length} selected</span></header><div className="ai-question-review">{proposal.draft.assessmentConfig.questions.map((question, index) => <label key={String(question.id)}><input type="checkbox" checked={selectedQuestionIds.includes(String(question.id))} onChange={(event) => setSelectedQuestionIds((items) => event.target.checked ? [...items, String(question.id)] : items.filter((id) => id !== String(question.id)))} /><span><b>{index + 1}. {String(question.prompt)}</b><small>{String(question.type)} · {String(question.points)} mark{Number(question.points) === 1 ? "" : "s"}</small></span></label>)}</div></section><div className="ai-proposal-warnings"><AlertTriangle /><div><b>Checks that remain the facilitator’s responsibility</b>{proposal.warnings.map((warning) => <p key={warning}>{warning}</p>)}</div></div></div>}<footer className="ai-proposal-actions"><button className="secondary-action" onClick={() => setProposal(null)}>Cancel—keep current draft</button><button className="dialog-primary" disabled={!selectedQuestionIds.length} onClick={approve}><CheckCircle2 /> Approve and populate Course Studio</button></footer></DialogContent></Dialog>
+  </>;
+}
+
 function SectionContentWorkspace({ section, number, outcomes, materials, onAdded, onRemove }: {
   section: CourseDesign["sections"][number]; number: number; outcomes: CourseDesign["outcomes"]; materials: CourseMaterial[];
   onAdded: (material: CourseMaterial) => void; onRemove: (material: CourseMaterial) => void;
@@ -1461,6 +1514,15 @@ function FacilitatorStudio({ email, query, setQuery }: { email: string; query: s
       toast.success("Editable course draft generated", { description: "Review every stage and complete the side checks before saving or submitting." });
     } catch (error) { toast.error(error instanceof Error ? error.message : "The course manual could not be converted."); }
     finally { setImportingManual(false); }
+  };
+  const applyAiProposal = (draft: CourseAiProposal["draft"], meta: { provider: string; model: string; suggestions: CourseAiProposal["sectionSuggestions"] }) => {
+    const firstOutcome = draft.design.outcomes[0]?.id; const firstSection = draft.design.sections[0]?.id;
+    setDraftId(null); setRevisionId(null); setDraftVersion(1); setDraftStatus("new"); setCourseCode(draft.code); setCourseTitle(draft.title); setDiscipline(draft.discipline); setDescription(draft.description);
+    setDesign({ ...draft.design, enrolmentMode: "open", priceGhs: 0, certificateFeeGhs: 0 }); setMaterials(draft.materials); setCourseActivities([]); setAssessmentModes(draft.assessmentModes);
+    setGateRequired(draft.gateRequired); setQuestionLimit(draft.questionLimit); setCertificateEnabled(draft.certificateEnabled); setPassMark(draft.assessmentConfig.passMark); setAttempts(draft.assessmentConfig.attempts); setQuestions(draft.assessmentConfig.questions as unknown as AssessmentQuestion[]); setQuestionFiles([]);
+    setContentSectionId(firstSection ?? "section-1"); setContentOutcomeIds(firstOutcome ? [firstOutcome] : []); setQuestionOutcomeIds(firstOutcome ? [firstOutcome] : []); setStep("details"); setPortfolioOpen(false); setLearnerPreviewOpen(false); setIllustrativeTemplateLoaded(false);
+    if (meta.suggestions[0]) { setQuery(meta.suggestions[0].openResourceQuery); setYoutubeSearchUrl(meta.suggestions[0].youtubeSearchUrl); }
+    toast.info("AI draft loaded for facilitator verification", { description: `${meta.provider} · ${meta.model}. Review all six stages before saving or submitting.` });
   };
   const loadDraft = async (course: StudioDraft) => {
     let editable = course;
@@ -1776,6 +1838,8 @@ function FacilitatorStudio({ email, query, setQuery }: { email: string; query: s
         {portfolioOpen && (loadingDrafts ? <div className="empty-state">Loading course versions…</div> : <div>{drafts.map((course) => <article key={course.id} className={draftId === course.id ? "selected" : ""}><span className={`portfolio-status ${course.status}`}>{course.status.replaceAll("_", " ")}</span><div><b>{course.title}</b><small>{course.code} · version {course.versionNumber} · {course.updatedAt ? new Date(course.updatedAt).toLocaleDateString() : "recently updated"}</small></div><div className="portfolio-actions"><button onClick={() => void loadDraft(course)}>{course.status === "active" ? "Create controlled revision" : "Continue editing"}</button></div>{course.reviewComment && <p className="review-feedback"><MessageSquareText /> <span><b>{course.status === "rejected" ? "Changes requested" : "Review note"}</b>{course.reviewComment}</span></p>}</article>)}{drafts.length === 0 && <div className="empty-state">Your first course draft will appear here after saving.</div>}</div>)}
       </section>
 
+      <AiCourseDesigner currentDraft={{ title: courseTitle, code: courseCode, discipline, description, design, materials, activities: courseActivities, assessmentModes, assessmentConfig: { passMark, attempts, questions }, certificateEnabled }} onApprove={applyAiProposal} />
+
       <section className="illustrative-guide-card">
         <div className="illustrative-guide-icon"><GraduationCap /></div>
         <div className="illustrative-guide-copy">
@@ -1793,8 +1857,8 @@ function FacilitatorStudio({ email, query, setQuery }: { email: string; query: s
 
       <section className="manual-import-card">
         <div className="manual-import-icon"><Upload /></div>
-        <div><p className="eyebrow">COURSE MANUAL → EDITABLE COURSE DESIGN</p><h2>Generate the Studio fields from an existing manual</h2><p>Upload an accessible PDF, DOCX, TXT, Markdown, HTML or RTF manual. The platform extracts a proposed title, description, objectives, measurable outcomes, skills, syllabus sections, readable lessons and starter assessment items.</p><div className="manual-import-notes"><span><CheckCircle2 /> New course defaults to self-enrolment</span><span><CheckCircle2 /> Enrolment and certificate default to free</span><span><ShieldCheck /> Facilitator review remains compulsory</span></div></div>
-        <div className="manual-import-actions"><label><Upload /><b>{manualFile?.name ?? "Choose course manual"}</b><small>Supported formats · maximum 25 MB</small><input type="file" accept=".pdf,.docx,.txt,.md,.html,.htm,.rtf" onChange={(event) => { setManualFile(event.target.files?.[0] ?? null); setManualImportInfo(""); }} /></label><button className="dialog-primary" disabled={!manualFile || importingManual} onClick={() => void createCourseFromManual()}>{importingManual ? "Extracting and designing…" : "Generate editable course"}</button></div>
+        <div><p className="eyebrow">NON-AI BACKUP · MANUAL → EDITABLE COURSE</p><h2>Extract a manual when no AI provider is available</h2><p>This rule-based importer creates a basic editable draft from an accessible PDF, DOCX, TXT, Markdown, HTML or RTF file. For AI-designed sections, activities and assessments, use the AI-assisted panel above.</p><div className="manual-import-notes"><span><CheckCircle2 /> New course defaults to self-enrolment</span><span><CheckCircle2 /> Enrolment and certificate default to free</span><span><ShieldCheck /> Facilitator review remains compulsory</span></div></div>
+        <div className="manual-import-actions"><label><Upload /><b>{manualFile?.name ?? "Choose course manual"}</b><small>Supported formats · maximum 25 MB</small><input type="file" accept=".pdf,.docx,.txt,.md,.html,.htm,.rtf" onChange={(event) => { setManualFile(event.target.files?.[0] ?? null); setManualImportInfo(""); }} /></label><button className="dialog-primary" disabled={!manualFile || importingManual} onClick={() => void createCourseFromManual()}>{importingManual ? "Extracting…" : "Use non-AI importer"}</button></div>
         {manualImportInfo && <div className="manual-import-result"><CheckCircle2 /><p><b>Draft generated</b>{manualImportInfo}</p></div>}
       </section>
 
