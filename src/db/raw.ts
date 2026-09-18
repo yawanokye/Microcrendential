@@ -43,6 +43,18 @@ CREATE TABLE IF NOT EXISTS course_drafts (
   gate_required INTEGER NOT NULL DEFAULT 1,
   question_limit INTEGER NOT NULL DEFAULT 10,
   certificate_enabled INTEGER NOT NULL DEFAULT 1,
+  certificate_preapproved INTEGER NOT NULL DEFAULT 0,
+  approval_authority TEXT,
+  approval_meeting_date TEXT,
+  approval_reference TEXT,
+  approval_decision TEXT,
+  approval_conditions TEXT,
+  approval_conditions_satisfied INTEGER NOT NULL DEFAULT 0,
+  approval_effective_date TEXT,
+  approval_review_date TEXT,
+  approval_document_reference TEXT,
+  approval_recorded_by_email TEXT,
+  approval_recorded_at TEXT,
   status TEXT NOT NULL DEFAULT 'pending_review',
   created_by_email TEXT NOT NULL DEFAULT '',
   activated_by_email TEXT,
@@ -309,6 +321,23 @@ export function getRawDb() {
   ensureColumn("course_drafts", "review_comment", "TEXT");
   ensureColumn("course_drafts", "reviewed_by_email", "TEXT");
   ensureColumn("course_drafts", "reviewed_at", "TEXT");
+  ensureColumn("course_drafts", "certificate_preapproved", "INTEGER NOT NULL DEFAULT 0");
+  ensureColumn("course_drafts", "approval_authority", "TEXT");
+  ensureColumn("course_drafts", "approval_meeting_date", "TEXT");
+  ensureColumn("course_drafts", "approval_reference", "TEXT");
+  ensureColumn("course_drafts", "approval_decision", "TEXT");
+  ensureColumn("course_drafts", "approval_conditions", "TEXT");
+  ensureColumn("course_drafts", "approval_conditions_satisfied", "INTEGER NOT NULL DEFAULT 0");
+  ensureColumn("course_drafts", "approval_effective_date", "TEXT");
+  ensureColumn("course_drafts", "approval_review_date", "TEXT");
+  ensureColumn("course_drafts", "approval_document_reference", "TEXT");
+  ensureColumn("course_drafts", "approval_recorded_by_email", "TEXT");
+  ensureColumn("course_drafts", "approval_recorded_at", "TEXT");
+  ensureColumn("course_revisions", "approval_authority", "TEXT");
+  ensureColumn("course_revisions", "approval_meeting_date", "TEXT");
+  ensureColumn("course_revisions", "approval_reference", "TEXT");
+  ensureColumn("course_revisions", "approval_recorded_by_email", "TEXT");
+  ensureColumn("course_revisions", "approval_recorded_at", "TEXT");
   ensureColumn("users", "student_number", "TEXT");
   ensureColumn("users", "education_level", "TEXT");
   ensureColumn("users", "occupation", "TEXT");
@@ -334,6 +363,11 @@ export function getRawDb() {
   ensureColumn("certificates", "credit_value", "INTEGER NOT NULL DEFAULT 0");
   ensureColumn("certificates", "learning_mode", "TEXT NOT NULL DEFAULT 'blended'");
   const selfEnrolmentMigration = database.prepare("SELECT migration_key FROM platform_migrations WHERE migration_key = '0014_existing_courses_self_enrolment'").get() as { migration_key?: string } | undefined;
+  const certificatePreapprovalMigration = database.prepare("SELECT migration_key FROM platform_migrations WHERE migration_key = '0015_existing_active_certificate_preapproval'").get() as { migration_key?: string } | undefined;
+  if (!certificatePreapprovalMigration) {
+    database.exec("UPDATE course_drafts SET certificate_preapproved = 1 WHERE status = 'active' AND certificate_enabled = 1");
+    database.exec("INSERT INTO platform_migrations (migration_key) VALUES ('0015_existing_active_certificate_preapproval')");
+  }
   if (!selfEnrolmentMigration) {
     database.exec(`UPDATE course_drafts
       SET design_json = CASE

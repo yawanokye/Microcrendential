@@ -13,6 +13,8 @@ export type CourseSection = {
   description: string;
 };
 
+export type ProgrammeInitiationSource = "code" | "academic_unit" | "joint" | "external_need" | "other" | "existing_record";
+
 export type CourseDesign = {
   category: "credit" | "professional" | "rpl";
   deliveryPattern: "asynchronous" | "synchronous" | "blended";
@@ -23,6 +25,11 @@ export type CourseDesign = {
   priceGhs: number;
   certificateFeeGhs: number;
   creditValue: number;
+  programmeInitiationSource: ProgrammeInitiationSource;
+  originatingUnit: string;
+  programmeHome: string;
+  contributingUnits: string[];
+  identifiedNeed: string;
   intendedAudience: string;
   prerequisites: string;
   accessibilityStatement: string;
@@ -69,6 +76,11 @@ export const defaultCourseDesign = (): CourseDesign => ({
   priceGhs: 0,
   certificateFeeGhs: 0,
   creditValue: 0,
+  programmeInitiationSource: "academic_unit",
+  originatingUnit: "",
+  programmeHome: "",
+  contributingUnits: [],
+  identifiedNeed: "",
   intendedAudience: "Professionals, students and lifelong learners seeking applied capability in this field.",
   prerequisites: "No formal prerequisite. Basic digital literacy and reliable internet access are recommended.",
   accessibilityStatement: "Readable HTML, keyboard-accessible activities, descriptive labels and reviewed transcripts will be provided wherever applicable.",
@@ -94,6 +106,7 @@ export function normalizeCourseDesign(value: unknown): CourseDesign {
   const categories = new Set<CourseDesign["category"]>(["credit", "professional", "rpl"]);
   const deliveries = new Set<CourseDesign["deliveryPattern"]>(["asynchronous", "synchronous", "blended"]);
   const levels = new Set<CourseDesign["level"]>(["foundation", "applied", "advanced"]);
+  const initiationSources = new Set<ProgrammeInitiationSource>(["code", "academic_unit", "joint", "external_need", "other", "existing_record"]);
   const outcomes = Array.isArray(input.outcomes) ? input.outcomes.map((item, index) => {
     const outcome = item && typeof item === "object" ? item as Partial<LearningOutcome> : {};
     return {
@@ -126,6 +139,11 @@ export function normalizeCourseDesign(value: unknown): CourseDesign {
     priceGhs,
     certificateFeeGhs,
     creditValue,
+    programmeInitiationSource: initiationSources.has(input.programmeInitiationSource as ProgrammeInitiationSource) ? input.programmeInitiationSource as ProgrammeInitiationSource : fallback.programmeInitiationSource,
+    originatingUnit: String(input.originatingUnit || "").trim().slice(0, 300),
+    programmeHome: String(input.programmeHome || "").trim().slice(0, 300),
+    contributingUnits: cleanList(input.contributingUnits, 30).map((item) => item.slice(0, 300)),
+    identifiedNeed: String(input.identifiedNeed || "").trim().slice(0, 3000),
     intendedAudience: String(input.intendedAudience || "").trim().slice(0, 2000),
     prerequisites: String(input.prerequisites || "").trim().slice(0, 2000),
     accessibilityStatement: String(input.accessibilityStatement || "").trim().slice(0, 2000),
@@ -152,6 +170,7 @@ export function evaluateCourseQuality(input: {
   const mappedOutcomes = new Set(materials.flatMap((material) => material.outcomeIds ?? []));
   const checks: CourseQualityCheck[] = [
     { id: "identity", label: "Clear course identity", passed: title.trim().length >= 8 && description.trim().length >= 80, detail: "Use a specific title and a learner-facing description of at least 80 characters." },
+    { id: "governance", label: "Programme source and home", passed: Boolean(design.programmeInitiationSource && design.originatingUnit.trim().length >= 2 && design.programmeHome.trim().length >= 2), detail: "Record the programme initiation source, originating unit and programme home. These are governance records and do not create a separate approval pathway." },
     { id: "audience", label: "Audience and prerequisites", passed: design.intendedAudience.length >= 20 && design.prerequisites.length >= 10, detail: "State who the course serves and what learners need before starting." },
     { id: "objectives", label: "Course objectives", passed: design.objectives.length >= 2, detail: "Provide at least two clear design objectives." },
     { id: "outcomes", label: "Measurable outcomes", passed: design.outcomes.length >= 2 && design.outcomes.every((outcome) => outcome.assessmentMethod && outcome.skill), detail: "Provide at least two outcomes, each with a skill and assessment method." },

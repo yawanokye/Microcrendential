@@ -31,10 +31,10 @@ export default function StaffAdminEntry() {
           <article className="commercial-role-card admin">
             <header><span><Users /></span><em>FOR GOVERNANCE</em></header>
             <h2>System Administration</h2>
-            <p>Govern identities, approvals, credential integrity and institutional performance.</p>
+            <p>Govern identities, record committee decisions, protect credential integrity and monitor institutional performance.</p>
             <ul>
               <li><CheckCircle2 /> User and access governance</li>
-              <li><CheckCircle2 /> Academic quality approvals</li>
+              <li><CheckCircle2 /> Committee decision records</li>
               <li><CheckCircle2 /> Credential registry and audit</li>
             </ul>
             <div><a className="role-primary" href="/admin-signin">Administrator sign in <ChevronRight /></a><small>Restricted system role</small></div>

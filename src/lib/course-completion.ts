@@ -23,6 +23,9 @@ export type CompletionEvaluation = {
   certificateEnabled: boolean;
   certificateFeeGhs: number;
   certificatePaymentRequired: boolean;
+  certificatePreauthorised: boolean;
+  certificateAuthorizationReference: string | null;
+  certificateAuthorizationAuthority: string | null;
   creditValue: number;
   learningMode: string;
   complete: boolean;
@@ -59,8 +62,8 @@ const parseActivities = (value: string) => {
 
 export async function evaluateCourseCompletion(userEmail: string, courseCode: string): Promise<CompletionEvaluation | null> {
   const db = getRawDb();
-  const course = await db.prepare("SELECT code, title, materials_json, activities_json, design_json, certificate_enabled, created_by_email FROM course_drafts WHERE code = ? AND status = 'active' LIMIT 1")
-    .bind(courseCode).first<{ code: string; title: string; materials_json:string; activities_json: string; design_json: string; certificate_enabled: number; created_by_email:string }>();
+  const course = await db.prepare("SELECT code, title, materials_json, activities_json, design_json, certificate_enabled, certificate_preapproved, approval_reference, approval_authority, created_by_email FROM course_drafts WHERE code = ? AND status = 'active' LIMIT 1")
+    .bind(courseCode).first<{ code: string; title: string; materials_json:string; activities_json: string; design_json: string; certificate_enabled: number; certificate_preapproved:number; approval_reference:string|null; approval_authority:string|null; created_by_email:string }>();
   if (!course) return null;
 
   const user = await db.prepare("SELECT full_name, status, identity_status FROM users WHERE email = ? AND role = 'learner' LIMIT 1")
@@ -131,6 +134,9 @@ export async function evaluateCourseCompletion(userEmail: string, courseCode: st
     certificateEnabled: Boolean(course.certificate_enabled),
     certificateFeeGhs: design.certificateFeeGhs,
     certificatePaymentRequired: design.certificateFeeGhs > 0 && !paidCertificate,
+    certificatePreauthorised: Boolean(course.certificate_preapproved),
+    certificateAuthorizationReference: course.approval_reference,
+    certificateAuthorizationAuthority: course.approval_authority,
     creditValue: design.creditValue,
     learningMode: design.deliveryPattern,
     complete: requirements.every((requirement) => requirement.complete),
@@ -146,7 +152,7 @@ export async function issueCertificateIfComplete(userEmail: string, courseCode: 
   const db = getRawDb();
   await db.prepare("UPDATE enrollments SET status = 'completed' WHERE user_email = ? AND course_code = ? AND status IN ('active', 'completed')")
     .bind(userEmail, courseCode).run();
-  if (!evaluation.certificateEnabled || evaluation.certificatePaymentRequired) return { evaluation, certificate: null };
+  if (!evaluation.certificateEnabled || !evaluation.certificatePreauthorised || evaluation.certificatePaymentRequired) return { evaluation, certificate: null };
 
   const learner = await db.prepare("SELECT full_name FROM users WHERE email = ? AND role = 'learner' LIMIT 1")
     .bind(userEmail).first<{ full_name: string }>();
@@ -154,7 +160,7 @@ export async function issueCertificateIfComplete(userEmail: string, courseCode: 
   const course=await db.prepare("SELECT created_by_email FROM course_drafts WHERE code=? AND status='active'").bind(courseCode).first<{created_by_email:string}>();
   const facilitator=course?await db.prepare("SELECT signatory_name,signatory_title,file_key FROM certificate_signatures WHERE signature_key=?").bind(`facilitator:${course.created_by_email}`).first<{signatory_name:string;signatory_title:string;file_key:string}>():null;
   const provost=await db.prepare("SELECT signatory_name,signatory_title,file_key FROM certificate_signatures WHERE signature_key='provost'").first<{signatory_name:string;signatory_title:string;file_key:string}>();
-  const requirementsJson = JSON.stringify({ evaluatedAt: new Date().toISOString(), requirements: evaluation.requirements });
+  const requirementsJson = JSON.stringify({ evaluatedAt: new Date().toISOString(), requirements: evaluation.requirements, certificateAuthorization: { preauthorised: evaluation.certificatePreauthorised, authority: evaluation.certificateAuthorizationAuthority, approvalReference: evaluation.certificateAuthorizationReference } });
   const certificateCode = `UCC-${new Date().getUTCFullYear()}-${crypto.randomUUID().replaceAll("-", "").slice(0, 12).toUpperCase()}`;
   await db.prepare(`INSERT OR IGNORE INTO certificates(certificate_code,user_email,learner_name,course_code,course_title,issuer_name,requirements_json,credit_value,learning_mode,facilitator_name,facilitator_title,facilitator_signature_key,provost_name,provost_title,provost_signature_key) VALUES(?,?,?,?,?,'University of Cape Coast',?,?,?,?,?,?,?,?,?)`)
     .bind(certificateCode,userEmail,learner.full_name,evaluation.courseCode,evaluation.courseTitle,requirementsJson,evaluation.creditValue,evaluation.learningMode,facilitator?.signatory_name??null,facilitator?.signatory_title??null,facilitator?.file_key??null,provost?.signatory_name??null,provost?.signatory_title??null,provost?.file_key??null).run();

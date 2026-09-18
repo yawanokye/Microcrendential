@@ -815,3 +815,18 @@
   .picture-link-row,.section-current-materials > article { grid-template-columns:1fr; }
   .section-current-materials > article > span { width:max-content; }
 }
+
+
+/* Policy-aligned governance records */
+.programme-governance-metadata{margin:1rem 0;padding:1rem;border:1px solid var(--border,#d7dde5);border-radius:16px;background:rgba(248,250,252,.78)}
+.programme-governance-metadata .studio-section-heading.compact{margin-bottom:.85rem}
+.governance-record-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.8rem;margin:.75rem 0}
+.governance-record-grid label,.governance-record-form>label{display:grid;gap:.35rem;font-weight:650}
+.governance-record-grid input,.governance-record-grid select,.governance-record-grid textarea{width:100%}
+.governance-record-grid .wide-record-field{grid-column:1/-1}
+.record-checkbox,.certificate-preapproval{display:flex!important;align-items:flex-start;gap:.65rem!important;padding:.75rem;border:1px solid var(--border,#d7dde5);border-radius:12px;background:#fff}
+.record-checkbox input,.certificate-preapproval input{width:auto!important;margin-top:.2rem}
+.certificate-preapproval span{display:grid;gap:.2rem}.certificate-preapproval small{font-weight:400;line-height:1.45;color:var(--muted-foreground,#64748b)}
+.approval-record-summary{display:flex;gap:.55rem;align-items:flex-start;margin-top:.75rem;padding:.75rem;border-radius:12px;background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.22)}
+.approval-record-summary div{display:grid;gap:.12rem}.approval-record-summary small{opacity:.72}
+@media(max-width:760px){.governance-record-grid{grid-template-columns:1fr}}

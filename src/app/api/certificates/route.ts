@@ -38,7 +38,7 @@ export async function GET(request: Request) {
   const eligible = await getRawDb().prepare(`SELECT e.course_code, c.title AS course_title, c.design_json
     FROM enrollments e JOIN course_drafts c ON c.code = e.course_code
     LEFT JOIN certificates cert ON cert.user_email = e.user_email AND cert.course_code = e.course_code
-    WHERE e.user_email = ? AND e.status = 'completed' AND c.status = 'active' AND c.certificate_enabled = 1 AND cert.id IS NULL
+    WHERE e.user_email = ? AND e.status = 'completed' AND c.status = 'active' AND c.certificate_enabled = 1 AND c.certificate_preapproved = 1 AND cert.id IS NULL
     ORDER BY e.enrolled_at DESC`).bind(account.profile.email).all<{ course_code: string; course_title: string; design_json: string }>();
   return Response.json({ certificates: certificates.results.map((item) => presentCertificate(item)), eligibleCertificates: eligible.results.map((item) => {
     try { const design = JSON.parse(item.design_json || "{}") as { certificateFeeGhs?: number }; return { courseCode: item.course_code, courseTitle: item.course_title, certificateFeeGhs: Math.max(0, Number(design.certificateFeeGhs) || 0) }; }
@@ -56,6 +56,7 @@ export async function POST(request: Request) {
   const result = await issueCertificateIfComplete(account.profile.email, courseCode);
   if (!result.evaluation) return Response.json({ error: "The published course was not found." }, { status: 404 });
   if (!result.evaluation.complete) return Response.json({ error: "Complete every academic requirement before requesting the certificate.", completion: result.evaluation }, { status: 409 });
+  if (!result.evaluation.certificatePreauthorised) return Response.json({ error: "Certificate issuance is not pre-authorised for this programme.", completion: result.evaluation }, { status: 409 });
   if (result.evaluation.certificatePaymentRequired) return Response.json({ error: "Certificate payment is required.", paymentRequired: true, purpose: "certificate", amountGhs: result.evaluation.certificateFeeGhs, completion: result.evaluation }, { status: 402 });
   return Response.json({ certificate: result.certificate, completion: result.evaluation }, { status: result.certificate ? 201 : 409 });
 }

@@ -8,7 +8,8 @@ import { recordAudit } from "@/lib/audit";
 
 type CourseRow = {
   id: number; code: string; title: string; discipline: string; description: string; materials_json: string; activities_json: string; assessment_modes_json: string;
-  assessment_config_json: string; design_json: string; gate_required: number; question_limit: number; certificate_enabled: number; status: string;
+  assessment_config_json: string; design_json: string; gate_required: number; question_limit: number; certificate_enabled: number; certificate_preapproved: number; status: string;
+  approval_authority: string | null; approval_meeting_date: string | null; approval_reference: string | null; approval_decision: string | null; approval_conditions: string | null; approval_conditions_satisfied: number; approval_effective_date: string | null; approval_review_date: string | null; approval_document_reference: string | null; approval_recorded_by_email: string | null; approval_recorded_at: string | null;
   created_by_email: string; facilitator_name: string | null; activated_at: string | null; submitted_at: string | null; review_comment: string | null; reviewed_by_email: string | null; reviewed_at: string | null; version_number: number; updated_at: string | null; created_at: string;
 };
 
@@ -57,7 +58,8 @@ function present(row: CourseRow) {
     materials: parseJson<CourseMaterialRecord[]>(row.materials_json, []), activities: parseJson<unknown[]>(row.activities_json, []),
     assessmentModes: parseJson<string[]>(row.assessment_modes_json, []), assessmentConfig: parseJson<Record<string, unknown>>(row.assessment_config_json, {}),
     design: normalizeCourseDesign(parseJson(row.design_json, {})), gateRequired: Boolean(row.gate_required), questionLimit: row.question_limit,
-    certificateEnabled: Boolean(row.certificate_enabled), status: row.status, createdByEmail: row.created_by_email,
+    certificateEnabled: Boolean(row.certificate_enabled), certificatePreapproved: Boolean(row.certificate_preapproved), status: row.status, createdByEmail: row.created_by_email,
+    approvalRecord: { authorityName: row.approval_authority, meetingDate: row.approval_meeting_date, reference: row.approval_reference, decision: row.approval_decision, conditions: row.approval_conditions, conditionsSatisfied: Boolean(row.approval_conditions_satisfied), effectiveDate: row.approval_effective_date, reviewDate: row.approval_review_date, documentReference: row.approval_document_reference, recordedByEmail: row.approval_recorded_by_email, recordedAt: row.approval_recorded_at, certificatePreapproved: Boolean(row.certificate_preapproved) },
     facilitatorName: row.facilitator_name ?? row.created_by_email, activatedAt: row.activated_at, submittedAt: row.submitted_at,
     reviewComment: row.review_comment, reviewedByEmail: row.reviewed_by_email, reviewedAt: row.reviewed_at,
     versionNumber: row.version_number || 1, updatedAt: row.updated_at ?? row.created_at, createdAt: row.created_at,
@@ -96,7 +98,7 @@ export async function GET() {
   if (account.profile.role === "learner") rows = await db.prepare(`${select} WHERE c.status = 'active' ORDER BY c.activated_at DESC, c.created_at DESC LIMIT 100`).all<CourseRow>();
   else if (account.profile.role === "facilitator") rows = await db.prepare(`${select} WHERE c.created_by_email = ? OR c.status = 'active' ORDER BY c.updated_at DESC, c.created_at DESC LIMIT 150`).bind(account.profile.email).all<CourseRow>();
   else rows = await db.prepare(`${select} ORDER BY CASE c.status WHEN 'pending_review' THEN 0 WHEN 'active' THEN 1 WHEN 'draft' THEN 2 ELSE 3 END, c.updated_at DESC, c.created_at DESC LIMIT 250`).all<CourseRow>();
-  if(account.profile.role==="learner"){const enrolledRows=await db.prepare("SELECT course_code FROM enrollments WHERE user_email=? AND status IN ('active','completed')").bind(account.profile.email).all<{course_code:string}>();const enrolled=new Set(enrolledRows.results.map(r=>r.course_code));return Response.json({courses:rows.results.map(present).map(course=>enrolled.has(course.code)?{...course,enrolled:true,assessmentConfig:learnerSafeAssessmentConfig(course.assessmentConfig as AssessmentConfigRecord,course.questionLimit)}:catalogueOnly(course))});}
+  if(account.profile.role==="learner"){const enrolledRows=await db.prepare("SELECT course_code FROM enrollments WHERE user_email=? AND status IN ('active','completed')").bind(account.profile.email).all<{course_code:string}>();const enrolled=new Set(enrolledRows.results.map(r=>r.course_code));return Response.json({courses:rows.results.map(present).map(course=>{const safe={...course,approvalRecord:undefined,certificatePreapproved:undefined,reviewComment:undefined,reviewedByEmail:undefined,reviewedAt:undefined,submittedAt:undefined};return enrolled.has(course.code)?{...safe,enrolled:true,assessmentConfig:learnerSafeAssessmentConfig(course.assessmentConfig as AssessmentConfigRecord,course.questionLimit)}:catalogueOnly(safe);})});}
   return Response.json({ courses: rows.results.map(present) });
 }
 
@@ -151,26 +153,44 @@ export async function PATCH(request: Request) {
     id?: number;
     status?: "active" | "pending_review" | "rejected";
     comment?: string;
+    approvalRecord?: {
+      authorityName?: string; meetingDate?: string; reference?: string; decision?: "approved" | "approved_with_conditions";
+      conditions?: string; conditionsSatisfied?: boolean; effectiveDate?: string; reviewDate?: string; documentReference?: string; certificatePreapproved?: boolean;
+    };
   };
   if (!payload.id || !["active", "pending_review", "rejected"].includes(payload.status ?? "")) return Response.json({ error: "Choose a course and valid review decision." }, { status: 400 });
   const reviewComment = String(payload.comment ?? "").trim().slice(0, 4000);
   if (payload.status === "rejected" && !reviewComment) return Response.json({ error: "Add a review comment explaining what the facilitator must change before returning the course." }, { status: 400 });
   const active = payload.status === "active"; const db = getRawDb();
-  const course = await db.prepare("SELECT code, title, description, design_json, materials_json, activities_json, assessment_config_json, created_by_email, status FROM course_drafts WHERE id = ? LIMIT 1").bind(payload.id).first<{ code: string; title: string; description: string; design_json: string; materials_json: string; activities_json: string; assessment_config_json: string; created_by_email: string; status: string }>();
+  const course = await db.prepare("SELECT code, title, description, design_json, materials_json, activities_json, assessment_config_json, certificate_enabled, created_by_email, status FROM course_drafts WHERE id = ? LIMIT 1").bind(payload.id).first<{ code: string; title: string; description: string; design_json: string; materials_json: string; activities_json: string; assessment_config_json: string; certificate_enabled: number; created_by_email: string; status: string }>();
   if (!course) return Response.json({ error: "Course was not found." }, { status: 404 });
   if (active) {
     const design = normalizeCourseDesign(parseJson(course.design_json, {})); const materials = normalizeMaterials(parseJson(course.materials_json, []));
     const assessment = parseJson<AssessmentConfigRecord>(course.assessment_config_json, {});
     const activities=parseJson<Parameters<typeof evaluateCourseQuality>[0]["activities"]>(course.activities_json,[]);
     const quality = evaluateCourseQuality({ title: course.title, description: course.description, design, materials, questionCount: assessment.questions?.length ?? 0, assessmentConfig:assessment,activities });
-    if (course.status !== "pending_review") return Response.json({ error: "Only a course awaiting review can be published.", quality }, { status: 409 });
-    if(!quality.ready)return Response.json({error:"Publication is blocked until every quality check passes.",quality},{status:409});
+    if (course.status !== "pending_review") return Response.json({ error: "Only a submitted course can be activated from a recorded committee decision.", quality }, { status: 409 });
+    if(!quality.ready)return Response.json({error:"Activation is blocked until every publish-readiness check passes.",quality},{status:409});
+    const approval = payload.approvalRecord ?? {};
+    const authorityName = String(approval.authorityName ?? "").trim().slice(0, 300);
+    const meetingDate = String(approval.meetingDate ?? "").trim().slice(0, 40);
+    const reference = String(approval.reference ?? "").trim().slice(0, 240);
+    const decision = approval.decision;
+    const conditions = String(approval.conditions ?? "").trim().slice(0, 4000);
+    if (!authorityName || !meetingDate || !reference || !["approved", "approved_with_conditions"].includes(decision ?? "")) return Response.json({ error: "Record the committee/authority, meeting date, decision and minute/reference number before activation." }, { status: 400 });
+    if (decision === "approved_with_conditions" && !conditions) return Response.json({ error: "Record the conditions attached to the committee decision." }, { status: 400 });
+    if (decision === "approved_with_conditions" && !approval.conditionsSatisfied) return Response.json({ error: "Confirm that all approval conditions are satisfied before activation." }, { status: 409 });
+    if (course.certificate_enabled && !approval.certificatePreapproved) return Response.json({ error: "Confirm that certificate issuance is pre-authorised for this approved programme before activation." }, { status: 409 });
   }
-  const decisionComment = reviewComment || (active ? "Approved for publication." : null);
-  const result = await db.prepare("UPDATE course_drafts SET status = ?, activated_by_email = ?, activated_at = CASE WHEN ? = 1 THEN CURRENT_TIMESTAMP ELSE NULL END, review_comment = ?, reviewed_by_email = ?, reviewed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
-    .bind(payload.status, account.profile.email, active ? 1 : 0, decisionComment, account.profile.email, payload.id).run();
+  const decisionComment = reviewComment || (active ? "Committee decision recorded and programme activated." : null);
+  const approval = payload.approvalRecord ?? {};
+  const result = active
+    ? await db.prepare("UPDATE course_drafts SET status = ?, activated_by_email = ?, activated_at = CURRENT_TIMESTAMP, review_comment = ?, reviewed_by_email = ?, reviewed_at = CURRENT_TIMESTAMP, certificate_preapproved = ?, approval_authority = ?, approval_meeting_date = ?, approval_reference = ?, approval_decision = ?, approval_conditions = ?, approval_conditions_satisfied = ?, approval_effective_date = ?, approval_review_date = ?, approval_document_reference = ?, approval_recorded_by_email = ?, approval_recorded_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+      .bind(payload.status, account.profile.email, decisionComment, account.profile.email, approval.certificatePreapproved ? 1 : 0, String(approval.authorityName ?? "").trim().slice(0, 300), String(approval.meetingDate ?? "").trim().slice(0, 40), String(approval.reference ?? "").trim().slice(0, 240), approval.decision ?? null, String(approval.conditions ?? "").trim().slice(0, 4000) || null, approval.conditionsSatisfied ? 1 : 0, String(approval.effectiveDate ?? "").trim().slice(0, 40) || null, String(approval.reviewDate ?? "").trim().slice(0, 40) || null, String(approval.documentReference ?? "").trim().slice(0, 500) || null, account.profile.email, payload.id).run()
+    : await db.prepare("UPDATE course_drafts SET status = ?, activated_by_email = NULL, activated_at = NULL, review_comment = ?, reviewed_by_email = ?, reviewed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+      .bind(payload.status, decisionComment, account.profile.email, payload.id).run();
   if (!result.meta.changes) return Response.json({ error: "Course was not found." }, { status: 404 });
-  await recordAudit(account.profile.email,active?"course.published":"course.returned",{courseId:payload.id,courseCode:course.code,comment:decisionComment});
+  await recordAudit(account.profile.email,active?"course.activated_from_committee_record":"course.returned",{courseId:payload.id,courseCode:course.code,comment:decisionComment,approvalReference:active?payload.approvalRecord?.reference:null,approvalAuthority:active?payload.approvalRecord?.authorityName:null});
   if (active) {
     let activities: { id?: string; kind?: string; title?: string; instructions?: string; notebookKey?: string; notebookFileName?: string; templateUrl?: string; rubric?: string; maxMark?: number; passMark?: number; attemptsAllowed?: number; dueAt?: string }[] = [];
     try { activities = JSON.parse(course.activities_json || "[]") as typeof activities; } catch { activities = []; }
