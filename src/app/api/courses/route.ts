@@ -66,7 +66,15 @@ function present(row: CourseRow) {
   };
 }
 
-function catalogueOnly(course:ReturnType<typeof present>){return{...course,enrolled:false,materials:course.materials.map((m)=>({id:m.id,title:m.title,kind:m.kind,source:m.source,sectionId:m.sectionId,sectionTitle:m.sectionTitle,unitTitle:m.unitTitle,estimatedMinutes:m.estimatedMinutes,outcomeIds:m.outcomeIds,required:m.required})),activities:course.activities.map((entry)=>{const a=entry&&typeof entry==="object"?entry as Record<string,unknown>:{};return{id:a.id,kind:a.kind,title:a.title,required:a.required,passMark:a.passMark};}),assessmentConfig:{passMark:Number((course.assessmentConfig as {passMark?:number}).passMark)||70,attempts:String((course.assessmentConfig as {attempts?:string}).attempts||"1"),questionCount:Array.isArray((course.assessmentConfig as {questions?:unknown[]}).questions)?(course.assessmentConfig as {questions:unknown[]}).questions.length:0}};}
+type PresentedCourse = ReturnType<typeof present>;
+type LearnerPresentedCourse = Omit<PresentedCourse, "approvalRecord" | "certificatePreapproved" | "reviewComment" | "reviewedByEmail" | "reviewedAt" | "submittedAt">;
+
+function learnerVisibleCourse(course: PresentedCourse): LearnerPresentedCourse {
+  const { approvalRecord, certificatePreapproved, reviewComment, reviewedByEmail, reviewedAt, submittedAt, ...safe } = course;
+  return safe;
+}
+
+function catalogueOnly(course:LearnerPresentedCourse){return{...course,enrolled:false,materials:course.materials.map((m)=>({id:m.id,title:m.title,kind:m.kind,source:m.source,sectionId:m.sectionId,sectionTitle:m.sectionTitle,unitTitle:m.unitTitle,estimatedMinutes:m.estimatedMinutes,outcomeIds:m.outcomeIds,required:m.required})),activities:course.activities.map((entry)=>{const a=entry&&typeof entry==="object"?entry as Record<string,unknown>:{};return{id:a.id,kind:a.kind,title:a.title,required:a.required,passMark:a.passMark};}),assessmentConfig:{passMark:Number((course.assessmentConfig as {passMark?:number}).passMark)||70,attempts:String((course.assessmentConfig as {attempts?:string}).attempts||"1"),questionCount:Array.isArray((course.assessmentConfig as {questions?:unknown[]}).questions)?(course.assessmentConfig as {questions:unknown[]}).questions.length:0}};}
 
 function normalizedPayload(payload: Record<string, unknown>) {
   const title = String(payload.title ?? "").trim().slice(0, 240); const code = String(payload.code ?? "").trim().toUpperCase().slice(0, 80);
@@ -98,7 +106,7 @@ export async function GET() {
   if (account.profile.role === "learner") rows = await db.prepare(`${select} WHERE c.status = 'active' ORDER BY c.activated_at DESC, c.created_at DESC LIMIT 100`).all<CourseRow>();
   else if (account.profile.role === "facilitator") rows = await db.prepare(`${select} WHERE c.created_by_email = ? OR c.status = 'active' ORDER BY c.updated_at DESC, c.created_at DESC LIMIT 150`).bind(account.profile.email).all<CourseRow>();
   else rows = await db.prepare(`${select} ORDER BY CASE c.status WHEN 'pending_review' THEN 0 WHEN 'active' THEN 1 WHEN 'draft' THEN 2 ELSE 3 END, c.updated_at DESC, c.created_at DESC LIMIT 250`).all<CourseRow>();
-  if(account.profile.role==="learner"){const enrolledRows=await db.prepare("SELECT course_code FROM enrollments WHERE user_email=? AND status IN ('active','completed')").bind(account.profile.email).all<{course_code:string}>();const enrolled=new Set(enrolledRows.results.map(r=>r.course_code));return Response.json({courses:rows.results.map(present).map(course=>{const safe={...course,approvalRecord:undefined,certificatePreapproved:undefined,reviewComment:undefined,reviewedByEmail:undefined,reviewedAt:undefined,submittedAt:undefined};return enrolled.has(course.code)?{...safe,enrolled:true,assessmentConfig:learnerSafeAssessmentConfig(course.assessmentConfig as AssessmentConfigRecord,course.questionLimit)}:catalogueOnly(safe);})});}
+  if(account.profile.role==="learner"){const enrolledRows=await db.prepare("SELECT course_code FROM enrollments WHERE user_email=? AND status IN ('active','completed')").bind(account.profile.email).all<{course_code:string}>();const enrolled=new Set(enrolledRows.results.map(r=>r.course_code));return Response.json({courses:rows.results.map(present).map(course=>{const safe=learnerVisibleCourse(course);return enrolled.has(course.code)?{...safe,enrolled:true,assessmentConfig:learnerSafeAssessmentConfig(course.assessmentConfig as AssessmentConfigRecord,course.questionLimit)}:catalogueOnly(safe);})});}
   return Response.json({ courses: rows.results.map(present) });
 }
 
