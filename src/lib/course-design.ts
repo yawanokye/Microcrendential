@@ -63,6 +63,9 @@ export type CourseMaterialRecord = {
   transcriptLanguage?: string;
   transcriptSource?: string;
   transcriptPublished?: boolean;
+  displayMode?: "in_frame" | "new_tab";
+  linkedVideoUrl?: string;
+  linkedVideoDisplay?: "in_frame" | "new_tab";
   required?: boolean;
 };
 
