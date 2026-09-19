@@ -1,6 +1,7 @@
 import { getRawDb } from "@/db/raw";
 import { requireActiveProfile } from "@/lib/accounts";
 import { issueCertificateIfComplete } from "@/lib/course-completion";
+import { gradeActivityEvidenceWithAi } from "@/lib/assessment-ai";
 import { putStoredFile } from "@/lib/render-storage";
 
 type SubmissionRow = {
@@ -55,21 +56,23 @@ export async function POST(request: Request) {
       if (!["colab.research.google.com", "drive.google.com"].includes(url.hostname)) throw new Error();
     } catch { return Response.json({ error: "Use a valid Google Colab or Google Drive sharing link." }, { status: 400 }); }
   }
+  let notebookText = "";
   if (hasFile) {
     if (!file.name.toLowerCase().endsWith(".ipynb")) return Response.json({ error: "Only completed .ipynb notebook files are accepted." }, { status: 400 });
     if (file.size > 10 * 1024 * 1024) return Response.json({ error: "Completed notebooks must be 10 MB or smaller." }, { status: 413 });
     try {
-      const notebook = JSON.parse(await file.text()) as { cells?: unknown[]; nbformat?: number };
+      notebookText = await file.text();
+      const notebook = JSON.parse(notebookText) as { cells?: unknown[]; nbformat?: number };
       if (!Array.isArray(notebook.cells) || !Number.isInteger(notebook.nbformat)) throw new Error();
     } catch { return Response.json({ error: "The uploaded file is not a readable Jupyter notebook." }, { status: 400 }); }
   }
   const db = getRawDb();
   const assignment = await db.prepare(`
-    SELECT a.id, a.course_code, a.attempts_allowed, a.due_at
+    SELECT a.id, a.course_code, a.title, a.instructions, a.rubric, a.max_mark, a.pass_mark, a.grading_mode, a.attempts_allowed, a.due_at
     FROM colab_assignments a JOIN course_drafts c ON c.code = a.course_code AND c.status = 'active'
     JOIN enrollments e ON e.course_code = a.course_code AND e.user_email = ? AND e.status IN ('active', 'completed')
     WHERE a.id = ? AND a.status = 'active' LIMIT 1
-  `).bind(account.profile.email, assignmentId).first<{ id: number; course_code: string; attempts_allowed: number; due_at: string | null }>();
+  `).bind(account.profile.email, assignmentId).first<{ id: number; course_code: string; title:string; instructions:string; rubric:string; max_mark:number; pass_mark:number; grading_mode:string; attempts_allowed: number; due_at: string | null }>();
   if (!assignment) return Response.json({ error: "This Colab assignment is unavailable or you are not enrolled." }, { status: 403 });
   if (assignment.due_at && Date.now() > Date.parse(assignment.due_at)) return Response.json({ error: "The submission deadline has passed. Contact the facilitator if an extension is required." }, { status: 409 });
   const previous = await db.prepare("SELECT COUNT(*) AS count FROM colab_submissions WHERE assignment_id = ? AND learner_email = ?").bind(assignmentId, account.profile.email).first<{ count: number }>();
@@ -80,6 +83,18 @@ export async function POST(request: Request) {
   if (hasFile) {
     key = await putStoredFile(`colab-submissions/${assignmentId}`, file, { contentType: "application/x-ipynb+json", originalName: file.name, ownerEmail: account.profile.email });
     fileName = file.name;
+  }
+  const aiMode = ["ai_auto","ai_luna","ai_terra"].includes(assignment.grading_mode);
+  if (aiMode && !hasFile) return Response.json({ error: "This activity uses automated rubric grading. Upload the completed .ipynb file so the grading engine can inspect the notebook evidence." }, { status: 400 });
+  if (aiMode) {
+    let grade;
+    try { grade = await gradeActivityEvidenceWithAi({ id:`colab-${assignment.id}`, title:assignment.title, instructions:assignment.instructions, rubric:assignment.rubric, maxMark:assignment.max_mark, gradingMode:assignment.grading_mode as "ai_auto"|"ai_luna"|"ai_terra", evidence:notebookText }); }
+    catch(error){ return Response.json({ error:error instanceof Error?error.message:"Automated notebook grading could not be completed." }, { status:503 }); }
+    const mark=Math.floor(grade.earned), passed=(mark/Math.max(1,assignment.max_mark))*100>=assignment.pass_mark;
+    const feedback=[grade.feedback,grade.learnerAdvice].filter(Boolean).join("\n\n");
+    const result=await db.prepare(`INSERT INTO colab_submissions (assignment_id,learner_email,attempt_number,submission_type,notebook_key,notebook_file_name,notebook_url,status,mark,passed,feedback,assessed_by_email,assessed_at) VALUES(?,?,?,?,?,?,?,'assessed',?,?,?,?,CURRENT_TIMESTAMP)`).bind(assignmentId,account.profile.email,attemptNumber,"file",key,fileName,null,mark,passed?1:0,feedback,`AI:${grade.model}`).run();
+    const completion=passed?await issueCertificateIfComplete(account.profile.email,assignment.course_code):null;
+    return Response.json({ submission:{id:result.meta.last_row_id,assignmentId,attemptNumber,status:"assessed",mark,passed,feedback,model:grade.model}, completion:completion?.evaluation??null, certificate:completion?.certificate??null },{status:201});
   }
   const result = await db.prepare(`
     INSERT INTO colab_submissions
@@ -108,7 +123,7 @@ export async function PATCH(request: Request) {
   const statement = db.prepare(sql);
   const record = account.profile.role === "admin" ? await statement.bind(id).first<{ learner_email: string; course_code: string; max_mark: number; pass_mark: number }>() : await statement.bind(id, account.profile.email).first<{ learner_email: string; course_code: string; max_mark: number; pass_mark: number }>();
   if (!record) return Response.json({ error: "Submission was not found or is not assigned to you." }, { status: 404 });
-  const mark = Math.round(Number(payload.mark));
+  const mark = Math.floor(Number(payload.mark));
   if (!Number.isFinite(mark) || mark < 0 || mark > record.max_mark) return Response.json({ error: `Enter a mark between 0 and ${record.max_mark}.` }, { status: 400 });
   const feedback = String(payload.feedback ?? "").trim();
   if (!feedback) return Response.json({ error: "Provide assessment feedback before saving the decision." }, { status: 400 });

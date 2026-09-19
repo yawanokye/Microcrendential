@@ -203,13 +203,19 @@ export async function PATCH(request: Request) {
   if (!result.meta.changes) return Response.json({ error: "Course was not found." }, { status: 404 });
   await recordAudit(account.profile.email,active?"course.activated_from_committee_record":"course.returned",{courseId:payload.id,courseCode:course.code,comment:decisionComment,approvalReference:active?payload.approvalRecord?.reference:null,approvalAuthority:active?payload.approvalRecord?.authorityName:null});
   if (active) {
-    let activities: { id?: string; kind?: string; title?: string; instructions?: string; notebookKey?: string; notebookFileName?: string; templateUrl?: string; rubric?: string; maxMark?: number; passMark?: number; attemptsAllowed?: number; dueAt?: string }[] = [];
+    let activities: { id?: string; kind?: string; title?: string; instructions?: string; notebookKey?: string; notebookFileName?: string; templateUrl?: string; rubric?: string; maxMark?: number; passMark?: number; attemptsAllowed?: number; dueAt?: string; sectionId?: string; gradingMode?: string }[] = [];
     try { activities = JSON.parse(course.activities_json || "[]") as typeof activities; } catch { activities = []; }
     for (const activity of activities.filter((item) => item.kind === "colab" && item.notebookKey && item.notebookFileName)) {
-      const exists = await db.prepare("SELECT id FROM colab_assignments WHERE course_code = ? AND title = ? LIMIT 1").bind(course.code, activity.title ?? "Colab coding activity").first<{ id: number }>();
-      if (exists) continue;
-      await db.prepare("INSERT INTO colab_assignments (course_code, title, instructions, template_file_key, template_file_name, template_url, rubric, max_mark, pass_mark, attempts_allowed, due_at, status, created_by_email) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?)")
-        .bind(course.code, activity.title ?? "Colab coding activity", activity.instructions ?? "Complete the notebook in free Google Colab and submit your evidence.", activity.notebookKey, activity.notebookFileName, activity.templateUrl || null, activity.rubric ?? "Assess correctness, interpretation and reproducibility.", Math.min(1000, Math.max(1, Number(activity.maxMark) || 100)), Math.min(100, Math.max(1, Number(activity.passMark) || 60)), Math.min(10, Math.max(1, Number(activity.attemptsAllowed) || 2)), activity.dueAt || null, course.created_by_email).run();
+      const title = activity.title ?? "Colab coding activity";
+      const values = [activity.instructions ?? "Complete the notebook in free Google Colab and submit your evidence.", activity.notebookKey, activity.notebookFileName, activity.templateUrl || null, activity.rubric ?? "Assess correctness, interpretation and reproducibility.", Math.min(1000, Math.max(1, Number(activity.maxMark) || 100)), Math.min(100, Math.max(1, Number(activity.passMark) || 60)), Math.min(10, Math.max(1, Number(activity.attemptsAllowed) || 2)), activity.dueAt || null, activity.sectionId || null, activity.gradingMode || "ai_auto"] as const;
+      const exists = await db.prepare("SELECT id FROM colab_assignments WHERE course_code = ? AND title = ? LIMIT 1").bind(course.code, title).first<{ id: number }>();
+      if (exists) {
+        await db.prepare("UPDATE colab_assignments SET instructions=?,template_file_key=?,template_file_name=?,template_url=?,rubric=?,max_mark=?,pass_mark=?,attempts_allowed=?,due_at=?,section_id=?,grading_mode=?,status='active' WHERE id=?")
+          .bind(...values, exists.id).run();
+      } else {
+        await db.prepare("INSERT INTO colab_assignments (course_code, title, instructions, template_file_key, template_file_name, template_url, rubric, max_mark, pass_mark, attempts_allowed, due_at, section_id, grading_mode, status, created_by_email) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?)")
+          .bind(course.code, title, ...values, course.created_by_email).run();
+      }
     }
   }
   return Response.json({ updated: true, status: payload.status });

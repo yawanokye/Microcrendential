@@ -942,3 +942,23 @@
 .question-bank-item.previewed .question-bank-status em { color:#245f73; background:#e3f0f5; }
 .question-preview-dialog footer { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:8px; }
 @media(max-width:760px){.material-link-tools,.material-linked-video{grid-template-columns:1fr}.external-video-card,.assessment-ready-banner,.course-complete-banner{align-items:flex-start;flex-direction:column}.assessment-ready-banner .dialog-primary{width:100%}}
+
+/* 2026-09-19: activity-gated completion, AI grading and stackable credential pathways */
+.credential-pathway-editor{margin-top:1rem}
+.credential-pathways-panel{margin-bottom:1rem}
+.credential-pathway-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1rem}
+.credential-pathway-grid>article{border:1px solid #dbe4ee;border-radius:18px;padding:1rem;background:#fff}
+.credential-pathway-grid>article.complete{border-color:#7bc8a4;background:#f3fbf7}
+.credential-pathway-grid article header{display:flex;justify-content:space-between;gap:1rem;align-items:flex-start}
+.credential-pathway-grid article header small{font-weight:800;color:#52627a;letter-spacing:.05em}
+.credential-pathway-grid article header h3{margin:.2rem 0 .65rem}
+.credential-pathway-grid article header>b{font-size:1.35rem;color:#17365d}
+.credential-pathway-grid article>p{margin:.65rem 0;color:#52627a}
+.credential-pathway-grid article>div{display:grid;gap:.45rem;margin-top:.75rem}
+.credential-pathway-grid article>div>span{display:flex;gap:.45rem;align-items:center;font-size:.88rem;padding:.45rem .55rem;border-radius:10px;background:#f6f8fb;color:#52627a}
+.credential-pathway-grid article>div>span.complete{background:#eaf8f0;color:#176b45}
+.credential-pathway-grid article>div>span svg,.course-pathway-note svg{width:15px;height:15px;flex:0 0 auto}
+.course-pathway-note{display:flex;align-items:center;gap:.35rem;margin:.4rem 0 .7rem;padding:.45rem .6rem;border-radius:10px;background:#f1f5ff;color:#2e3094;font-size:.82rem}
+.course-pathway-inline{display:block;margin-top:.3rem;color:#2e3094;font-size:.76rem;font-style:normal;font-weight:700}
+.activity-config select,.question-editor select{min-height:42px}
+.section-required-activities article.activity-complete{border-color:#7bc8a4;background:#f3fbf7}

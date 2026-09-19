@@ -5,7 +5,7 @@ import { putStoredFile } from "@/lib/render-storage";
 type AssignmentRow = {
   id: number; course_code: string; course_title: string; title: string; instructions: string;
   template_file_name: string; template_url: string | null; rubric: string; max_mark: number;
-  pass_mark: number; attempts_allowed: number; due_at: string | null; status: string;
+  pass_mark: number; attempts_allowed: number; due_at: string | null; section_id?: string | null; grading_mode: "facilitator" | "ai_auto" | "ai_luna" | "ai_terra"; status: string;
   created_by_email: string; created_at: string; latest_submission_id?: number | null;
   latest_submission_status?: string | null; latest_mark?: number | null; latest_passed?: number | null;
   latest_attempt?: number | null; latest_feedback?: string | null;
@@ -22,7 +22,7 @@ function openInColabUrl(value: string | null) {
 }
 
 function present(row: AssignmentRow) {
-  return { id: row.id, courseCode: row.course_code, courseTitle: row.course_title, title: row.title, instructions: row.instructions, templateFileName: row.template_file_name, templateUrl: row.template_url, openUrl: openInColabUrl(row.template_url), directOpen: Boolean(row.template_url), rubric: row.rubric, maxMark: row.max_mark, passMark: row.pass_mark, attemptsAllowed: row.attempts_allowed, dueAt: row.due_at, status: row.status, createdByEmail: row.created_by_email, createdAt: row.created_at, latestSubmission: row.latest_submission_id ? { id: row.latest_submission_id, status: row.latest_submission_status, mark: row.latest_mark, passed: Boolean(row.latest_passed), attemptNumber: row.latest_attempt, feedback: row.latest_feedback ?? "" } : null };
+  return { id: row.id, courseCode: row.course_code, courseTitle: row.course_title, title: row.title, instructions: row.instructions, templateFileName: row.template_file_name, templateUrl: row.template_url, openUrl: openInColabUrl(row.template_url), directOpen: Boolean(row.template_url), rubric: row.rubric, maxMark: row.max_mark, passMark: row.pass_mark, attemptsAllowed: row.attempts_allowed, dueAt: row.due_at, sectionId: row.section_id ?? null, gradingMode: row.grading_mode, status: row.status, createdByEmail: row.created_by_email, createdAt: row.created_at, latestSubmission: row.latest_submission_id ? { id: row.latest_submission_id, status: row.latest_submission_status, mark: row.latest_mark, passed: Boolean(row.latest_passed), attemptNumber: row.latest_attempt, feedback: row.latest_feedback ?? "" } : null };
 }
 
 export async function GET() {
@@ -50,7 +50,10 @@ export async function POST(request: Request) {
   const instructions = String(form.get("instructions") ?? "").trim(); const rubric = String(form.get("rubric") ?? "").trim();
   const dueAt = String(form.get("dueAt") ?? "").trim(); const templateUrl = String(form.get("templateUrl") ?? "").trim();
   const maxMark = Math.min(1000, Math.max(1, Number(form.get("maxMark")) || 100)); const passMark = Math.min(100, Math.max(1, Number(form.get("passMark")) || 50));
-  const attemptsAllowed = Math.min(10, Math.max(1, Number(form.get("attemptsAllowed")) || 1)); const file = form.get("notebook");
+  const attemptsAllowed = Math.min(10, Math.max(1, Number(form.get("attemptsAllowed")) || 1));
+  const rawGradingMode = String(form.get("gradingMode") ?? "ai_auto");
+  const gradingMode = (["facilitator", "ai_auto", "ai_luna", "ai_terra"].includes(rawGradingMode) ? rawGradingMode : "ai_auto") as "facilitator" | "ai_auto" | "ai_luna" | "ai_terra";
+  const file = form.get("notebook");
   if (!courseCode || !title || !instructions || !rubric) return Response.json({ error: "Course, title, instructions and rubric are required." }, { status: 400 });
   if (!(file instanceof File) || !file.name.toLowerCase().endsWith(".ipynb")) return Response.json({ error: "Upload a valid .ipynb notebook template." }, { status: 400 });
   if (file.size > 10 * 1024 * 1024) return Response.json({ error: "Notebook templates must be 10 MB or smaller." }, { status: 413 });
@@ -66,7 +69,7 @@ export async function POST(request: Request) {
   if (!course) return Response.json({ error: "Choose an active course before publishing a Colab assignment." }, { status: 404 });
   if (account.profile.role === "facilitator" && course.created_by_email !== account.profile.email) return Response.json({ error: "You can create assignments only for courses you facilitate." }, { status: 403 });
   const key = await putStoredFile("colab-templates", file, { contentType: "application/x-ipynb+json", originalName: file.name, ownerEmail: account.profile.email });
-  const result = await db.prepare("INSERT INTO colab_assignments (course_code, title, instructions, template_file_key, template_file_name, template_url, rubric, max_mark, pass_mark, attempts_allowed, due_at, status, created_by_email) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?)")
-    .bind(courseCode, title, instructions, key, file.name, templateUrl || null, rubric, maxMark, passMark, attemptsAllowed, dueAt || null, account.profile.email).run();
-  return Response.json({ assignment: { id: result.meta.last_row_id, courseCode, title, status: "active" } }, { status: 201 });
+  const result = await db.prepare("INSERT INTO colab_assignments (course_code, title, instructions, template_file_key, template_file_name, template_url, rubric, max_mark, pass_mark, attempts_allowed, due_at, grading_mode, status, created_by_email) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?)")
+    .bind(courseCode, title, instructions, key, file.name, templateUrl || null, rubric, maxMark, passMark, attemptsAllowed, dueAt || null, gradingMode, account.profile.email).run();
+  return Response.json({ assignment: { id: result.meta.last_row_id, courseCode, title, gradingMode, status: "active" } }, { status: 201 });
 }

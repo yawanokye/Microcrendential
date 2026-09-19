@@ -30,6 +30,9 @@ export type CourseDesign = {
   programmeHome: string;
   contributingUnits: string[];
   identifiedNeed: string;
+  broaderCredentialCode: string;
+  broaderCredentialTitle: string;
+  broaderCredentialRequiredCodes: string[];
   intendedAudience: string;
   prerequisites: string;
   accessibilityStatement: string;
@@ -84,6 +87,9 @@ export const defaultCourseDesign = (): CourseDesign => ({
   programmeHome: "",
   contributingUnits: [],
   identifiedNeed: "",
+  broaderCredentialCode: "",
+  broaderCredentialTitle: "",
+  broaderCredentialRequiredCodes: [],
   intendedAudience: "Professionals, students and lifelong learners seeking applied capability in this field.",
   prerequisites: "No formal prerequisite. Basic digital literacy and reliable internet access are recommended.",
   accessibilityStatement: "Readable HTML, keyboard-accessible activities, descriptive labels and reviewed transcripts will be provided wherever applicable.",
@@ -147,6 +153,9 @@ export function normalizeCourseDesign(value: unknown): CourseDesign {
     programmeHome: String(input.programmeHome || "").trim().slice(0, 300),
     contributingUnits: cleanList(input.contributingUnits, 30).map((item) => item.slice(0, 300)),
     identifiedNeed: String(input.identifiedNeed || "").trim().slice(0, 3000),
+    broaderCredentialCode: String(input.broaderCredentialCode || "").trim().toUpperCase().slice(0, 120),
+    broaderCredentialTitle: String(input.broaderCredentialTitle || "").trim().slice(0, 300),
+    broaderCredentialRequiredCodes: cleanList(input.broaderCredentialRequiredCodes, 30).map((item) => item.toUpperCase().slice(0, 120)),
     intendedAudience: String(input.intendedAudience || "").trim().slice(0, 2000),
     prerequisites: String(input.prerequisites || "").trim().slice(0, 2000),
     accessibilityStatement: String(input.accessibilityStatement || "").trim().slice(0, 2000),
@@ -166,7 +175,7 @@ export function evaluateCourseQuality(input: {
   materials: CourseMaterialRecord[];
   questionCount: number;
   assessmentConfig?: AssessmentConfigRecord;
-  activities?: { required?: boolean; title?: string; instructions?: string; rubric?: string; passMark?: number; attemptsAllowed?: number }[];
+  activities?: { required?: boolean; title?: string; instructions?: string; rubric?: string; passMark?: number; attemptsAllowed?: number; sectionId?: string; gradingMode?: string }[];
 }) {
   const { title = "", description = "", design, materials, questionCount, assessmentConfig, activities = [] } = input;
   const sectionIds = new Set(design.sections.map((section) => section.id));
@@ -174,6 +183,7 @@ export function evaluateCourseQuality(input: {
   const checks: CourseQualityCheck[] = [
     { id: "identity", label: "Clear course identity", passed: title.trim().length >= 8 && description.trim().length >= 80, detail: "Use a specific title and a learner-facing description of at least 80 characters." },
     { id: "governance", label: "Programme source and home", passed: Boolean(design.programmeInitiationSource && design.originatingUnit.trim().length >= 2 && design.programmeHome.trim().length >= 2), detail: "Record the programme initiation source, originating unit and programme home. These are governance records and do not create a separate approval pathway." },
+    { id: "stacking", label: "Credential pathway metadata", passed: !design.broaderCredentialCode && !design.broaderCredentialTitle && design.broaderCredentialRequiredCodes.length === 0 ? true : Boolean(design.broaderCredentialCode && design.broaderCredentialTitle && design.broaderCredentialRequiredCodes.length >= 2), detail: "If this microcredential contributes to a broader credential, record the broader credential code/title and at least two required component course codes." },
     { id: "audience", label: "Audience and prerequisites", passed: design.intendedAudience.length >= 20 && design.prerequisites.length >= 10, detail: "State who the course serves and what learners need before starting." },
     { id: "objectives", label: "Course objectives", passed: design.objectives.length >= 2, detail: "Provide at least two clear design objectives." },
     { id: "outcomes", label: "Measurable outcomes", passed: design.outcomes.length >= 2 && design.outcomes.every((outcome) => outcome.assessmentMethod && outcome.skill), detail: "Provide at least two outcomes, each with a skill and assessment method." },
@@ -181,7 +191,7 @@ export function evaluateCourseQuality(input: {
     { id: "alignment", label: "Outcome alignment", passed: design.outcomes.length > 0 && design.outcomes.every((outcome) => mappedOutcomes.has(outcome.id)), detail: "Map at least one learning block to every course outcome." },
     { id: "accessible", label: "Accessible learning content", passed: Boolean(design.accessibilityStatement) && materials.every((material) => material.kind === "Watch" ? Boolean(material.transcriptPublished && material.transcript) : Boolean(material.accessibilityChecked)), detail: "Confirm accessibility for each block and provide reviewed transcripts for published video or audio." },
     { id: "assessment", label: "Assessment evidence", passed: assessmentConfig ? validateAssessmentForPublication(assessmentConfig, questionCount || 100).valid : questionCount >= 1, detail: assessmentConfig ? (validateAssessmentForPublication(assessmentConfig, questionCount || 100).issues[0] ?? "Author at least one scored assessment question.") : "Author at least one scored assessment question." },
-    { id: "activities", label: "Authentic activity settings", passed: activities.every((activity) => !activity.required || Boolean(activity.title?.trim() && activity.instructions?.trim() && activity.rubric?.trim() && Number(activity.passMark) > 0 && Number(activity.attemptsAllowed) > 0)), detail: "Required activities need instructions, a rubric, pass mark and attempt limit." },
+    { id: "activities", label: "Authentic activity settings", passed: activities.every((activity) => !activity.required || Boolean(activity.title?.trim() && activity.instructions?.trim() && activity.rubric?.trim() && Number(activity.passMark) > 0 && Number(activity.attemptsAllowed) > 0 && activity.sectionId && sectionIds.has(activity.sectionId) && ["facilitator", "ai_auto", "ai_luna", "ai_terra"].includes(String(activity.gradingMode || "facilitator")))), detail: "Required activities need a course section, instructions, rubric, pass mark, attempt limit and marking method." },
   ];
   const passed = checks.filter((check) => check.passed).length;
   return { checks, score: Math.round((passed / checks.length) * 100), ready: passed === checks.length };

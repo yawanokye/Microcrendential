@@ -235,6 +235,8 @@ CREATE TABLE IF NOT EXISTS colab_assignments (
   pass_mark INTEGER NOT NULL DEFAULT 50,
   attempts_allowed INTEGER NOT NULL DEFAULT 1,
   due_at TEXT,
+  section_id TEXT,
+  grading_mode TEXT NOT NULL DEFAULT 'facilitator',
   status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('draft','active','closed')),
   created_by_email TEXT NOT NULL,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -362,6 +364,8 @@ export function getRawDb() {
   ensureColumn("certificates", "provost_signature_key", "TEXT");
   ensureColumn("certificates", "credit_value", "INTEGER NOT NULL DEFAULT 0");
   ensureColumn("certificates", "learning_mode", "TEXT NOT NULL DEFAULT 'blended'");
+  ensureColumn("colab_assignments", "section_id", "TEXT");
+  ensureColumn("colab_assignments", "grading_mode", "TEXT NOT NULL DEFAULT 'facilitator'");
   const selfEnrolmentMigration = database.prepare("SELECT migration_key FROM platform_migrations WHERE migration_key = '0014_existing_courses_self_enrolment'").get() as { migration_key?: string } | undefined;
   const certificatePreapprovalMigration = database.prepare("SELECT migration_key FROM platform_migrations WHERE migration_key = '0015_existing_active_certificate_preapproval'").get() as { migration_key?: string } | undefined;
   if (!certificatePreapprovalMigration) {

@@ -144,6 +144,8 @@ export const colabAssignments = sqliteTable("colab_assignments", {
   passMark: integer("pass_mark").notNull().default(50),
   attemptsAllowed: integer("attempts_allowed").notNull().default(1),
   dueAt: text("due_at"),
+  sectionId: text("section_id"),
+  gradingMode: text("grading_mode", { enum: ["facilitator", "ai_auto", "ai_luna", "ai_terra"] }).notNull().default("facilitator"),
   status: text("status", { enum: ["draft", "active", "closed"] }).notNull().default("active"),
   createdByEmail: text("created_by_email").notNull(),
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),

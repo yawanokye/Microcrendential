@@ -1,5 +1,6 @@
 import { getRawDb } from "@/db/raw";
 import { normalizeCourseDesign } from "@/lib/course-design";
+import { issueBroaderCredentialsIfEligible } from "@/lib/credential-stack";
 
 type CourseActivity = {
   id?: string;
@@ -7,6 +8,8 @@ type CourseActivity = {
   title?: string;
   required?: boolean;
   practicalId?: string;
+  maxMark?: number;
+  passMark?: number;
 };
 
 export type CompletionRequirement = {
@@ -97,22 +100,25 @@ export async function evaluateCourseCompletion(userEmail: string, courseCode: st
   for (const [index, activity] of parseActivities(course.activities_json).filter((item) => item.required !== false).entries()) {
     if (activity.kind === "virtual_lab") {
       const practicalId = String(activity.practicalId ?? "").trim();
-      const submission = practicalId ? await db.prepare("SELECT id, mark, assessed_at FROM virtual_lab_submissions WHERE learner_email = ? AND practical_id = ? AND passed = 1 ORDER BY assessed_at DESC, id DESC LIMIT 1")
-        .bind(userEmail, practicalId).first<{ id: number; mark: number | null; assessed_at: string | null }>() : null;
+      const submission = practicalId ? await db.prepare("SELECT id, status, mark, feedback, assessed_at FROM virtual_lab_submissions WHERE learner_email = ? AND practical_id = ? ORDER BY id DESC LIMIT 1")
+        .bind(userEmail, practicalId).first<{ id: number; status:string; mark: number | null; feedback:string; assessed_at: string | null }>() : null;
+      const maximum=Math.max(1,Number(activity.maxMark)||100),threshold=Math.min(100,Math.max(1,Number(activity.passMark)||60));
+      const percentage=submission?.mark===null||submission?.mark===undefined?null:(Number(submission.mark)/maximum)*100;
+      const activityPassed=Boolean(submission&&submission.status==="assessed"&&percentage!==null&&percentage>=threshold&&submission.feedback?.trim());
       requirements.push({
         id: String(activity.id || `virtual-lab-${index + 1}`),
         type: "virtual_lab",
         label: activity.title?.trim() || "Required virtual practical",
-        complete: Boolean(submission),
-        evidence: submission ? `Submission ${submission.id} · ${submission.mark ?? 0}% · ${submission.assessed_at ?? "assessed"}` : "Competent submission required",
+        complete: activityPassed,
+        evidence: submission ? `Submission ${submission.id} · ${submission.mark ?? 0}/${maximum} · pass mark ${threshold}% · ${submission.assessed_at ?? submission.status}` : "Passing practical evidence required",
       });
     }
     if (activity.kind === "colab") {
       const title = String(activity.title ?? "").trim();
       const assignment = title ? await db.prepare("SELECT id FROM colab_assignments WHERE course_code = ? AND title = ? AND status = 'active' ORDER BY id DESC LIMIT 1")
         .bind(course.code, title).first<{ id: number }>() : null;
-      const submission = assignment ? await db.prepare("SELECT id, mark, assessed_at FROM colab_submissions WHERE assignment_id = ? AND learner_email = ? AND passed = 1 ORDER BY assessed_at DESC, id DESC LIMIT 1")
-        .bind(assignment.id, userEmail).first<{ id: number; mark: number | null; assessed_at: string | null }>() : null;
+      const submission = assignment ? await db.prepare("SELECT id, mark, feedback, assessed_at FROM colab_submissions WHERE assignment_id = ? AND learner_email = ? AND passed = 1 AND length(trim(feedback)) > 0 ORDER BY assessed_at DESC, id DESC LIMIT 1")
+        .bind(assignment.id, userEmail).first<{ id: number; mark: number | null; feedback:string; assessed_at: string | null }>() : null;
       requirements.push({
         id: String(activity.id || `colab-${index + 1}`),
         type: "colab",
@@ -166,5 +172,6 @@ export async function issueCertificateIfComplete(userEmail: string, courseCode: 
     .bind(certificateCode,userEmail,learner.full_name,evaluation.courseCode,evaluation.courseTitle,requirementsJson,evaluation.creditValue,evaluation.learningMode,facilitator?.signatory_name??null,facilitator?.signatory_title??null,facilitator?.file_key??null,provost?.signatory_name??null,provost?.signatory_title??null,provost?.file_key??null).run();
   const certificate = await db.prepare("SELECT certificate_code,learner_name,course_code,course_title,issuer_name,requirements_json,credential_type,status,issued_at,expires_at,revoked_at,revocation_reason,credit_value,learning_mode,facilitator_name,facilitator_title,facilitator_signature_key,provost_name,provost_title,provost_signature_key FROM certificates WHERE user_email = ? AND course_code = ? LIMIT 1")
     .bind(userEmail, courseCode).first<IssuedCertificate>();
+  await issueBroaderCredentialsIfEligible(userEmail);
   return { evaluation, certificate };
 }
