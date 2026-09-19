@@ -900,3 +900,45 @@
   .commercial-content-dialog .lesson-dialog-actions { align-items:stretch; flex-direction:column; }
   .commercial-content-dialog .lesson-dialog-actions .dialog-primary { width:100%; min-width:0; }
 }
+
+/* Facilitator-rich authoring and question approval workflow - 2026-09-19 */
+.section-learning-note { display:flex; gap:12px; align-items:flex-start; margin:0 0 18px; padding:14px 16px; border:1px solid #dce9e5; border-radius:12px; background:#f4faf8; color:#244b40; }
+.section-learning-note svg { width:20px; flex:0 0 auto; color:#277a68; }
+.section-learning-note b,.section-learning-note p { display:block; }
+.section-learning-note p { margin:4px 0 0; line-height:1.55; }
+.external-video-card { display:flex; align-items:center; gap:12px; padding:16px; margin:14px 0; border:1px solid #d5e3e7; border-radius:12px; background:#f7fafb; }
+.external-video-card>svg { width:26px; color:#156678; }
+.external-video-card>div { flex:1; }
+.external-video-card p { margin:3px 0 0; color:#60747d; }
+.external-video-card a,.section-video-external-preview { display:inline-flex; align-items:center; gap:7px; padding:9px 12px; border-radius:8px; background:#123f55; color:#fff; font-weight:800; text-decoration:none; }
+.linked-lesson-video { margin-top:18px; }
+.assessment-ready-banner,.course-complete-banner { display:flex; align-items:center; gap:14px; margin:18px 0; padding:16px 18px; border-radius:14px; }
+.assessment-ready-banner { border:1px solid #a8d8ce; background:#eef9f6; }
+.course-complete-banner { border:1px solid #badbcf; background:#f0f8f4; color:#205a49; }
+.assessment-ready-banner>svg,.course-complete-banner>svg { width:26px; flex:0 0 auto; }
+.assessment-ready-banner>div,.course-complete-banner>div { flex:1; }
+.assessment-ready-banner p,.course-complete-banner p { margin:4px 0 0; }
+.material-edit-toolbar { display:flex; flex-wrap:wrap; gap:7px; padding:9px; border:1px solid #cadadd; border-bottom:0; border-radius:10px 10px 0 0; background:#f6faf9; }
+.material-edit-toolbar button,.material-toolbar-upload { display:inline-flex!important; align-items:center; gap:5px!important; width:auto!important; padding:7px 9px!important; border:1px solid #c9d9dc!important; border-radius:7px!important; background:#fff!important; color:#163f4c!important; font-size:12px!important; font-weight:800!important; cursor:pointer; }
+.material-toolbar-upload { position:relative; }
+.material-toolbar-upload input { position:absolute; inset:0; opacity:0; cursor:pointer; }
+.material-edit-toolbar + .material-link-tools { border-top:0; }
+.material-link-tools { display:grid; grid-template-columns:auto minmax(190px,1fr) auto; gap:7px; padding:9px; border:1px solid #cadadd; border-bottom:0; background:#fbfdfd; }
+.material-link-tools input { min-width:0; }
+.material-link-tools button { padding:8px 10px; border:0; border-radius:7px; background:#174e5e; color:#fff; font-weight:800; }
+.material-edit-toolbar~.material-rich-edit { border-radius:0 0 10px 10px; }
+.material-linked-video { display:grid; grid-template-columns:1.2fr .8fr; gap:12px; padding:14px; border:1px solid #d7e2e5; border-radius:10px; background:#f8fbfb; }
+.material-linked-video label { margin:0; }
+.question-bank-item { transition:border-color .15s ease,background .15s ease; border-left:4px solid transparent; padding-left:10px!important; }
+.question-bank-item.draft { border-left-color:#d69d30; background:#fffbf1; }
+.question-bank-item.previewed { border-left-color:#3c86a0; background:#f2f8fb; }
+.question-bank-item.approved { border-left-color:#2a8a6d; background:#eff9f5; }
+.question-bank-item.approved>span { background:#2a8a6d!important; }
+.question-bank-item.previewed>span { background:#3c86a0!important; }
+.question-bank-item.draft>span { background:#d69d30!important; }
+.question-bank-status { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+.question-bank-status em { padding:4px 7px; border-radius:999px; background:#fff; color:#526c75; font-size:10px; font-style:normal; font-weight:800; }
+.question-bank-item.approved .question-bank-status em { color:#17664f; background:#dff3eb; }
+.question-bank-item.previewed .question-bank-status em { color:#245f73; background:#e3f0f5; }
+.question-preview-dialog footer { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:8px; }
+@media(max-width:760px){.material-link-tools,.material-linked-video{grid-template-columns:1fr}.external-video-card,.assessment-ready-banner,.course-complete-banner{align-items:flex-start;flex-direction:column}.assessment-ready-banner .dialog-primary{width:100%}}

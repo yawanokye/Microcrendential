@@ -47,7 +47,10 @@ function normalizeMaterials(value: unknown): CourseMaterialRecord[] {
       outcomeIds, accessibilityChecked: Boolean(item.accessibilityChecked), license: String(item.license || "").trim().slice(0, 200) || undefined,
       transcript: String(item.transcript || "").slice(0, 300_000) || undefined,
       transcriptLanguage: String(item.transcriptLanguage || "").slice(0, 80) || undefined,
-      transcriptSource: String(item.transcriptSource || "").slice(0, 240) || undefined, transcriptPublished: Boolean(item.transcriptPublished), required: item.required !== false,
+      transcriptSource: String(item.transcriptSource || "").slice(0, 240) || undefined, transcriptPublished: Boolean(item.transcriptPublished),
+      displayMode: item.displayMode === "new_tab" ? "new_tab" : "in_frame",
+      linkedVideoUrl: normalizeUrl(item.linkedVideoUrl), linkedVideoDisplay: item.linkedVideoDisplay === "new_tab" ? "new_tab" : "in_frame",
+      required: item.required !== false,
     };
   });
 }
