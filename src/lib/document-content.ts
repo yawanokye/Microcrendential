@@ -117,6 +117,33 @@ function findZipEntry(archive: Buffer, wantedName: string) {
   throw new Error("The DOCX file does not contain a readable document body.");
 }
 
+function pptxToReadableText(buffer: Buffer) {
+  const slides: string[] = [];
+  for (let index = 1; index <= 500; index += 1) {
+    let slideXml = "";
+    try { slideXml = findZipEntry(buffer, `ppt/slides/slide${index}.xml`).toString("utf8"); }
+    catch { break; }
+    const slideText = Array.from(slideXml.matchAll(/<a:t(?:\s[^>]*)?>([\s\S]*?)<\/a:t>/g))
+      .map((match) => decodeEntities(match[1]).replace(/\s+/g, " ").trim())
+      .filter(Boolean);
+    let notesText: string[] = [];
+    try {
+      const notesXml = findZipEntry(buffer, `ppt/notesSlides/notesSlide${index}.xml`).toString("utf8");
+      notesText = Array.from(notesXml.matchAll(/<a:t(?:\s[^>]*)?>([\s\S]*?)<\/a:t>/g))
+        .map((match) => decodeEntities(match[1]).replace(/\s+/g, " ").trim())
+        .filter((value) => value && !/^\d+$/.test(value));
+    } catch { /* Speaker notes are optional. */ }
+    if (!slideText.length && !notesText.length) continue;
+    const title = slideText[0] || `Slide ${index}`;
+    const body = slideText.slice(1);
+    slides.push(`# ${title}`);
+    if (body.length) slides.push(...body);
+    if (notesText.length) { slides.push("## Speaker notes", ...notesText); }
+    slides.push("");
+  }
+  return slides.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+
 function docxToReadableHtml(buffer: Buffer) {
   const xml = findZipEntry(buffer, "word/document.xml").toString("utf8");
   const blocks: string[] = [];
@@ -226,6 +253,17 @@ export function extractReadableContent(buffer: Buffer, fileName: string, mimeTyp
   let html = "";
   let note = "Readable text generated from the supplied source.";
   if (extension === "docx" || mimeType.includes("wordprocessingml")) html = docxToReadableHtml(buffer);
+  else if (extension === "pptx" || mimeType.includes("presentationml")) {
+    const text = pptxToReadableText(buffer);
+    html = textToReadableHtml(text);
+    note = text.trim().length >= 80
+      ? "Slide text and available speaker notes were extracted from the PowerPoint presentation. Review slide order, diagrams and accessibility before publishing."
+      : "The PowerPoint presentation contains little machine-readable text; image-based slides should be extracted with the AI fallback.";
+  }
+  else if (extension === "ppt" || mimeType === "application/vnd.ms-powerpoint") {
+    html = "";
+    note = "Legacy PowerPoint files require the AI extraction fallback. For best results, save the presentation as PPTX before upload.";
+  }
   else if (extension === "pdf" || mimeType === "application/pdf") {
     const text = pdfToText(buffer);
     if (hasPlausiblePdfText(text)) {

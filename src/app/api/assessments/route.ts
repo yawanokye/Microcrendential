@@ -33,7 +33,7 @@ export async function POST(request:Request){
   if(alreadyPassed)return Response.json({error:"You have already passed this course assessment. The completed course remains available for review, but a second certificate cannot be earned for the same course.",alreadyPassed:true,score:alreadyPassed.score,completedAt:alreadyPassed.completed_at},{status:409});
 
   const completionBefore=await evaluateCourseCompletion(account.profile.email,code);
-  const incompleteLearning=(completionBefore?.requirements??[]).filter((item)=>["content","virtual_lab","colab"].includes(item.type)&&!item.complete);
+  const incompleteLearning=(completionBefore?.requirements??[]).filter((item)=>["content","learning_activity","virtual_lab","colab"].includes(item.type)&&!item.complete);
   if(incompleteLearning.length)return Response.json({error:`Complete the required learning activities before the final assessment (${incompleteLearning.map((item)=>item.label).slice(0,3).join(", ")}${incompleteLearning.length>3?"…":""}).`,requirements:incompleteLearning},{status:409});
 
   const missing=questions.filter(q=>answers[q.id]===undefined||answers[q.id]===null||(typeof answers[q.id]==="string"&&!String(answers[q.id]).trim()));if(missing.length)return Response.json({error:`Answer every item before submission (${missing.length} incomplete).`},{status:400});

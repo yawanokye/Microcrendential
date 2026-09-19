@@ -43,6 +43,13 @@ export async function GET() {
   for (const course of courseRows.results) {
     let design: ReturnType<typeof normalizeCourseDesign>;
     try { design = normalizeCourseDesign(JSON.parse(course.design_json || "{}")); } catch { continue; }
+    if (design.credentialStructure === "broader") {
+      const code = course.code.trim().toUpperCase();
+      if (!code || design.componentCredentialCodes.length < 2) continue;
+      pathwayMap.set(code, { code, title: course.title, requiredCodes: new Set(design.componentCredentialCodes.map((item) => item.trim().toUpperCase()).filter(Boolean)) });
+      continue;
+    }
+    // Backward compatibility for legacy component-defined pathways.
     const code = design.broaderCredentialCode.trim().toUpperCase();
     const title = design.broaderCredentialTitle.trim();
     if (!code || !title) continue;

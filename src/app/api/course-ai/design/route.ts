@@ -1,12 +1,13 @@
 import { requireActiveProfile } from "@/lib/accounts";
 import { courseAiStatus, generateCourseAiProposal, type CourseAiMode, type CourseAiProvider } from "@/lib/course-ai";
 import { extractReadableContent } from "@/lib/document-content";
+import { extractScannedDocumentWithAi } from "@/lib/ai-document-extraction";
 import { validatePublicHttpUrl } from "@/lib/public-url";
 import { putStoredFile } from "@/lib/render-storage";
 import { rejectCrossSiteMutation } from "@/lib/request-security";
 import { recordAudit } from "@/lib/audit";
 
-const manualExtensions = new Set(["pdf", "docx", "txt", "md", "html", "htm", "rtf"]);
+const manualExtensions = new Set(["pdf", "ppt", "pptx", "docx", "txt", "md", "html", "htm", "rtf"]);
 const mediaExtensions = new Set(["mp3", "wav", "m4a", "aac", "ogg", "mp4", "webm", "mov", "mpeg", "mpg"]);
 const field = (form: FormData, key: string, maximum = 100_000) => String(form.get(key) ?? "").trim().slice(0, maximum);
 
@@ -34,13 +35,13 @@ export async function POST(request: Request) {
     const file = form.get("file");
 
     if (mode === "manual") {
-      if (!(file instanceof File)) return Response.json({ error: "Choose a searchable PDF, DOCX, TXT, Markdown, HTML or RTF manual." }, { status: 400 });
+      if (!(file instanceof File)) return Response.json({ error: "Choose a PDF, PowerPoint, DOCX, TXT, Markdown, HTML or RTF manual." }, { status: 400 });
       if (file.size > 25 * 1024 * 1024) return Response.json({ error: "Learning manuals must be 25 MB or smaller." }, { status: 413 });
       const extension = file.name.toLowerCase().split(".").pop() || "";
-      if (!manualExtensions.has(extension)) return Response.json({ error: "Use a searchable PDF, DOCX, TXT, Markdown, HTML or RTF manual." }, { status: 415 });
-      const body = Buffer.from(await file.arrayBuffer()); const mimeType = extension === "pdf" ? "application/pdf" : file.type || "application/octet-stream";
-      const extracted = extractReadableContent(body, file.name, mimeType);
-      if (extracted.wordCount < 35) return Response.json({ error: "The document did not expose enough readable text. Run OCR for a scanned PDF or upload an accessible DOCX." }, { status: 422 });
+      if (!manualExtensions.has(extension)) return Response.json({ error: "Use PDF, PPT/PPTX, DOCX, TXT, Markdown, HTML or RTF." }, { status: 415 });
+      const body = Buffer.from(await file.arrayBuffer()); const mimeType = extension === "pdf" ? "application/pdf" : extension === "pptx" ? "application/vnd.openxmlformats-officedocument.presentationml.presentation" : extension === "ppt" ? "application/vnd.ms-powerpoint" : file.type || "application/octet-stream";
+      let extracted = extractReadableContent(body, file.name, mimeType);
+      if (extracted.wordCount < 35 || extracted.text.length < 200) extracted = await extractScannedDocumentWithAi(body, file.name, mimeType);
       sourceText = extracted.text.slice(0, 100_000);
       const stored = new File([body], file.name, { type: mimeType }); const key = await putStoredFile("course-materials", stored, { contentType: mimeType, originalName: file.name, ownerEmail: account.profile.email, evidenceKind: "course-material" });
       sourceFile = { key, name: file.name, mimeType };

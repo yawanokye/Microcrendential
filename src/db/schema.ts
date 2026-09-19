@@ -198,3 +198,32 @@ export const virtualLabSubmissions = sqliteTable("virtual_lab_submissions", {
   index("virtual_lab_practical_idx").on(table.practicalId),
   index("virtual_lab_learner_idx").on(table.learnerEmail),
 ]);
+
+export const materialActivitySubmissions = sqliteTable("material_activity_submissions", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  userEmail: text("user_email").notNull(),
+  courseCode: text("course_code").notNull(),
+  materialId: text("material_id").notNull(),
+  activityId: text("activity_id").notNull(),
+  attemptNumber: integer("attempt_number").notNull().default(1),
+  responseType: text("response_type").notNull().default("long_text"),
+  responseText: text("response_text").notNull().default(""),
+  evidenceKey: text("evidence_key"),
+  evidenceFileName: text("evidence_file_name"),
+  evidenceMimeType: text("evidence_mime_type"),
+  status: text("status", { enum: ["submitted", "assessed", "resubmit"] }).notNull().default("assessed"),
+  mark: integer("mark"),
+  maxMark: integer("max_mark").notNull().default(100),
+  passMark: integer("pass_mark").notNull().default(60),
+  passed: integer("passed", { mode: "boolean" }).notNull().default(false),
+  feedback: text("feedback").notNull().default(""),
+  criteriaJson: text("criteria_json").notNull().default("[]"),
+  gradingMode: text("grading_mode").notNull().default("ai_auto"),
+  model: text("model"),
+  submittedAt: text("submitted_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  assessedAt: text("assessed_at"),
+}, (table) => [
+  uniqueIndex("material_activity_attempt_unique").on(table.userEmail, table.courseCode, table.activityId, table.attemptNumber),
+  index("material_activity_learner_idx").on(table.userEmail, table.courseCode, table.activityId),
+  index("material_activity_course_idx").on(table.courseCode, table.activityId, table.passed),
+]);

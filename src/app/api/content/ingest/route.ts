@@ -4,9 +4,10 @@ import { extractArticleHtml, extractReadableContent, plainTextFromHtml, sanitize
 import { fetchPublicResource, validatePublicHttpUrl } from "@/lib/public-url";
 import { putStoredFile } from "@/lib/render-storage";
 import { rejectCrossSiteMutation } from "@/lib/request-security";
+import { extractScannedDocumentWithAi } from "@/lib/ai-document-extraction";
 
 const allowedExtensions = new Set(["pdf", "doc", "docx", "txt", "md", "html", "htm", "rtf", "ppt", "pptx", "csv", "jpg", "jpeg", "png", "webp", "mp3", "wav", "mp4", "webm"]);
-const convertibleExtensions = new Set(["pdf", "docx", "txt", "md", "html", "htm", "rtf"]);
+const convertibleExtensions = new Set(["pdf", "docx", "txt", "md", "html", "htm", "rtf", "ppt", "pptx"]);
 
 const clean = (form: FormData, key: string, maximum = 500) => String(form.get(key) ?? "").trim().slice(0, maximum);
 const placement = (form: FormData) => ({
@@ -59,14 +60,24 @@ export async function POST(request: Request) {
     if (file.size > 25 * 1024 * 1024) return Response.json({ error: "Course content files must be 25 MB or smaller." }, { status: 413 });
     const extension = file.name.toLowerCase().split(".").pop() ?? "";
     if (!allowedExtensions.has(extension)) return Response.json({ error: "Use PDF, DOCX, text, HTML, RTF, PowerPoint, CSV, image, audio or video content." }, { status: 415 });
-    const mimeType = extension === "pdf" ? "application/pdf" : file.type || "application/octet-stream";
+    const mimeType = extension === "pdf" ? "application/pdf" : extension === "pptx" ? "application/vnd.openxmlformats-officedocument.presentationml.presentation" : extension === "ppt" ? "application/vnd.ms-powerpoint" : file.type || "application/octet-stream";
     const fileKey = await putStoredFile("course-materials", file, { contentType: mimeType, originalName: file.name, ownerEmail: account.profile.email, evidenceKind: "course-material" });
     let readableHtml = ""; let plainText = ""; let note = "The original file is available to authorised course learners.";
     if (convertibleExtensions.has(extension)) {
-      try { const extracted = extractReadableContent(Buffer.from(await file.arrayBuffer()), file.name, file.type); readableHtml = extracted.html; plainText = extracted.text; note = extracted.note; }
-      catch (reason) { note = reason instanceof Error ? reason.message : "Automatic readable-text conversion was not available for this document."; }
+      const body = Buffer.from(await file.arrayBuffer());
+      try {
+        const extracted = extractReadableContent(body, file.name, mimeType);
+        readableHtml = extracted.html; plainText = extracted.text; note = extracted.note;
+        if (plainText.trim().length < 120 || extracted.wordCount < 20) {
+          const aiExtracted = await extractScannedDocumentWithAi(body, file.name, mimeType);
+          readableHtml = aiExtracted.html; plainText = aiExtracted.text; note = aiExtracted.note;
+        }
+      } catch (reason) {
+        note = reason instanceof Error ? reason.message : "Automatic readable-text conversion was not available for this document.";
+        if (["pdf", "ppt", "pptx"].includes(extension)) return Response.json({ error: `The PDF/PowerPoint was uploaded but its learning content could not be extracted: ${note}` }, { status: 422 });
+      }
     }
-    const kind = extension === "pdf" || readableHtml ? "Read" : file.type.startsWith("video/") || file.type.startsWith("audio/") ? "Watch" : "Download";
+    const kind = extension === "pdf" || extension === "ppt" || extension === "pptx" || readableHtml ? "Read" : file.type.startsWith("video/") || file.type.startsWith("audio/") ? "Watch" : "Download";
     material = { id: crypto.randomUUID(), title: requestedTitle || file.name.replace(/\.[^.]+$/, ""), kind, source: sourceLabel, fileKey, fileName: file.name, mimeType, readableHtml: readableHtml || undefined, plainText: plainText || undefined, estimatedMinutes: Math.max(1, Math.ceil((plainText.split(/\s+/).filter(Boolean).length || 200) / 200)), accessibilityChecked: plainText.length >= 80, license: clean(form, "license", 200) || "Institution-supplied learning material", ...location };
     return Response.json({ material, conversionNote: note }, { status: 201 });
   } else if (mode === "video") {

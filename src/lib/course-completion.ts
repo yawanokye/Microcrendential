@@ -4,17 +4,18 @@ import { issueBroaderCredentialsIfEligible } from "@/lib/credential-stack";
 
 type CourseActivity = {
   id?: string;
-  kind?: "colab" | "virtual_lab";
+  kind?: "colab" | "virtual_lab" | "inline";
   title?: string;
   required?: boolean;
   practicalId?: string;
+  materialId?: string;
   maxMark?: number;
   passMark?: number;
 };
 
 export type CompletionRequirement = {
   id: string;
-  type: "identity" | "assessment" | "content" | "virtual_lab" | "colab";
+  type: "identity" | "assessment" | "content" | "learning_activity" | "virtual_lab" | "colab";
   label: string;
   complete: boolean;
   evidence?: string;
@@ -125,6 +126,18 @@ export async function evaluateCourseCompletion(userEmail: string, courseCode: st
         label: activity.title?.trim() || "Required Colab activity",
         complete: Boolean(submission),
         evidence: submission ? `Submission ${submission.id} · ${submission.mark ?? 0} marks · ${submission.assessed_at ?? "assessed"}` : "Passing notebook evidence required",
+      });
+    }
+    if (activity.kind === "inline") {
+      const activityId = String(activity.id || `inline-${index + 1}`);
+      const submission = await db.prepare("SELECT id,mark,max_mark,pass_mark,feedback,assessed_at FROM material_activity_submissions WHERE user_email=? AND course_code=? AND activity_id=? AND passed=1 AND length(trim(feedback))>0 ORDER BY assessed_at DESC,id DESC LIMIT 1")
+        .bind(userEmail, course.code, activityId).first<{id:number;mark:number|null;max_mark:number;pass_mark:number;feedback:string;assessed_at:string|null}>();
+      requirements.push({
+        id: activityId,
+        type: "learning_activity",
+        label: activity.title?.trim() || "Required section learning activity",
+        complete: Boolean(submission),
+        evidence: submission ? `Submission ${submission.id} · ${submission.mark ?? 0}/${submission.max_mark} · pass mark ${submission.pass_mark}% · feedback recorded` : "Pass this learning activity and receive feedback before the section can be completed",
       });
     }
   }

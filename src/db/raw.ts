@@ -170,6 +170,33 @@ CREATE TABLE IF NOT EXISTS learning_progress (
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   UNIQUE(user_email,course_code,material_id)
 );
+CREATE TABLE IF NOT EXISTS material_activity_submissions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_email TEXT NOT NULL,
+  course_code TEXT NOT NULL,
+  material_id TEXT NOT NULL,
+  activity_id TEXT NOT NULL,
+  attempt_number INTEGER NOT NULL DEFAULT 1,
+  response_type TEXT NOT NULL DEFAULT 'long_text',
+  response_text TEXT NOT NULL DEFAULT '',
+  evidence_key TEXT,
+  evidence_file_name TEXT,
+  evidence_mime_type TEXT,
+  status TEXT NOT NULL DEFAULT 'assessed' CHECK(status IN ('submitted','assessed','resubmit')),
+  mark INTEGER,
+  max_mark INTEGER NOT NULL DEFAULT 100,
+  pass_mark INTEGER NOT NULL DEFAULT 60,
+  passed INTEGER NOT NULL DEFAULT 0,
+  feedback TEXT NOT NULL DEFAULT '',
+  criteria_json TEXT NOT NULL DEFAULT '[]',
+  grading_mode TEXT NOT NULL DEFAULT 'ai_auto',
+  model TEXT,
+  submitted_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  assessed_at TEXT,
+  UNIQUE(user_email, course_code, activity_id, attempt_number)
+);
+CREATE INDEX IF NOT EXISTS material_activity_learner_idx ON material_activity_submissions(user_email,course_code,activity_id);
+CREATE INDEX IF NOT EXISTS material_activity_course_idx ON material_activity_submissions(course_code,activity_id,passed);
 CREATE TABLE IF NOT EXISTS course_revisions (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   course_id INTEGER NOT NULL REFERENCES course_drafts(id) ON DELETE CASCADE,

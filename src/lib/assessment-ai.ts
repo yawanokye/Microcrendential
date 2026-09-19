@@ -62,7 +62,7 @@ function stablePrompt(question: AssessmentQuestionRecord) {
   return `You are grading one University of Cape Coast microcredential assessment response.\n\nGRADING RULES\n- Use only the approved question, model answer/key points and facilitator rubric below.\n- Do not create new criteria or alter the mark allocation.\n- Award a score from 0 to ${max}. Never award more than ${max}.\n- Apply the rubric consistently to every learner.\n- A missing or irrelevant response earns zero where the rubric supports that result.\n- Give concise criterion-based feedback and a practical next step.\n- Do not infer facts about the learner.\n\nQUESTION TYPE\n${question.type}\n\nAPPROVED QUESTION\n${String(question.prompt ?? "").trim()}\n\nMODEL ANSWER / KEY POINTS\n${String(question.correctAnswer ?? "").trim() || "No separate model answer supplied; rely strictly on the rubric."}\n\nFACILITATOR RUBRIC\n${String(question.scheme ?? "").trim()}\n\nMAXIMUM MARK\n${max}\n\nLEARNING OUTCOME IDS\n${(question.outcomeIds ?? []).join(", ") || "Not specified"}`;
 }
 
-export async function gradeQuestionWithAi(question: AssessmentQuestionRecord, answer: unknown): Promise<AiQuestionGrade> {
+export async function gradeQuestionWithAi(question: AssessmentQuestionRecord, answer: unknown, options?: { imageDataUrl?: string }): Promise<AiQuestionGrade> {
   const apiKey = process.env.OPENAI_API_KEY?.trim();
   if (!apiKey) throw new Error("OPENAI_API_KEY is not configured for automated rubric grading.");
   const model = modelFor(question, answer);
@@ -81,6 +81,7 @@ export async function gradeQuestionWithAi(question: AssessmentQuestionRecord, an
         content: [
           { type: "input_text", text: stablePrompt(question), prompt_cache_breakpoint: { mode: "explicit" } },
           { type: "input_text", text: `LEARNER RESPONSE\n${learnerAnswer.slice(0, 80_000)}` },
+          ...(options?.imageDataUrl ? [{ type: "input_image", image_url: options.imageDataUrl, detail: "auto" }] : []),
         ],
       }],
       prompt_cache_key: cacheKey(question, model),
@@ -137,6 +138,7 @@ export async function gradeActivityEvidenceWithAi(input: {
   maxMark: number;
   gradingMode?: "ai_auto" | "ai_luna" | "ai_terra";
   evidence: unknown;
+  imageDataUrl?: string;
 }) {
   const question: AssessmentQuestionRecord = {
     id: input.id,
@@ -148,5 +150,5 @@ export async function gradeActivityEvidenceWithAi(input: {
     gradingMode: input.gradingMode ?? "ai_auto",
     outcomeIds: [],
   };
-  return gradeQuestionWithAi(question, input.evidence);
+  return gradeQuestionWithAi(question, input.evidence, { imageDataUrl: input.imageDataUrl });
 }

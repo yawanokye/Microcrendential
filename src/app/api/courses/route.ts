@@ -74,18 +74,74 @@ type LearnerPresentedCourse = Omit<PresentedCourse, "approvalRecord" | "certific
 
 function learnerVisibleCourse(course: PresentedCourse): LearnerPresentedCourse {
   const { approvalRecord, certificatePreapproved, reviewComment, reviewedByEmail, reviewedAt, submittedAt, ...safe } = course;
-  return safe;
+  const activities = safe.activities.map((entry) => {
+    const activity = entry && typeof entry === "object" ? entry as Record<string, unknown> : {};
+    return {
+      id: activity.id, kind: activity.kind, title: activity.title, instructions: activity.instructions, required: activity.required,
+      passMark: activity.passMark, attemptsAllowed: activity.attemptsAllowed, maxMark: activity.maxMark, dueAt: activity.dueAt,
+      practicalId: activity.practicalId, discipline: activity.discipline, sectionId: activity.sectionId, sectionTitle: activity.sectionTitle,
+      materialId: activity.materialId, responseType: activity.responseType, gradingMode: activity.gradingMode,
+    };
+  });
+  return { ...safe, activities };
 }
 
 function catalogueOnly(course:LearnerPresentedCourse){return{...course,enrolled:false,materials:course.materials.map((m)=>({id:m.id,title:m.title,kind:m.kind,source:m.source,sectionId:m.sectionId,sectionTitle:m.sectionTitle,unitTitle:m.unitTitle,estimatedMinutes:m.estimatedMinutes,outcomeIds:m.outcomeIds,required:m.required})),activities:course.activities.map((entry)=>{const a=entry&&typeof entry==="object"?entry as Record<string,unknown>:{};return{id:a.id,kind:a.kind,title:a.title,required:a.required,passMark:a.passMark};}),assessmentConfig:{passMark:Number((course.assessmentConfig as {passMark?:number}).passMark)||70,attempts:String((course.assessmentConfig as {attempts?:string}).attempts||"1"),questionCount:Array.isArray((course.assessmentConfig as {questions?:unknown[]}).questions)?(course.assessmentConfig as {questions:unknown[]}).questions.length:0}};}
 
+
+function attachBroaderCredentialLinks(courses: PresentedCourse[]) {
+  const broader = courses.filter((course) => course.status === "active" && course.design.credentialStructure === "broader" && course.design.componentCredentialCodes.length >= 2);
+  return courses.map((course) => {
+    if (course.design.credentialStructure === "broader") return course;
+    const parent = broader.find((item) => item.design.componentCredentialCodes.includes(course.code.toUpperCase()));
+    if (!parent) return course;
+    return { ...course, design: { ...course.design, broaderCredentialCode: parent.code, broaderCredentialTitle: parent.title, broaderCredentialRequiredCodes: parent.design.componentCredentialCodes } };
+  });
+}
+
+async function validateBroaderComponentsForReview(design: ReturnType<typeof normalizeCourseDesign>, courseCode: string) {
+  if (design.credentialStructure !== "broader") return "";
+  const codes = [...new Set(design.componentCredentialCodes.map((item) => item.trim().toUpperCase()).filter(Boolean))];
+  if (codes.length < 2) return "Select at least two existing active component microcredentials for the broader credential.";
+  if (codes.includes(courseCode.trim().toUpperCase())) return "A broader credential cannot include itself as a component.";
+  const db = getRawDb();
+  const placeholders = codes.map(() => "?").join(",");
+  const rows = await db.prepare(`SELECT code,title,status,design_json FROM course_drafts WHERE code IN (${placeholders})`).bind(...codes).all<{ code:string; title:string; status:string; design_json:string }>();
+  const byCode = new Map(rows.results.map((row) => [row.code.toUpperCase(), row]));
+  const missing = codes.filter((code) => !byCode.has(code));
+  if (missing.length) return `Build the component credential${missing.length === 1 ? "" : "s"} first: ${missing.join(", ")}.`;
+  const inactive = codes.filter((code) => byCode.get(code)?.status !== "active");
+  if (inactive.length) return `These component credentials must be approved and active before the broader credential can be submitted: ${inactive.join(", ")}.`;
+  const nested = codes.filter((code) => {
+    const row = byCode.get(code); if (!row) return false;
+    try { return normalizeCourseDesign(JSON.parse(row.design_json || "{}")).credentialStructure === "broader"; } catch { return false; }
+  });
+  if (nested.length) return `Select individual/component microcredentials rather than another broader credential: ${nested.join(", ")}.`;
+  const selected = new Set(codes);
+  const componentDesigns = new Map(rows.results.map((row) => {
+    try { return [row.code.toUpperCase(), normalizeCourseDesign(JSON.parse(row.design_json || "{}"))] as const; } catch { return [row.code.toUpperCase(), normalizeCourseDesign({})] as const; }
+  }));
+  for (const mapping of design.componentOutcomeMappings) {
+    if (!selected.has(mapping.componentCourseCode)) return `Outcome mapping refers to an unselected component: ${mapping.componentCourseCode}.`;
+    const component = componentDesigns.get(mapping.componentCourseCode);
+    const available = new Set(component?.outcomes.map((outcome) => outcome.id) ?? []);
+    if (mapping.componentOutcomeIds.some((id) => !available.has(id))) return `Outcome mapping for ${mapping.componentCourseCode} refers to an outcome that is no longer available. Review the mapping.`;
+  }
+  return "";
+}
+
 function normalizedPayload(payload: Record<string, unknown>) {
   const title = String(payload.title ?? "").trim().slice(0, 240); const code = String(payload.code ?? "").trim().toUpperCase().slice(0, 80);
   const discipline = String(payload.discipline ?? "").trim().slice(0, 160); const description = String(payload.description ?? "").trim().slice(0, 5000);
-  const design = normalizeCourseDesign(payload.design); const materials = normalizeMaterials(payload.materials);
-  const activities = Array.isArray(payload.activities) ? payload.activities.slice(0, 100) : [];
-  const assessmentModes = Array.isArray(payload.assessmentModes) ? payload.assessmentModes.map(String).slice(0, 20) : [];
-  const assessmentConfig = payload.assessmentConfig && typeof payload.assessmentConfig === "object" ? payload.assessmentConfig as Record<string, unknown> : {};
+  const design = normalizeCourseDesign(payload.design); const submittedMaterials = normalizeMaterials(payload.materials);
+  const submittedActivities = Array.isArray(payload.activities) ? payload.activities.slice(0, 100) : [];
+  const submittedAssessmentModes = Array.isArray(payload.assessmentModes) ? payload.assessmentModes.map(String).slice(0, 20) : [];
+  const submittedAssessmentConfig = payload.assessmentConfig && typeof payload.assessmentConfig === "object" ? payload.assessmentConfig as Record<string, unknown> : {};
+  // A broader credential is a consolidation record. Component learning content, activities and assessment remain owned by the approved component credentials.
+  const materials = design.credentialStructure === "broader" ? [] : submittedMaterials;
+  const activities = design.credentialStructure === "broader" ? [] : submittedActivities;
+  const assessmentModes = design.credentialStructure === "broader" ? [] : submittedAssessmentModes;
+  const assessmentConfig = design.credentialStructure === "broader" ? { ...submittedAssessmentConfig, questions: [], questionFiles: [] } : submittedAssessmentConfig;
   const questions = Array.isArray(assessmentConfig.questions) ? assessmentConfig.questions : [];
   const questionLimit = Math.min(100, Math.max(1, Number(payload.questionLimit) || 10));
   const quality = evaluateCourseQuality({ title, description, design, materials, questionCount: questions.slice(0, questionLimit).length, assessmentConfig: assessmentConfig as AssessmentConfigRecord, activities: activities as Parameters<typeof evaluateCourseQuality>[0]["activities"] });
@@ -109,8 +165,9 @@ export async function GET() {
   if (account.profile.role === "learner") rows = await db.prepare(`${select} WHERE c.status = 'active' ORDER BY c.activated_at DESC, c.created_at DESC LIMIT 100`).all<CourseRow>();
   else if (account.profile.role === "facilitator") rows = await db.prepare(`${select} WHERE c.created_by_email = ? OR c.status = 'active' ORDER BY c.updated_at DESC, c.created_at DESC LIMIT 150`).bind(account.profile.email).all<CourseRow>();
   else rows = await db.prepare(`${select} ORDER BY CASE c.status WHEN 'pending_review' THEN 0 WHEN 'active' THEN 1 WHEN 'draft' THEN 2 ELSE 3 END, c.updated_at DESC, c.created_at DESC LIMIT 250`).all<CourseRow>();
-  if(account.profile.role==="learner"){const enrolledRows=await db.prepare("SELECT course_code FROM enrollments WHERE user_email=? AND status IN ('active','completed')").bind(account.profile.email).all<{course_code:string}>();const enrolled=new Set(enrolledRows.results.map(r=>r.course_code));return Response.json({courses:rows.results.map(present).map(course=>{const safe=learnerVisibleCourse(course);return enrolled.has(course.code)?{...safe,enrolled:true,assessmentConfig:learnerSafeAssessmentConfig(course.assessmentConfig as AssessmentConfigRecord,course.questionLimit)}:catalogueOnly(safe);})});}
-  return Response.json({ courses: rows.results.map(present) });
+  const presented = attachBroaderCredentialLinks(rows.results.map(present));
+  if(account.profile.role==="learner"){const enrolledRows=await db.prepare("SELECT course_code FROM enrollments WHERE user_email=? AND status IN ('active','completed')").bind(account.profile.email).all<{course_code:string}>();const enrolled=new Set(enrolledRows.results.map(r=>r.course_code));const learnerCourses=presented.filter(course=>course.design.credentialStructure!=="broader");return Response.json({courses:learnerCourses.map(course=>{const safe=learnerVisibleCourse(course);return enrolled.has(course.code)?{...safe,enrolled:true,assessmentConfig:learnerSafeAssessmentConfig(course.assessmentConfig as AssessmentConfigRecord,course.questionLimit)}:catalogueOnly(safe);})});}
+  return Response.json({ courses: presented });
 }
 
 export async function POST(request: Request) {
@@ -120,7 +177,7 @@ export async function POST(request: Request) {
   const payload = await request.json() as Record<string, unknown>; const course = normalizedPayload(payload);
   if (!course.title || !course.code || !course.discipline) return Response.json({ error: "Course title, code and discipline are required." }, { status: 400 });
   const submissionMode = payload.submissionMode === "review" ? "review" : "draft";
-  if (submissionMode === "review") { const error = validateForReview(course); if (error) return Response.json({ error, quality: course.quality }, { status: 400 }); }
+  if (submissionMode === "review") { const error = validateForReview(course); if (error) return Response.json({ error, quality: course.quality }, { status: 400 }); const componentError = await validateBroaderComponentsForReview(course.design, course.code); if (componentError) return Response.json({ error: componentError, quality: course.quality }, { status: 400 }); }
   const db = getRawDb(); const existing = await db.prepare("SELECT id FROM course_drafts WHERE code = ? LIMIT 1").bind(course.code).first();
   if (existing) return Response.json({ error: "That course code is already in use. Open the existing draft to continue editing." }, { status: 409 });
   const status = submissionMode === "review" ? "pending_review" : "draft";
@@ -147,7 +204,7 @@ export async function PUT(request: Request) {
   const duplicate = await db.prepare("SELECT id FROM course_drafts WHERE code = ? AND id <> ? LIMIT 1").bind(course.code, id).first();
   if (duplicate) return Response.json({ error: "That course code belongs to another course." }, { status: 409 });
   const submissionMode = payload.submissionMode === "review" ? "review" : "draft";
-  if (submissionMode === "review") { const error = validateForReview(course); if (error) return Response.json({ error, quality: course.quality }, { status: 400 }); }
+  if (submissionMode === "review") { const error = validateForReview(course); if (error) return Response.json({ error, quality: course.quality }, { status: 400 }); const componentError = await validateBroaderComponentsForReview(course.design, course.code); if (componentError) return Response.json({ error: componentError, quality: course.quality }, { status: 400 }); }
   const status = submissionMode === "review" ? "pending_review" : "draft";
   const result = await db.prepare("UPDATE course_drafts SET code = ?, title = ?, discipline = ?, description = ?, materials_json = ?, activities_json = ?, assessment_modes_json = ?, assessment_config_json = ?, design_json = ?, gate_required = ?, question_limit = ?, certificate_enabled = ?, status = ?, version_number = version_number + 1, submitted_at = CASE WHEN ? = 'pending_review' THEN CURRENT_TIMESTAMP ELSE submitted_at END, review_comment = CASE WHEN ? = 'pending_review' THEN NULL ELSE review_comment END, reviewed_by_email = CASE WHEN ? = 'pending_review' THEN NULL ELSE reviewed_by_email END, reviewed_at = CASE WHEN ? = 'pending_review' THEN NULL ELSE reviewed_at END, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND version_number = ?")
     .bind(course.code, course.title, course.discipline, course.description, JSON.stringify(course.materials), JSON.stringify(course.activities), JSON.stringify(course.assessmentModes), JSON.stringify(course.assessmentConfig), JSON.stringify(course.design), payload.gateRequired === false ? 0 : 1, course.questionLimit, payload.certificateEnabled === false ? 0 : 1, status, status, status, status, status, id, expectedVersion).run();

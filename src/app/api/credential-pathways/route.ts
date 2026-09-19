@@ -29,12 +29,18 @@ export async function GET() {
   for (const course of courses.results) {
     let design;
     try { design = normalizeCourseDesign(JSON.parse(course.design_json || "{}")); } catch { design = normalizeCourseDesign({}); }
+    if (design.credentialStructure === "broader") {
+      const code = course.code.trim().toUpperCase();
+      if (!code || design.componentCredentialCodes.length < 2) continue;
+      grouped.set(code, { title: course.title, required: new Set(design.componentCredentialCodes.map((item) => item.trim().toUpperCase()).filter(Boolean)) });
+      continue;
+    }
+    // Backward compatibility for legacy component-defined pathways.
     const code = design.broaderCredentialCode.trim().toUpperCase();
     const title = design.broaderCredentialTitle.trim();
     if (!code || !title) continue;
     const entry = grouped.get(code) ?? { title, required: new Set<string>() };
     design.broaderCredentialRequiredCodes.forEach((item) => entry.required.add(item.trim().toUpperCase()));
-    // Ensure the current component is represented even if an older draft omitted it from the explicit list.
     entry.required.add(course.code.trim().toUpperCase());
     grouped.set(code, entry);
   }

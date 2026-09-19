@@ -4,8 +4,9 @@ import { extractReadableContent, textToReadableHtml } from "@/lib/document-conte
 import { putStoredFile } from "@/lib/render-storage";
 import { rejectCrossSiteMutation } from "@/lib/request-security";
 import { recordAudit } from "@/lib/audit";
+import { extractScannedDocumentWithAi } from "@/lib/ai-document-extraction";
 
-const accepted = new Set(["pdf", "docx", "txt", "md", "html", "htm", "rtf"]);
+const accepted = new Set(["pdf", "docx", "txt", "md", "html", "htm", "rtf", "ppt", "pptx"]);
 const observable = /^(analyse|analyze|apply|assess|build|calculate|compare|create|critique|define|demonstrate|describe|design|develop|differentiate|evaluate|explain|identify|implement|interpret|justify|measure|plan|produce|solve|use)\b/i;
 
 const cleanLine = (value: string) => value.replace(/^\s*(?:[-*•]|\d+[.)])\s*/, "").replace(/\s+/g, " ").trim();
@@ -90,16 +91,19 @@ export async function POST(request: Request) {
   if (account.error || !account.profile) return account.error;
   const form = await request.formData();
   const file = form.get("file");
-  if (!(file instanceof File)) return Response.json({ error: "Choose a PDF, DOCX, text, Markdown, HTML or RTF course manual." }, { status: 400 });
+  if (!(file instanceof File)) return Response.json({ error: "Choose a PDF, PowerPoint, DOCX, text, Markdown, HTML or RTF course manual." }, { status: 400 });
   if (file.size > 25 * 1024 * 1024) return Response.json({ error: "Course manuals must be 25 MB or smaller." }, { status: 413 });
   const extension = file.name.toLowerCase().split(".").pop() ?? "";
-  if (!accepted.has(extension)) return Response.json({ error: "Use PDF, DOCX, TXT, MD, HTML or RTF for automatic course design." }, { status: 415 });
+  if (!accepted.has(extension)) return Response.json({ error: "Use PDF, PPT/PPTX, DOCX, TXT, MD, HTML or RTF for automatic course design." }, { status: 415 });
   const buffer = Buffer.from(await file.arrayBuffer());
-  let extracted;
-  try { extracted = extractReadableContent(buffer, file.name, file.type); }
-  catch (error) { return Response.json({ error: error instanceof Error ? error.message : "The manual could not be read." }, { status: 422 }); }
-  if (extracted.text.length < 200) return Response.json({ error: "The manual did not expose enough readable text. For a scanned PDF, run OCR or upload an accessible DOCX version." }, { status: 422 });
-  const fileKey = await putStoredFile("course-materials", file, { contentType: file.type || "application/octet-stream", originalName: file.name, ownerEmail: account.profile.email, evidenceKind: "course-material" });
+  const mimeType = extension === "pdf" ? "application/pdf" : extension === "pptx" ? "application/vnd.openxmlformats-officedocument.presentationml.presentation" : extension === "ppt" ? "application/vnd.ms-powerpoint" : file.type || "application/octet-stream";
+  let extracted = extractReadableContent(buffer, file.name, mimeType);
+  let usedAiExtraction = false;
+  if (extracted.text.length < 200 || extracted.wordCount < 35) {
+    try { extracted = await extractScannedDocumentWithAi(buffer, file.name, mimeType); usedAiExtraction = true; }
+    catch (error) { return Response.json({ error: error instanceof Error ? error.message : "The scanned or presentation manual could not be extracted." }, { status: 422 }); }
+  }
+  const fileKey = await putStoredFile("course-materials", file, { contentType: mimeType, originalName: file.name, ownerEmail: account.profile.email, evidenceKind: "course-material" });
   const title = candidateTitle(extracted.text, file.name);
   const extractedObjectives = extractObjectives(extracted.text);
   const outcomes = deriveOutcomes(extractedObjectives);
@@ -120,7 +124,7 @@ export async function POST(request: Request) {
   };
   const descriptionSource = sentences(extracted.text).slice(0, 4).join(" ");
   const description = (descriptionSource.length >= 80 ? descriptionSource : `This microcredential uses the uploaded facilitator manual to build practical understanding and assess authentic application of ${title}.`).slice(0, 1200);
-  const materials = buildMaterials(extracted.html, extracted.text, sections, outcomes, { key: fileKey, name: file.name, type: file.type || "application/octet-stream" }, account.profile.full_name || account.profile.email);
+  const materials = buildMaterials(extracted.html, extracted.text, sections, outcomes, { key: fileKey, name: file.name, type: mimeType }, account.profile.full_name || account.profile.email);
   const questions = outcomes.slice(0, 3).map((outcome, index) => ({
     id: `manual-question-${index + 1}`,
     type: index === 0 ? "Short answer" : "Scenario response",
@@ -132,7 +136,7 @@ export async function POST(request: Request) {
     learnerAdvice: "Refer directly to the course manual and explain how the guidance supports your answer.",
     outcomeIds: [outcome.id],
   }));
-  await recordAudit(account.profile.email, "course.manual_imported", { fileName: file.name, wordCount: extracted.wordCount, sections: sections.length });
+  await recordAudit(account.profile.email, "course.manual_imported", { fileName: file.name, wordCount: extracted.wordCount, sections: sections.length, usedAiExtraction });
   return Response.json({
     draft: {
       title,
@@ -148,7 +152,7 @@ export async function POST(request: Request) {
       questionLimit: Math.max(10, questions.length),
       certificateEnabled: true,
     },
-    extraction: { fileName: file.name, wordCount: extracted.wordCount, conversionNote: extracted.note },
+    extraction: { fileName: file.name, wordCount: extracted.wordCount, conversionNote: extracted.note, usedAiExtraction },
     warning: "Automatic extraction creates an editable draft, not an approved course. The facilitator must verify the title, objectives, outcomes, sequencing, accessibility, assessment answers, copyright and attribution before submission.",
   }, { status: 201 });
 }
