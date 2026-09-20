@@ -21,6 +21,7 @@ export type AssessmentQuestionRecord = {
   previewed?: boolean;
   approved?: boolean;
   gradingMode?: AssessmentGradingMode;
+  responseEntryMode?: "type" | "paste" | "either";
 };
 export type AssessmentConfigRecord = {
   passMark?: number;
@@ -74,6 +75,7 @@ export function learnerSafeAssessmentConfig(config: AssessmentConfigRecord, limi
       videoEnd: q.videoEnd,
       whiteboardEnabled: q.whiteboardEnabled,
       markingMode: questionNeedsAi(q) ? "ai" : "rule",
+      responseEntryMode: q.responseEntryMode ?? "either",
     })),
   };
 }
