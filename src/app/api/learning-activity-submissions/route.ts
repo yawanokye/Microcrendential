@@ -8,29 +8,11 @@ import { putStoredFile } from "@/lib/render-storage";
 import { ensureStructuredLearningActivities } from "@/lib/structured-learning-activities";
 import type { CourseMaterialRecord } from "@/lib/course-design";
 
-type InlineActivity = {
-  id?: string;
-  kind?: "inline";
-  materialId?: string;
-  title?: string;
-  instructions?: string;
-  responseType?: "short_text" | "long_text" | "file" | "image" | "link";
-  gradingMode?: "rule" | "ai_auto" | "ai_luna" | "ai_terra";
-  correctAnswer?: string;
-  rubric?: string;
-  maxMark?: number;
-  passMark?: number;
-  attemptsAllowed?: number;
-  feedbackCorrect?: string;
-  feedbackIncorrect?: string;
-  learnerAdvice?: string;
-};
-
 const parseJson = <T,>(value: string, fallback: T) => { try { return JSON.parse(value || "") as T; } catch { return fallback; } };
 const parseActivities = (materialsJson: string, activitiesJson: string) => ensureStructuredLearningActivities(
   parseJson<CourseMaterialRecord[]>(materialsJson, []),
   parseJson<unknown[]>(activitiesJson, []),
-).filter((item): item is InlineActivity & { id: string } => item.kind === "inline");
+).filter((item) => item.kind === "inline");
 const normalized = (value: unknown) => String(value ?? "").trim().toLowerCase().replace(/\s+/g, " ");
 
 export async function GET(request: Request) {
