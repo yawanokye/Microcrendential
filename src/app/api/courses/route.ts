@@ -80,7 +80,7 @@ function learnerVisibleCourse(course: PresentedCourse): LearnerPresentedCourse {
       id: activity.id, kind: activity.kind, title: activity.title, instructions: activity.instructions, required: activity.required,
       passMark: activity.passMark, attemptsAllowed: activity.attemptsAllowed, maxMark: activity.maxMark, dueAt: activity.dueAt,
       practicalId: activity.practicalId, discipline: activity.discipline, sectionId: activity.sectionId, sectionTitle: activity.sectionTitle,
-      materialId: activity.materialId, responseType: activity.responseType, gradingMode: activity.gradingMode,
+      materialId: activity.materialId, responseType: activity.responseType, responseEntryMode: activity.responseEntryMode, gradingMode: activity.gradingMode,
     };
   });
   return { ...safe, activities };
