@@ -95,3 +95,25 @@ test("AI status is safe for the browser and always requires human approval", () 
     else process.env.GOOGLE_CLOUD_ACCESS_TOKEN = previousGoogleToken;
   }
 });
+
+test("AI Studio accepts the canonical base64 Vertex credential variable", () => {
+  const previousProject = process.env.GOOGLE_CLOUD_PROJECT;
+  const previousAccessToken = process.env.GOOGLE_CLOUD_ACCESS_TOKEN;
+  const previousJson = process.env.GOOGLE_VERTEX_SERVICE_ACCOUNT_JSON;
+  const previousJsonBase64 = process.env.GOOGLE_VERTEX_SERVICE_ACCOUNT_JSON_BASE64;
+  const previousLegacyBase64 = process.env.GOOGLE_VERTEX_SERVICE_ACCOUNT_BASE64;
+  try {
+    process.env.GOOGLE_CLOUD_PROJECT = "test-project";
+    delete process.env.GOOGLE_CLOUD_ACCESS_TOKEN;
+    delete process.env.GOOGLE_VERTEX_SERVICE_ACCOUNT_JSON;
+    delete process.env.GOOGLE_VERTEX_SERVICE_ACCOUNT_BASE64;
+    process.env.GOOGLE_VERTEX_SERVICE_ACCOUNT_JSON_BASE64 = "test-base64-value";
+    assert.equal(getAiIntegrationStatus().vertex.configured, true);
+  } finally {
+    if (previousProject === undefined) delete process.env.GOOGLE_CLOUD_PROJECT; else process.env.GOOGLE_CLOUD_PROJECT = previousProject;
+    if (previousAccessToken === undefined) delete process.env.GOOGLE_CLOUD_ACCESS_TOKEN; else process.env.GOOGLE_CLOUD_ACCESS_TOKEN = previousAccessToken;
+    if (previousJson === undefined) delete process.env.GOOGLE_VERTEX_SERVICE_ACCOUNT_JSON; else process.env.GOOGLE_VERTEX_SERVICE_ACCOUNT_JSON = previousJson;
+    if (previousJsonBase64 === undefined) delete process.env.GOOGLE_VERTEX_SERVICE_ACCOUNT_JSON_BASE64; else process.env.GOOGLE_VERTEX_SERVICE_ACCOUNT_JSON_BASE64 = previousJsonBase64;
+    if (previousLegacyBase64 === undefined) delete process.env.GOOGLE_VERTEX_SERVICE_ACCOUNT_BASE64; else process.env.GOOGLE_VERTEX_SERVICE_ACCOUNT_BASE64 = previousLegacyBase64;
+  }
+});

@@ -39,7 +39,7 @@ services:
         value: global
       - key: GOOGLE_VERTEX_MODEL
         value: gemini-2.5-flash
-      - key: GOOGLE_VERTEX_SERVICE_ACCOUNT_BASE64
+      - key: GOOGLE_VERTEX_SERVICE_ACCOUNT_JSON_BASE64
         sync: false
     disk:
       name: ucc-platform-data

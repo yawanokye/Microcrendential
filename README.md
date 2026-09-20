@@ -157,7 +157,7 @@ Learners may attach an optional video, image or PDF evidence file up to 25 MB. O
 | `GOOGLE_CLOUD_PROJECT` | For Vertex AI | Google Cloud project containing Vertex AI |
 | `GOOGLE_CLOUD_LOCATION` | For Vertex AI | Vertex region; defaults to `global` |
 | `GOOGLE_VERTEX_MODEL` | For Vertex AI | Gemini model identifier used for text, YouTube, audio and video analysis |
-| `GOOGLE_VERTEX_SERVICE_ACCOUNT_BASE64` | For Vertex AI | Complete service-account JSON file encoded as one uninterrupted base64 value |
+| `GOOGLE_VERTEX_SERVICE_ACCOUNT_JSON_BASE64` | For Vertex AI | Complete service-account JSON file encoded as one uninterrupted base64 value |
 
 The **Course Studio entry gateway** asks the facilitator to choose **Manual design / import** or **AI-assisted design / import**. Manual mode supports a blank six-stage design and a rule-based learning-manual import without requiring an AI provider. AI mode displays provider readiness and supports a synopsis, searchable manual, public YouTube link, direct audio/video upload, or improvement of the currently open draft. Every AI result opens in a facilitator approval preview. Generated sections and selected assessment questions populate the six-stage Studio only after approval; they never publish directly. Facilitators can switch methods without publishing or deleting the current unsaved draft.
 
