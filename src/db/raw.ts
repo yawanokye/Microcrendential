@@ -339,6 +339,85 @@ export function getRawDb() {
     const columns = database.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
     if (!columns.some((item) => item.name === column)) database.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
   };
+
+  // `course_revisions` existed in an older release with a different shape
+  // (`base_version_number`, `payload_json`, `version_number`, status='approved').
+  // CREATE TABLE IF NOT EXISTS cannot upgrade that table, and adding only the new
+  // columns would leave the legacy CHECK constraint in place. Rebuild it once so
+  // existing Render SQLite disks are upgraded in place without losing revisions.
+  const revisionColumns = database.prepare("PRAGMA table_info(course_revisions)").all() as { name: string }[];
+  const revisionColumnNames = new Set(revisionColumns.map((item) => item.name));
+  const revisionTableSql = (database.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='course_revisions'").get() as { sql?: string } | undefined)?.sql ?? "";
+  const revisionSchemaIsCanonical = revisionColumnNames.has("revision_number")
+    && revisionColumnNames.has("snapshot_json")
+    && revisionColumnNames.has("applied_at")
+    && revisionTableSql.includes("'applied'");
+
+  if (!revisionSchemaIsCanonical) {
+    const legacyRows = database.prepare("SELECT * FROM course_revisions ORDER BY course_id, id").all() as Record<string, unknown>[];
+    database.exec("DROP TABLE IF EXISTS course_revisions_next");
+    database.exec(`
+      CREATE TABLE course_revisions_next (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        course_id INTEGER NOT NULL REFERENCES course_drafts(id) ON DELETE CASCADE,
+        revision_number INTEGER NOT NULL,
+        snapshot_json TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'draft' CHECK(status IN ('draft','pending_review','rejected','applied','withdrawn')),
+        created_by_email TEXT NOT NULL,
+        review_comment TEXT,
+        reviewed_by_email TEXT,
+        submitted_at TEXT,
+        reviewed_at TEXT,
+        applied_at TEXT,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        approval_authority TEXT,
+        approval_meeting_date TEXT,
+        approval_reference TEXT,
+        approval_recorded_by_email TEXT,
+        approval_recorded_at TEXT,
+        UNIQUE(course_id,revision_number)
+      );
+    `);
+    const insertRevision = database.prepare(`INSERT INTO course_revisions_next (
+      id,course_id,revision_number,snapshot_json,status,created_by_email,review_comment,reviewed_by_email,submitted_at,reviewed_at,applied_at,updated_at,created_at,
+      approval_authority,approval_meeting_date,approval_reference,approval_recorded_by_email,approval_recorded_at
+    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
+    const perCourseRevision = new Map<number, number>();
+    database.exec("BEGIN IMMEDIATE");
+    try {
+      for (const row of legacyRows) {
+        const courseId = Number(row.course_id);
+        const fallbackNumber = (perCourseRevision.get(courseId) ?? 0) + 1;
+        const requestedNumber = Number(row.revision_number);
+        const revisionNumber = Number.isInteger(requestedNumber) && requestedNumber > 0 ? requestedNumber : fallbackNumber;
+        perCourseRevision.set(courseId, Math.max(fallbackNumber, revisionNumber));
+        const legacyStatus = String(row.status ?? "draft");
+        const status = legacyStatus === "approved" ? "applied" : ["draft","pending_review","rejected","applied","withdrawn"].includes(legacyStatus) ? legacyStatus : "draft";
+        const snapshot = String(row.snapshot_json ?? row.payload_json ?? "{}");
+        insertRevision.run(
+          Number(row.id), courseId, revisionNumber, snapshot, status, String(row.created_by_email ?? ""),
+          row.review_comment ?? null, row.reviewed_by_email ?? null, row.submitted_at ?? null, row.reviewed_at ?? null,
+          row.applied_at ?? row.approved_at ?? null, row.updated_at ?? row.created_at ?? null, row.created_at ?? null,
+          row.approval_authority ?? null, row.approval_meeting_date ?? null, row.approval_reference ?? null,
+          row.approval_recorded_by_email ?? null, row.approval_recorded_at ?? null
+        );
+      }
+      database.exec("DROP TABLE course_revisions");
+      database.exec("ALTER TABLE course_revisions_next RENAME TO course_revisions");
+      database.exec("CREATE INDEX IF NOT EXISTS course_revisions_course_idx ON course_revisions(course_id)");
+      database.exec("CREATE INDEX IF NOT EXISTS course_revisions_creator_idx ON course_revisions(created_by_email)");
+      database.exec("CREATE INDEX IF NOT EXISTS course_revisions_status_idx ON course_revisions(status)");
+      database.exec("INSERT OR IGNORE INTO platform_migrations (migration_key) VALUES ('0016_course_revisions_canonical_schema')");
+      database.exec("COMMIT");
+    } catch (error) {
+      database.exec("ROLLBACK");
+      try { database.exec("DROP TABLE IF EXISTS course_revisions_next"); } catch {}
+      throw error;
+    }
+  } else {
+    database.exec("INSERT OR IGNORE INTO platform_migrations (migration_key) VALUES ('0016_course_revisions_canonical_schema')");
+  }
   const courseColumns = database.prepare("PRAGMA table_info(course_drafts)").all() as { name: string }[];
   if (!courseColumns.some((column) => column.name === "activities_json")) {
     database.exec("ALTER TABLE course_drafts ADD COLUMN activities_json TEXT NOT NULL DEFAULT '[]'");
