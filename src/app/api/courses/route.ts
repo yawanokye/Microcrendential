@@ -5,7 +5,7 @@ import { plainTextFromHtml, sanitizeReadableHtml } from "@/lib/document-content"
 import { learnerSafeAssessmentConfig, type AssessmentConfigRecord } from "@/lib/assessment-policy";
 import { rejectCrossSiteMutation } from "@/lib/request-security";
 import { recordAudit } from "@/lib/audit";
-import { ensureStructuredLearningActivities, type StructuredLearningActivity } from "@/lib/structured-learning-activities";
+import { ensureStructuredLearningActivities } from "@/lib/structured-learning-activities";
 
 type CourseRow = {
   id: number; code: string; title: string; discipline: string; description: string; materials_json: string; activities_json: string; assessment_modes_json: string;
@@ -71,26 +71,81 @@ function present(row: CourseRow) {
 }
 
 type PresentedCourse = ReturnType<typeof present>;
-type LearnerActivity = Pick<StructuredLearningActivity,
-  "id" | "kind" | "title" | "instructions" | "required" | "passMark" | "attemptsAllowed" | "maxMark" | "dueAt" |
-  "practicalId" | "discipline" | "sectionId" | "sectionTitle" | "materialId" | "responseType" | "responseEntryMode" |
-  "gradingMode" | "promptImageUrl" | "promptImageAlt" | "promptImagePlacement" | "promptImageSize"
->;
-type LearnerPresentedCourse = Omit<PresentedCourse, "approvalRecord" | "certificatePreapproved" | "reviewComment" | "reviewedByEmail" | "reviewedAt" | "submittedAt" | "activities"> & { activities: LearnerActivity[] };
 
-function learnerVisibleCourse(course: PresentedCourse): LearnerPresentedCourse {
-  const { approvalRecord, certificatePreapproved, reviewComment, reviewedByEmail, reviewedAt, submittedAt, ...safe } = course;
-  const activities: LearnerActivity[] = safe.activities.map((activity) => ({
-    id: activity.id, kind: activity.kind, title: activity.title, instructions: activity.instructions, required: activity.required,
-    passMark: activity.passMark, attemptsAllowed: activity.attemptsAllowed, maxMark: activity.maxMark, dueAt: activity.dueAt,
-    practicalId: activity.practicalId, discipline: activity.discipline, sectionId: activity.sectionId, sectionTitle: activity.sectionTitle,
-    materialId: activity.materialId, responseType: activity.responseType, responseEntryMode: activity.responseEntryMode, gradingMode: activity.gradingMode,
-    promptImageUrl: activity.promptImageUrl, promptImageAlt: activity.promptImageAlt, promptImagePlacement: activity.promptImagePlacement, promptImageSize: activity.promptImageSize,
+function learnerVisibleCourse(course: PresentedCourse) {
+  const {
+    approvalRecord: _approvalRecord,
+    certificatePreapproved: _certificatePreapproved,
+    reviewComment: _reviewComment,
+    reviewedByEmail: _reviewedByEmail,
+    reviewedAt: _reviewedAt,
+    submittedAt: _submittedAt,
+    activities: internalActivities,
+    ...safe
+  } = course;
+
+  const activities = internalActivities.map((activity) => ({
+    id: activity.id,
+    kind: activity.kind,
+    title: activity.title,
+    instructions: activity.instructions,
+    required: activity.required,
+    passMark: activity.passMark,
+    attemptsAllowed: activity.attemptsAllowed,
+    maxMark: activity.maxMark,
+    dueAt: activity.dueAt,
+    practicalId: activity.practicalId,
+    discipline: activity.discipline,
+    sectionId: activity.sectionId,
+    sectionTitle: activity.sectionTitle,
+    materialId: activity.materialId,
+    responseType: activity.responseType,
+    responseEntryMode: activity.responseEntryMode,
+    gradingMode: activity.gradingMode,
+    promptImageUrl: activity.promptImageUrl,
+    promptImageAlt: activity.promptImageAlt,
+    promptImagePlacement: activity.promptImagePlacement,
+    promptImageSize: activity.promptImageSize,
   }));
+
   return { ...safe, activities };
 }
 
-function catalogueOnly(course:LearnerPresentedCourse){return{...course,enrolled:false,materials:course.materials.map((m)=>({id:m.id,title:m.title,kind:m.kind,source:m.source,sectionId:m.sectionId,sectionTitle:m.sectionTitle,unitTitle:m.unitTitle,estimatedMinutes:m.estimatedMinutes,outcomeIds:m.outcomeIds,required:m.required})),activities:course.activities.map((entry)=>{const a=entry&&typeof entry==="object"?entry as Record<string,unknown>:{};return{id:a.id,kind:a.kind,title:a.title,required:a.required,passMark:a.passMark};}),assessmentConfig:{passMark:Number((course.assessmentConfig as {passMark?:number}).passMark)||70,attempts:String((course.assessmentConfig as {attempts?:string}).attempts||"1"),questionCount:Array.isArray((course.assessmentConfig as {questions?:unknown[]}).questions)?(course.assessmentConfig as {questions:unknown[]}).questions.length:0}};}
+type LearnerPresentedCourse = ReturnType<typeof learnerVisibleCourse>;
+
+
+function catalogueOnly(course: LearnerPresentedCourse) {
+  return {
+    ...course,
+    enrolled: false,
+    materials: course.materials.map((m) => ({
+      id: m.id,
+      title: m.title,
+      kind: m.kind,
+      source: m.source,
+      sectionId: m.sectionId,
+      sectionTitle: m.sectionTitle,
+      unitTitle: m.unitTitle,
+      estimatedMinutes: m.estimatedMinutes,
+      outcomeIds: m.outcomeIds,
+      required: m.required,
+    })),
+    activities: course.activities.map((activity) => ({
+      id: activity.id,
+      kind: activity.kind,
+      title: activity.title,
+      required: activity.required,
+      passMark: activity.passMark,
+    })),
+    assessmentConfig: {
+      passMark: Number((course.assessmentConfig as { passMark?: number }).passMark) || 70,
+      attempts: String((course.assessmentConfig as { attempts?: string }).attempts || "1"),
+      questionCount: Array.isArray((course.assessmentConfig as { questions?: unknown[] }).questions)
+        ? (course.assessmentConfig as { questions: unknown[] }).questions.length
+        : 0,
+    },
+  };
+}
 
 
 function attachBroaderCredentialLinks(courses: PresentedCourse[]) {
