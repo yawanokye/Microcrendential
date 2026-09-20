@@ -1,3 +1,4 @@
+import { Buffer } from "node:buffer";
 import { getRawDb } from "@/db/raw";
 import { requireActiveProfile } from "@/lib/accounts";
 import { gradeActivityEvidenceWithAi } from "@/lib/assessment-ai";
@@ -66,8 +67,7 @@ export async function POST(request: Request) {
   let evidenceKey: string | null = null, evidenceFileName: string | null = null, evidenceMimeType: string | null = null;
 
   if (hasFile) {
-    const NodeBuffer = (globalThis as unknown as { Buffer: { from(value:ArrayBuffer): any } }).Buffer;
-    const buffer = NodeBuffer.from(await evidence.arrayBuffer()); evidenceFileName = evidence.name.slice(0, 240); evidenceMimeType = (evidence.type || "application/octet-stream").slice(0, 120);
+    const buffer = Buffer.from(await evidence.arrayBuffer()); evidenceFileName = evidence.name.slice(0, 240); evidenceMimeType = (evidence.type || "application/octet-stream").slice(0, 120);
     if (evidence.type.startsWith("image/")) imageDataUrl = `data:${evidence.type};base64,${buffer.toString("base64")}`;
     else {
       try { extractedEvidence = extractReadableContent(buffer, evidence.name, evidence.type).text.slice(0, 80_000); } catch { extractedEvidence = ""; }

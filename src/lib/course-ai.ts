@@ -106,7 +106,7 @@ const aiTimeoutSeconds = () => clamp(process.env.COURSE_AI_TIMEOUT_SECONDS, 45, 
 
 export function courseAiStatus() {
   const openai = configured(process.env.OPENAI_API_KEY);
-  const vertex = configured(process.env.GOOGLE_CLOUD_PROJECT) && configured(process.env.GOOGLE_VERTEX_SERVICE_ACCOUNT_BASE64 || process.env.GOOGLE_VERTEX_SERVICE_ACCOUNT_JSON || process.env.GOOGLE_APPLICATION_CREDENTIALS);
+  const vertex = configured(process.env.GOOGLE_CLOUD_PROJECT) && configured(process.env.GOOGLE_VERTEX_SERVICE_ACCOUNT_JSON_BASE64 || process.env.GOOGLE_VERTEX_SERVICE_ACCOUNT_BASE64 || process.env.GOOGLE_VERTEX_SERVICE_ACCOUNT_JSON || process.env.GOOGLE_APPLICATION_CREDENTIALS);
   return {
     available: openai || vertex,
     defaultProvider: (process.env.COURSE_AI_PROVIDER || "auto").toLowerCase(),
@@ -157,12 +157,13 @@ let cachedVertexToken: { value: string; expiresAt: number } | null = null;
 
 function parseServiceAccount(): ServiceAccount {
   let raw = process.env.GOOGLE_VERTEX_SERVICE_ACCOUNT_JSON?.trim() || "";
-  if (!raw && process.env.GOOGLE_VERTEX_SERVICE_ACCOUNT_BASE64?.trim()) {
-    try { raw = Buffer.from(process.env.GOOGLE_VERTEX_SERVICE_ACCOUNT_BASE64.trim(), "base64").toString("utf8"); }
-    catch { throw new Error("GOOGLE_VERTEX_SERVICE_ACCOUNT_BASE64 is not valid base64."); }
+  const encoded = process.env.GOOGLE_VERTEX_SERVICE_ACCOUNT_JSON_BASE64?.trim() || process.env.GOOGLE_VERTEX_SERVICE_ACCOUNT_BASE64?.trim();
+  if (!raw && encoded) {
+    try { raw = Buffer.from(encoded, "base64").toString("utf8"); }
+    catch { throw new Error("The Vertex service-account value is not valid base64."); }
   }
   if (!raw && process.env.GOOGLE_APPLICATION_CREDENTIALS?.trim()) {
-    throw new Error("GOOGLE_APPLICATION_CREDENTIALS file loading is not available in this deployment. Use GOOGLE_VERTEX_SERVICE_ACCOUNT_BASE64 or GOOGLE_VERTEX_SERVICE_ACCOUNT_JSON.");
+    throw new Error("GOOGLE_APPLICATION_CREDENTIALS file loading is not available in this deployment. Use GOOGLE_VERTEX_SERVICE_ACCOUNT_JSON_BASE64 or GOOGLE_VERTEX_SERVICE_ACCOUNT_JSON.");
   }
   try {
     const account = JSON.parse(raw) as ServiceAccount;

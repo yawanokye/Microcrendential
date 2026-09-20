@@ -250,7 +250,7 @@ export function getAiIntegrationStatus() {
     quality: (process.env.OPENAI_QUALITY_MODEL || "gpt-5.6-sol").trim(),
   };
   const vertexModel = (process.env.GOOGLE_VERTEX_MODEL || "gemini-3.8-flash").trim();
-  const vertexCredentials = Boolean(process.env.GOOGLE_CLOUD_ACCESS_TOKEN || process.env.GOOGLE_VERTEX_SERVICE_ACCOUNT_JSON || process.env.GOOGLE_VERTEX_SERVICE_ACCOUNT_JSON_BASE64);
+  const vertexCredentials = Boolean(process.env.GOOGLE_CLOUD_ACCESS_TOKEN || process.env.GOOGLE_VERTEX_SERVICE_ACCOUNT_JSON || process.env.GOOGLE_VERTEX_SERVICE_ACCOUNT_JSON_BASE64 || process.env.GOOGLE_VERTEX_SERVICE_ACCOUNT_BASE64);
   return {
     openai: {
       configured: Boolean(process.env.OPENAI_API_KEY),
@@ -312,7 +312,7 @@ type CachedVertexToken = { value: string; expiresAt: number };
 const vertexTokenCache = globalThis as typeof globalThis & { __uccVertexToken?: CachedVertexToken };
 
 function serviceAccountFromEnvironment(): VertexServiceAccount | null {
-  const encoded = process.env.GOOGLE_VERTEX_SERVICE_ACCOUNT_JSON_BASE64?.trim();
+  const encoded = process.env.GOOGLE_VERTEX_SERVICE_ACCOUNT_JSON_BASE64?.trim() || process.env.GOOGLE_VERTEX_SERVICE_ACCOUNT_BASE64?.trim();
   const raw = encoded ? Buffer.from(encoded, "base64").toString("utf8") : process.env.GOOGLE_VERTEX_SERVICE_ACCOUNT_JSON?.trim();
   if (!raw) return null;
   const parsed = JSON.parse(raw) as Partial<VertexServiceAccount>;

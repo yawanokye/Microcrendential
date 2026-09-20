@@ -397,10 +397,18 @@ export function getRawDb() {
         const snapshot = String(row.snapshot_json ?? row.payload_json ?? "{}");
         insertRevision.run(
           Number(row.id), courseId, revisionNumber, snapshot, status, String(row.created_by_email ?? ""),
-          row.review_comment ?? null, row.reviewed_by_email ?? null, row.submitted_at ?? null, row.reviewed_at ?? null,
-          row.applied_at ?? row.approved_at ?? null, row.updated_at ?? row.created_at ?? null, row.created_at ?? null,
-          row.approval_authority ?? null, row.approval_meeting_date ?? null, row.approval_reference ?? null,
-          row.approval_recorded_by_email ?? null, row.approval_recorded_at ?? null
+          row.review_comment == null ? null : String(row.review_comment),
+          row.reviewed_by_email == null ? null : String(row.reviewed_by_email),
+          row.submitted_at == null ? null : String(row.submitted_at),
+          row.reviewed_at == null ? null : String(row.reviewed_at),
+          row.applied_at == null && row.approved_at == null ? null : String(row.applied_at ?? row.approved_at),
+          row.updated_at == null && row.created_at == null ? null : String(row.updated_at ?? row.created_at),
+          row.created_at == null ? null : String(row.created_at),
+          row.approval_authority == null ? null : String(row.approval_authority),
+          row.approval_meeting_date == null ? null : String(row.approval_meeting_date),
+          row.approval_reference == null ? null : String(row.approval_reference),
+          row.approval_recorded_by_email == null ? null : String(row.approval_recorded_by_email),
+          row.approval_recorded_at == null ? null : String(row.approval_recorded_at)
         );
       }
       database.exec("DROP TABLE course_revisions");
