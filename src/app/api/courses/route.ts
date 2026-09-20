@@ -5,6 +5,7 @@ import { plainTextFromHtml, sanitizeReadableHtml } from "@/lib/document-content"
 import { learnerSafeAssessmentConfig, type AssessmentConfigRecord } from "@/lib/assessment-policy";
 import { rejectCrossSiteMutation } from "@/lib/request-security";
 import { recordAudit } from "@/lib/audit";
+import { ensureStructuredLearningActivities } from "@/lib/structured-learning-activities";
 
 type CourseRow = {
   id: number; code: string; title: string; discipline: string; description: string; materials_json: string; activities_json: string; assessment_modes_json: string;
@@ -58,7 +59,7 @@ function normalizeMaterials(value: unknown): CourseMaterialRecord[] {
 function present(row: CourseRow) {
   return {
     id: row.id, code: row.code, title: row.title, discipline: row.discipline, description: row.description,
-    materials: parseJson<CourseMaterialRecord[]>(row.materials_json, []), activities: parseJson<unknown[]>(row.activities_json, []),
+    materials: normalizeMaterials(parseJson<CourseMaterialRecord[]>(row.materials_json, [])), activities: ensureStructuredLearningActivities(normalizeMaterials(parseJson<CourseMaterialRecord[]>(row.materials_json, [])), parseJson<unknown[]>(row.activities_json, [])),
     assessmentModes: parseJson<string[]>(row.assessment_modes_json, []), assessmentConfig: parseJson<Record<string, unknown>>(row.assessment_config_json, {}),
     design: normalizeCourseDesign(parseJson(row.design_json, {})), gateRequired: Boolean(row.gate_required), questionLimit: row.question_limit,
     certificateEnabled: Boolean(row.certificate_enabled), certificatePreapproved: Boolean(row.certificate_preapproved), status: row.status, createdByEmail: row.created_by_email,
@@ -81,6 +82,7 @@ function learnerVisibleCourse(course: PresentedCourse): LearnerPresentedCourse {
       passMark: activity.passMark, attemptsAllowed: activity.attemptsAllowed, maxMark: activity.maxMark, dueAt: activity.dueAt,
       practicalId: activity.practicalId, discipline: activity.discipline, sectionId: activity.sectionId, sectionTitle: activity.sectionTitle,
       materialId: activity.materialId, responseType: activity.responseType, responseEntryMode: activity.responseEntryMode, gradingMode: activity.gradingMode,
+      promptImageUrl: activity.promptImageUrl, promptImageAlt: activity.promptImageAlt, promptImagePlacement: activity.promptImagePlacement, promptImageSize: activity.promptImageSize,
     };
   });
   return { ...safe, activities };

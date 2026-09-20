@@ -31,13 +31,24 @@ export function sanitizeReadableHtml(value: string) {
       if (/^https?:\/\//i.test(href)) return `<a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">`;
       return "<a>";
     }
+    if (name === "figure") {
+      const classMatch = tag.match(/\bclass\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i);
+      const requested = (classMatch?.[1] || classMatch?.[2] || classMatch?.[3] || "").split(/\s+/).filter(Boolean);
+      const allowedFigureClasses = new Set(["media-left","media-center","media-right","media-full"]);
+      const classes = requested.filter((item) => allowedFigureClasses.has(item)).join(" ");
+      return classes ? `<figure class="${classes}">` : "<figure>";
+    }
     if (name === "img") {
       const srcMatch = tag.match(/\bsrc\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i);
       const altMatch = tag.match(/\balt\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i);
       const src = decodeEntities(srcMatch?.[1] || srcMatch?.[2] || srcMatch?.[3] || "").trim();
       const alt = decodeEntities(altMatch?.[1] || altMatch?.[2] || altMatch?.[3] || "Learning illustration").trim().slice(0, 240);
       const safeSource = /^https:\/\//i.test(src) || /^\/api\/course-materials\?key=course-materials%2F[a-zA-Z0-9%_.\/-]+$/i.test(src);
-      return safeSource ? `<img src="${escapeHtml(src)}" alt="${escapeHtml(alt)}" loading="lazy">` : "";
+      const classMatch = tag.match(/\bclass\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i);
+      const requested = (classMatch?.[1] || classMatch?.[2] || classMatch?.[3] || "").split(/\s+/).filter(Boolean);
+      const allowedImageClasses = new Set(["media-small","media-medium","media-large","media-full"]);
+      const classes = requested.filter((item) => allowedImageClasses.has(item)).join(" ");
+      return safeSource ? `<img src="${escapeHtml(src)}" alt="${escapeHtml(alt)}"${classes ? ` class="${classes}"` : ""} loading="lazy">` : "";
     }
     return `<${name}>`;
   }).slice(0, MAX_READABLE_CHARACTERS);

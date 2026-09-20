@@ -5,6 +5,8 @@ import { issueCertificateIfComplete } from "@/lib/course-completion";
 import { extractReadableContent } from "@/lib/document-content";
 import { rejectCrossSiteMutation } from "@/lib/request-security";
 import { putStoredFile } from "@/lib/render-storage";
+import { ensureStructuredLearningActivities } from "@/lib/structured-learning-activities";
+import type { CourseMaterialRecord } from "@/lib/course-design";
 
 type InlineActivity = {
   id?: string;
@@ -24,12 +26,11 @@ type InlineActivity = {
   learnerAdvice?: string;
 };
 
-const parseActivities = (value: string) => {
-  try {
-    const parsed = JSON.parse(value || "[]") as unknown;
-    return Array.isArray(parsed) ? parsed.filter((item): item is InlineActivity => Boolean(item && typeof item === "object" && (item as InlineActivity).kind === "inline")) : [];
-  } catch { return []; }
-};
+const parseJson = <T,>(value: string, fallback: T) => { try { return JSON.parse(value || "") as T; } catch { return fallback; } };
+const parseActivities = (materialsJson: string, activitiesJson: string) => ensureStructuredLearningActivities(
+  parseJson<CourseMaterialRecord[]>(materialsJson, []),
+  parseJson<unknown[]>(activitiesJson, []),
+).filter((item): item is InlineActivity & { id: string } => item.kind === "inline");
 const normalized = (value: unknown) => String(value ?? "").trim().toLowerCase().replace(/\s+/g, " ");
 
 export async function GET(request: Request) {
@@ -56,9 +57,9 @@ export async function POST(request: Request) {
   const evidence = form.get("evidence"); const hasFile = evidence instanceof File && evidence.size > 0;
   if (!courseCode || !activityId) return Response.json({ error: "Course and learning activity are required." }, { status: 400 });
   const db = getRawDb();
-  const course = await db.prepare(`SELECT c.activities_json FROM course_drafts c JOIN enrollments e ON e.course_code=c.code AND e.user_email=? AND e.status IN ('active','completed') WHERE c.code=? AND c.status='active' LIMIT 1`).bind(account.profile.email,courseCode).first<{activities_json:string}>();
+  const course = await db.prepare(`SELECT c.materials_json,c.activities_json FROM course_drafts c JOIN enrollments e ON e.course_code=c.code AND e.user_email=? AND e.status IN ('active','completed') WHERE c.code=? AND c.status='active' LIMIT 1`).bind(account.profile.email,courseCode).first<{materials_json:string;activities_json:string}>();
   if (!course) return Response.json({ error: "This learning activity is unavailable or you are not enrolled." }, { status: 403 });
-  const activity = parseActivities(course.activities_json).find((item) => String(item.id ?? "") === activityId);
+  const activity = parseActivities(course.materials_json, course.activities_json).find((item) => String(item.id ?? "") === activityId);
   if (!activity || !activity.materialId) return Response.json({ error: "The structured learning activity was not found." }, { status: 404 });
   const responseType = activity.responseType ?? "long_text";
   if (["short_text","long_text"].includes(responseType) && !responseText) return Response.json({ error: "Enter your response before submitting the activity." }, { status: 400 });

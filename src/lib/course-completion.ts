@@ -1,6 +1,8 @@
 import { getRawDb } from "@/db/raw";
 import { normalizeCourseDesign } from "@/lib/course-design";
 import { issueBroaderCredentialsIfEligible } from "@/lib/credential-stack";
+import { ensureStructuredLearningActivities } from "@/lib/structured-learning-activities";
+import type { CourseMaterialRecord } from "@/lib/course-design";
 
 type CourseActivity = {
   id?: string;
@@ -55,14 +57,11 @@ export type IssuedCertificate = {
   provost_name:string|null; provost_title:string|null; provost_signature_key:string|null;
 };
 
-const parseActivities = (value: string) => {
-  try {
-    const parsed = JSON.parse(value || "[]") as unknown;
-    return Array.isArray(parsed) ? parsed.filter((item): item is CourseActivity => Boolean(item && typeof item === "object")) : [];
-  } catch {
-    return [];
-  }
-};
+const parseJson = <T,>(value: string, fallback: T) => { try { return JSON.parse(value || "") as T; } catch { return fallback; } };
+const parseActivities = (materialsJson: string, activitiesJson: string) => ensureStructuredLearningActivities(
+  parseJson<CourseMaterialRecord[]>(materialsJson, []),
+  parseJson<unknown[]>(activitiesJson, []),
+) as CourseActivity[];
 
 export async function evaluateCourseCompletion(userEmail: string, courseCode: string): Promise<CompletionEvaluation | null> {
   const db = getRawDb();
@@ -98,7 +97,7 @@ export async function evaluateCourseCompletion(userEmail: string, courseCode: st
     requirements.push({id:`content-${material.resolvedId}`,type:"content",label:material.title?.trim()||`Required lesson ${index+1}`,complete:Boolean(progress?.completed),evidence:progress?.completed?`Completed ${progress.completed_at??"during this enrolment"}`:"Open the lesson and select Continue"});
   }
 
-  for (const [index, activity] of parseActivities(course.activities_json).filter((item) => item.required !== false).entries()) {
+  for (const [index, activity] of parseActivities(course.materials_json, course.activities_json).filter((item) => item.required !== false).entries()) {
     if (activity.kind === "virtual_lab") {
       const practicalId = String(activity.practicalId ?? "").trim();
       const submission = practicalId ? await db.prepare("SELECT id, status, mark, feedback, assessed_at FROM virtual_lab_submissions WHERE learner_email = ? AND practical_id = ? ORDER BY id DESC LIMIT 1")
