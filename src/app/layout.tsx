@@ -4,10 +4,11 @@ import "./programme-activities.css";
 import "./lab-visuals.css";
 import "./modern-platform.css";
 import "./commercial-course-studio.css";
+import "./professional-public-landing.css";
 import "./certificate-template-platform.css";
 
 export const metadata: Metadata = {
-  title: "UCC Microcredential Learning Platform",
+  title: "UCC Growth+ Learning Platform",
   description: "Flexible, assessed and quality-assured learning from the University of Cape Coast.",
   icons: { icon: "/favicon.svg", shortcut: "/favicon.svg" },
 };

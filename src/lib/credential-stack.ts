@@ -1,5 +1,6 @@
 import { getRawDb } from "@/db/raw";
 import { normalizeCourseDesign } from "@/lib/course-design";
+import { certificateIssuerName, requiresUccSignatory, type CertificateConfiguration } from "@/lib/certificate-policy";
 
 type PathCourseRow = { code: string; title: string; design_json: string; created_by_email: string; certificate_enabled: number; certificate_preapproved: number };
 type ActiveCertificateRow = { course_code: string };
@@ -10,6 +11,8 @@ type StackDefinition = {
   requiredCodes: Set<string>;
   sourceCourses: Set<string>;
   awardEnabled: boolean;
+  configuration: CertificateConfiguration;
+  createdByEmail: string;
 };
 
 function collectDefinitions(courses: PathCourseRow[]) {
@@ -21,7 +24,7 @@ function collectDefinitions(courses: PathCourseRow[]) {
       const code = course.code.trim().toUpperCase();
       const requiredCodes = design.componentCredentialCodes.map((item) => item.trim().toUpperCase()).filter(Boolean);
       if (code && course.title.trim() && requiredCodes.length >= 2) {
-        definitions.set(code, { code, title: course.title.trim(), requiredCodes: new Set(requiredCodes), sourceCourses: new Set(requiredCodes), awardEnabled: Boolean(course.certificate_enabled && course.certificate_preapproved) });
+        definitions.set(code, { code, title: course.title.trim(), requiredCodes: new Set(requiredCodes), sourceCourses: new Set(requiredCodes), awardEnabled: Boolean(course.certificate_enabled && course.certificate_preapproved), configuration: design.certificate, createdByEmail: course.created_by_email });
       }
       continue;
     }
@@ -29,7 +32,7 @@ function collectDefinitions(courses: PathCourseRow[]) {
     const code = design.broaderCredentialCode.trim().toUpperCase();
     const title = design.broaderCredentialTitle.trim();
     if (!code || !title) continue;
-    const definition = definitions.get(code) ?? { code, title, requiredCodes: new Set<string>(), sourceCourses: new Set<string>(), awardEnabled: true };
+    const definition = definitions.get(code) ?? { code, title, requiredCodes: new Set<string>(), sourceCourses: new Set<string>(), awardEnabled: true, configuration: design.certificate, createdByEmail: course.created_by_email };
     definition.title = title;
     definition.sourceCourses.add(course.code.toUpperCase());
     definition.requiredCodes.add(course.code.toUpperCase());
@@ -63,9 +66,26 @@ export async function issueBroaderCredentialsIfEligible(userEmail: string) {
     const componentCredits = requiredCodes.reduce((total, code) => total + (courseDesigns.get(code)?.creditValue ?? 0), 0);
     const requirements = requiredCodes.map((code) => ({ id: `component-${code}`, type: "component_credential", label: `Completed component credential ${code}`, complete: true, evidence: "Verified active credential in the UCC credential register" }));
     const certificateCode = `UCC-${new Date().getUTCFullYear()}-${crypto.randomUUID().replaceAll("-", "").slice(0, 12).toUpperCase()}`;
-    const requirementsJson = JSON.stringify({ evaluatedAt: new Date().toISOString(), stackableCredential: { code: definition.code, title: definition.title, requiredCodes }, requirements });
-    await db.prepare(`INSERT OR IGNORE INTO certificates(certificate_code,user_email,learner_name,course_code,course_title,issuer_name,requirements_json,credential_type,credit_value,learning_mode,provost_name,provost_title,provost_signature_key) VALUES(?,?,?,?,?,'University of Cape Coast',?,'stacked_credential',?,'stacked',?,?,?)`)
-      .bind(certificateCode,userEmail,learner.full_name,definition.code,definition.title,requirementsJson,componentCredits,provost?.signatory_name??null,provost?.signatory_title??null,provost?.file_key??null).run();
+    const configuration = definition.configuration;
+    const requirementsJson = JSON.stringify({ evaluatedAt: new Date().toISOString(), stackableCredential: { code: definition.code, title: definition.title, requiredCodes }, certificateConfiguration: configuration, requirements });
+    const facilitator = configuration.showAcademicLead && !["jointly_issued", "partner_issued"].includes(configuration.issuanceModel)
+      ? await db.prepare("SELECT signatory_name,signatory_title,file_key FROM certificate_signatures WHERE signature_key=?").bind(`facilitator:${definition.createdByEmail}`).first<{signatory_name:string;signatory_title:string;file_key:string}>()
+      : null;
+    const includeUcc = requiresUccSignatory(configuration.issuanceModel);
+    await db.prepare(`INSERT OR IGNORE INTO certificates(
+      certificate_code,user_email,learner_name,course_code,course_title,issuer_name,
+      award_type,issuance_model,partner_name,partner_logo_key,partner_signatory_name,partner_signatory_title,partner_signature_key,
+      cpd_hours,cpd_points,professional_approval_body,professional_approval_reference,show_academic_lead,
+      requirements_json,credential_type,credit_value,learning_mode,facilitator_name,facilitator_title,facilitator_signature_key,provost_name,provost_title,provost_signature_key
+    ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'stacked_credential',?,'stacked',?,?,?,?,?,?)`)
+      .bind(
+        certificateCode,userEmail,learner.full_name,definition.code,definition.title,certificateIssuerName(configuration),
+        configuration.awardType,configuration.issuanceModel,configuration.partnerName||null,configuration.partnerLogoKey||null,configuration.partnerSignatoryName||null,configuration.partnerSignatoryTitle||null,configuration.partnerSignatureKey||null,
+        configuration.cpdHours,configuration.cpdPoints,configuration.approvalBody||null,configuration.approvalReference||null,configuration.showAcademicLead?1:0,
+        requirementsJson,componentCredits,
+        facilitator?.signatory_name??null,facilitator?.signatory_title??null,facilitator?.file_key??null,
+        includeUcc?(provost?.signatory_name??null):null,includeUcc?(provost?.signatory_title??null):null,includeUcc?(provost?.file_key??null):null,
+      ).run();
     const created = await db.prepare("SELECT certificate_code FROM certificates WHERE user_email=? AND course_code=? LIMIT 1").bind(userEmail, definition.code).first<{ certificate_code: string }>();
     if (created) { issued.push(created.certificate_code); earnedCodes.add(definition.code); }
   }

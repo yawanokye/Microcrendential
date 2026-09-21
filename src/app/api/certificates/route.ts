@@ -5,8 +5,17 @@ import { rejectCrossSiteMutation } from "@/lib/request-security";
 import { recordAudit } from "@/lib/audit";
 import { issueBroaderCredentialsIfEligible } from "@/lib/credential-stack";
 
-type CertificateRow = { certificate_code: string; learner_name: string; course_code: string; course_title: string; issuer_name: string; requirements_json: string; credential_type: string; status: string; issued_at: string; expires_at: string | null; revoked_at: string | null; revocation_reason: string | null; credit_value:number;learning_mode:string;facilitator_name:string|null;facilitator_title:string|null;facilitator_signature_key:string|null;provost_name:string|null;provost_title:string|null;provost_signature_key:string|null };
-const columns="certificate_code,learner_name,course_code,course_title,issuer_name,requirements_json,credential_type,status,issued_at,expires_at,revoked_at,revocation_reason,credit_value,learning_mode,facilitator_name,facilitator_title,facilitator_signature_key,provost_name,provost_title,provost_signature_key";
+type CertificateRow = {
+  certificate_code: string; learner_name: string; course_code: string; course_title: string; issuer_name: string;
+  requirements_json: string; credential_type: string; status: string; issued_at: string; expires_at: string | null;
+  revoked_at: string | null; revocation_reason: string | null; credit_value:number; learning_mode:string;
+  award_type:string; issuance_model:string; partner_name:string|null; partner_logo_key:string|null;
+  partner_signatory_name:string|null; partner_signatory_title:string|null; partner_signature_key:string|null;
+  cpd_hours:number; cpd_points:number; professional_approval_body:string|null; professional_approval_reference:string|null; show_academic_lead:number;
+  facilitator_name:string|null; facilitator_title:string|null; facilitator_signature_key:string|null;
+  provost_name:string|null; provost_title:string|null; provost_signature_key:string|null;
+};
+const columns="certificate_code,learner_name,course_code,course_title,issuer_name,requirements_json,credential_type,status,issued_at,expires_at,revoked_at,revocation_reason,credit_value,learning_mode,award_type,issuance_model,partner_name,partner_logo_key,partner_signatory_name,partner_signatory_title,partner_signature_key,cpd_hours,cpd_points,professional_approval_body,professional_approval_reference,show_academic_lead,facilitator_name,facilitator_title,facilitator_signature_key,provost_name,provost_title,provost_signature_key";
 
 function presentCertificate(certificate: CertificateRow, publicView = false) {
   let requirements: { id?: string; type?: string; label?: string; complete?: boolean; evidence?: string }[] = [];

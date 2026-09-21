@@ -1,4 +1,5 @@
 import { validateAssessmentForPublication, type AssessmentConfigRecord } from "@/lib/assessment-policy";
+import { defaultCertificateConfiguration, normalizeCertificateConfiguration, validateCertificateConfiguration, type CertificateConfiguration } from "@/lib/certificate-policy";
 
 export type LearningOutcome = {
   id: string;
@@ -27,6 +28,7 @@ export type CourseDesign = {
   priceGhs: number;
   certificateFeeGhs: number;
   creditValue: number;
+  certificate: CertificateConfiguration;
   programmeInitiationSource: ProgrammeInitiationSource;
   originatingUnit: string;
   programmeHome: string;
@@ -87,6 +89,7 @@ export const defaultCourseDesign = (): CourseDesign => ({
   priceGhs: 0,
   certificateFeeGhs: 0,
   creditValue: 0,
+  certificate: defaultCertificateConfiguration(),
   programmeInitiationSource: "academic_unit",
   originatingUnit: "",
   programmeHome: "",
@@ -157,6 +160,7 @@ export function normalizeCourseDesign(value: unknown): CourseDesign {
     priceGhs,
     certificateFeeGhs,
     creditValue,
+    certificate: normalizeCertificateConfiguration(input.certificate),
     programmeInitiationSource: initiationSources.has(input.programmeInitiationSource as ProgrammeInitiationSource) ? input.programmeInitiationSource as ProgrammeInitiationSource : fallback.programmeInitiationSource,
     originatingUnit: String(input.originatingUnit || "").trim().slice(0, 300),
     programmeHome: String(input.programmeHome || "").trim().slice(0, 300),
@@ -200,12 +204,14 @@ export function evaluateCourseQuality(input: {
   const sectionIds = new Set(design.sections.map((section) => section.id));
   const mappedOutcomes = new Set(materials.flatMap((material) => material.outcomeIds ?? []));
   const isBroaderCredential = design.credentialStructure === "broader";
+  const certificateValidation = validateCertificateConfiguration(design.certificate);
   const componentCodes = new Set(design.componentCredentialCodes);
   const mappedBroaderOutcomes = new Set(design.componentOutcomeMappings.filter((mapping) => componentCodes.has(mapping.componentCourseCode) && mapping.componentOutcomeIds.length).map((mapping) => mapping.broaderOutcomeId));
   const legacyStackingValid = !design.broaderCredentialCode && !design.broaderCredentialTitle && design.broaderCredentialRequiredCodes.length === 0 ? true : Boolean(design.broaderCredentialCode && design.broaderCredentialTitle && design.broaderCredentialRequiredCodes.length >= 2);
   const checks: CourseQualityCheck[] = [
     { id: "identity", label: "Clear course identity", passed: title.trim().length >= 8 && description.trim().length >= 80, detail: "Use a specific title and a learner-facing description of at least 80 characters." },
     { id: "governance", label: "Programme source and home", passed: Boolean(design.programmeInitiationSource && design.originatingUnit.trim().length >= 2 && design.programmeHome.trim().length >= 2), detail: "Record the programme initiation source, originating unit and programme home. These are governance records and do not create a separate approval pathway." },
+    { id: "certificate", label: "Certificate issuance model", passed: certificateValidation.valid, detail: certificateValidation.issues[0] ?? "The award type, issuer relationship, partner evidence and CPD details are complete." },
     { id: "stacking", label: isBroaderCredential ? "Approved component credentials" : "Credential pathway metadata", passed: isBroaderCredential ? design.componentCredentialCodes.length >= 2 : legacyStackingValid, detail: isBroaderCredential ? "A broader credential must consolidate at least two existing component microcredentials." : "Component relationships are normally defined by the broader credential after the component course is built." },
     { id: "audience", label: "Audience and prerequisites", passed: design.intendedAudience.length >= 20 && design.prerequisites.length >= 10, detail: "State who the course serves and what learners need before starting." },
     { id: "objectives", label: "Course objectives", passed: design.objectives.length >= 2, detail: "Provide at least two clear design objectives." },

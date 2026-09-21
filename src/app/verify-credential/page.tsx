@@ -1,7 +1,7 @@
 import CredentialVerifier from "./verifier";
 
 export const metadata = {
-  title: "Verify a credential · UCC Microcredentials",
+  title: "Verify a credential · UCC Growth+",
   description: "Publicly verify a UCC digital microcredential.",
 };
 

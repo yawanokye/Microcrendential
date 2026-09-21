@@ -3,6 +3,7 @@ import { normalizeCourseDesign } from "@/lib/course-design";
 import { issueBroaderCredentialsIfEligible } from "@/lib/credential-stack";
 import { ensureStructuredLearningActivities } from "@/lib/structured-learning-activities";
 import type { CourseMaterialRecord } from "@/lib/course-design";
+import { certificateIssuerName, isCpdAward, requiresUccSignatory, type CertificateConfiguration } from "@/lib/certificate-policy";
 
 type CourseActivity = {
   id?: string;
@@ -34,6 +35,7 @@ export type CompletionEvaluation = {
   certificateAuthorizationAuthority: string | null;
   creditValue: number;
   learningMode: string;
+  certificateConfiguration: CertificateConfiguration;
   complete: boolean;
   requirements: CompletionRequirement[];
 };
@@ -53,6 +55,9 @@ export type IssuedCertificate = {
   revocation_reason: string | null;
   credit_value: number;
   learning_mode: string;
+  award_type: string; issuance_model: string; partner_name:string|null; partner_logo_key:string|null;
+  partner_signatory_name:string|null; partner_signatory_title:string|null; partner_signature_key:string|null;
+  cpd_hours:number; cpd_points:number; professional_approval_body:string|null; professional_approval_reference:string|null; show_academic_lead:number;
   facilitator_name:string|null; facilitator_title:string|null; facilitator_signature_key:string|null;
   provost_name:string|null; provost_title:string|null; provost_signature_key:string|null;
 };
@@ -157,6 +162,10 @@ export async function evaluateCourseCompletion(userEmail: string, courseCode: st
     certificateAuthorizationAuthority: course.approval_authority,
     creditValue: design.creditValue,
     learningMode: design.deliveryPattern,
+    certificateConfiguration: {
+      ...design.certificate,
+      cpdHours: isCpdAward(design.certificate.awardType) && design.certificate.cpdHours <= 0 ? design.expectedHours : design.certificate.cpdHours,
+    },
     complete: requirements.every((requirement) => requirement.complete),
     requirements,
   };
@@ -178,11 +187,26 @@ export async function issueCertificateIfComplete(userEmail: string, courseCode: 
   const course=await db.prepare("SELECT created_by_email FROM course_drafts WHERE code=? AND status='active'").bind(courseCode).first<{created_by_email:string}>();
   const facilitator=course?await db.prepare("SELECT signatory_name,signatory_title,file_key FROM certificate_signatures WHERE signature_key=?").bind(`facilitator:${course.created_by_email}`).first<{signatory_name:string;signatory_title:string;file_key:string}>():null;
   const provost=await db.prepare("SELECT signatory_name,signatory_title,file_key FROM certificate_signatures WHERE signature_key='provost'").first<{signatory_name:string;signatory_title:string;file_key:string}>();
-  const requirementsJson = JSON.stringify({ evaluatedAt: new Date().toISOString(), requirements: evaluation.requirements, certificateAuthorization: { preauthorised: evaluation.certificatePreauthorised, authority: evaluation.certificateAuthorizationAuthority, approvalReference: evaluation.certificateAuthorizationReference } });
+  const configuration = evaluation.certificateConfiguration;
+  const requirementsJson = JSON.stringify({ evaluatedAt: new Date().toISOString(), requirements: evaluation.requirements, certificateConfiguration: configuration, certificateAuthorization: { preauthorised: evaluation.certificatePreauthorised, authority: evaluation.certificateAuthorizationAuthority, approvalReference: evaluation.certificateAuthorizationReference } });
   const certificateCode = `UCC-${new Date().getUTCFullYear()}-${crypto.randomUUID().replaceAll("-", "").slice(0, 12).toUpperCase()}`;
-  await db.prepare(`INSERT OR IGNORE INTO certificates(certificate_code,user_email,learner_name,course_code,course_title,issuer_name,requirements_json,credit_value,learning_mode,facilitator_name,facilitator_title,facilitator_signature_key,provost_name,provost_title,provost_signature_key) VALUES(?,?,?,?,?,'University of Cape Coast',?,?,?,?,?,?,?,?,?)`)
-    .bind(certificateCode,userEmail,learner.full_name,evaluation.courseCode,evaluation.courseTitle,requirementsJson,evaluation.creditValue,evaluation.learningMode,facilitator?.signatory_name??null,facilitator?.signatory_title??null,facilitator?.file_key??null,provost?.signatory_name??null,provost?.signatory_title??null,provost?.file_key??null).run();
-  const certificate = await db.prepare("SELECT certificate_code,learner_name,course_code,course_title,issuer_name,requirements_json,credential_type,status,issued_at,expires_at,revoked_at,revocation_reason,credit_value,learning_mode,facilitator_name,facilitator_title,facilitator_signature_key,provost_name,provost_title,provost_signature_key FROM certificates WHERE user_email = ? AND course_code = ? LIMIT 1")
+  const includeUcc = requiresUccSignatory(configuration.issuanceModel);
+  const includeAcademicLead = configuration.showAcademicLead && !["jointly_issued", "partner_issued"].includes(configuration.issuanceModel);
+  await db.prepare(`INSERT OR IGNORE INTO certificates(
+    certificate_code,user_email,learner_name,course_code,course_title,issuer_name,
+    award_type,issuance_model,partner_name,partner_logo_key,partner_signatory_name,partner_signatory_title,partner_signature_key,
+    cpd_hours,cpd_points,professional_approval_body,professional_approval_reference,show_academic_lead,
+    requirements_json,credit_value,learning_mode,facilitator_name,facilitator_title,facilitator_signature_key,provost_name,provost_title,provost_signature_key
+  ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+    .bind(
+      certificateCode,userEmail,learner.full_name,evaluation.courseCode,evaluation.courseTitle,certificateIssuerName(configuration),
+      configuration.awardType,configuration.issuanceModel,configuration.partnerName||null,configuration.partnerLogoKey||null,configuration.partnerSignatoryName||null,configuration.partnerSignatoryTitle||null,configuration.partnerSignatureKey||null,
+      configuration.cpdHours,configuration.cpdPoints,configuration.approvalBody||null,configuration.approvalReference||null,includeAcademicLead?1:0,
+      requirementsJson,evaluation.creditValue,evaluation.learningMode,
+      includeAcademicLead?(facilitator?.signatory_name??null):null,includeAcademicLead?(facilitator?.signatory_title??null):null,includeAcademicLead?(facilitator?.file_key??null):null,
+      includeUcc?(provost?.signatory_name??null):null,includeUcc?(provost?.signatory_title??null):null,includeUcc?(provost?.file_key??null):null,
+    ).run();
+  const certificate = await db.prepare("SELECT certificate_code,learner_name,course_code,course_title,issuer_name,requirements_json,credential_type,status,issued_at,expires_at,revoked_at,revocation_reason,credit_value,learning_mode,award_type,issuance_model,partner_name,partner_logo_key,partner_signatory_name,partner_signatory_title,partner_signature_key,cpd_hours,cpd_points,professional_approval_body,professional_approval_reference,show_academic_lead,facilitator_name,facilitator_title,facilitator_signature_key,provost_name,provost_title,provost_signature_key FROM certificates WHERE user_email = ? AND course_code = ? LIMIT 1")
     .bind(userEmail, courseCode).first<IssuedCertificate>();
   await issueBroaderCredentialsIfEligible(userEmail);
   return { evaluation, certificate };

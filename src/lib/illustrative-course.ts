@@ -1,4 +1,4 @@
-import type { CourseDesign, CourseMaterialRecord } from "@/lib/course-design";
+import { defaultCourseDesign, type CourseDesign, type CourseMaterialRecord } from "@/lib/course-design";
 
 export type IllustrativeAsset = {
   key?: string;
@@ -100,6 +100,7 @@ export function buildIllustrativeCourseTemplate(origin: string, assets: Illustra
   const safeOrigin = origin.replace(/\/$/, "");
   const suffix = String(Date.now()).slice(-6);
   const design: CourseDesign = {
+    ...defaultCourseDesign(),
     category: "professional",
     deliveryPattern: "blended",
     level: "applied",

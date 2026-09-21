@@ -1,8 +1,8 @@
 import StudentRegistrationForm from "./registration-form";
 
 export const metadata = {
-  title: "Student registration · UCC Microcredentials",
-  description: "Create and verify a UCC Microcredentials student account.",
+  title: "Learner registration · UCC Growth+",
+  description: "Create and verify a UCC Growth+ learner account.",
 };
 
 export default function StudentRegistrationPage() {
