@@ -1,6 +1,12 @@
-# UCC Growth+ v12 Official Pilot
+# UCC Growth+ v12.0.1 Official Pilot
 
 Release date: 21 September 2026
+
+## v12.0.1 deployment correction
+
+- Separates production application type checking from test-suite type checking.
+- Removes test files from the Docker production build context while retaining them for CI and local validation.
+- Makes the Docker build verify that the password and upload-security source modules are present before compiling.
 
 ## Pilot-ready improvements
 
@@ -24,6 +30,7 @@ Release date: 21 September 2026
 - Automated tests: 31 passed, 0 failed
 - ESLint: 0 errors, 30 non-blocking legacy warnings
 - Next.js production build: passed, 73 application pages generated
+- Docker-style production context build without the test directory: passed
 - Standalone runtime smoke test: liveness, privacy, password recovery and robots routes returned HTTP 200
 - Backup creation and restore-integrity check: passed
 

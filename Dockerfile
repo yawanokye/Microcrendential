@@ -9,7 +9,9 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV CI=1
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY . .
-RUN npm run build
+RUN test -f src/lib/passwords.ts \
+    && test -f src/lib/file-security.ts \
+    && npm run build
 
 FROM node:22-bookworm-slim AS runtime
 WORKDIR /app
