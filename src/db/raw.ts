@@ -240,6 +240,18 @@ CREATE TABLE IF NOT EXISTS certificates (
   course_code TEXT NOT NULL,
   course_title TEXT NOT NULL,
   issuer_name TEXT NOT NULL DEFAULT 'University of Cape Coast',
+  award_type TEXT NOT NULL DEFAULT 'microcredential_achievement',
+  issuance_model TEXT NOT NULL DEFAULT 'ucc_issued',
+  partner_name TEXT,
+  partner_logo_key TEXT,
+  partner_signatory_name TEXT,
+  partner_signatory_title TEXT,
+  partner_signature_key TEXT,
+  cpd_hours REAL NOT NULL DEFAULT 0,
+  cpd_points REAL NOT NULL DEFAULT 0,
+  professional_approval_body TEXT,
+  professional_approval_reference TEXT,
+  show_academic_lead INTEGER NOT NULL DEFAULT 0,
   requirements_json TEXT NOT NULL DEFAULT '{}',
   credential_type TEXT NOT NULL DEFAULT 'microcredential',
   status TEXT NOT NULL DEFAULT 'active',
@@ -465,6 +477,18 @@ export function getRawDb() {
   ensureColumn("users", "privacy_accepted_at", "TEXT");
   ensureColumn("certificates", "credential_type", "TEXT NOT NULL DEFAULT 'microcredential'");
   ensureColumn("certificates", "issuer_name", "TEXT NOT NULL DEFAULT 'University of Cape Coast'");
+  ensureColumn("certificates", "award_type", "TEXT NOT NULL DEFAULT 'microcredential_achievement'");
+  ensureColumn("certificates", "issuance_model", "TEXT NOT NULL DEFAULT 'ucc_issued'");
+  ensureColumn("certificates", "partner_name", "TEXT");
+  ensureColumn("certificates", "partner_logo_key", "TEXT");
+  ensureColumn("certificates", "partner_signatory_name", "TEXT");
+  ensureColumn("certificates", "partner_signatory_title", "TEXT");
+  ensureColumn("certificates", "partner_signature_key", "TEXT");
+  ensureColumn("certificates", "cpd_hours", "REAL NOT NULL DEFAULT 0");
+  ensureColumn("certificates", "cpd_points", "REAL NOT NULL DEFAULT 0");
+  ensureColumn("certificates", "professional_approval_body", "TEXT");
+  ensureColumn("certificates", "professional_approval_reference", "TEXT");
+  ensureColumn("certificates", "show_academic_lead", "INTEGER NOT NULL DEFAULT 0");
   ensureColumn("certificates", "requirements_json", "TEXT NOT NULL DEFAULT '{}'");
   ensureColumn("certificates", "status", "TEXT NOT NULL DEFAULT 'active'");
   ensureColumn("certificates", "expires_at", "TEXT");

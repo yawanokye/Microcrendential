@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { index, integer, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 export const courseDrafts = sqliteTable("course_drafts", {
   id: integer("id").primaryKey({ autoIncrement: true }),
@@ -122,12 +122,32 @@ export const certificates = sqliteTable("certificates", {
   courseCode: text("course_code").notNull(),
   courseTitle: text("course_title").notNull(),
   issuerName: text("issuer_name").notNull().default("University of Cape Coast"),
+  awardType: text("award_type").notNull().default("microcredential_achievement"),
+  issuanceModel: text("issuance_model").notNull().default("ucc_issued"),
+  partnerName: text("partner_name"),
+  partnerLogoKey: text("partner_logo_key"),
+  partnerSignatoryName: text("partner_signatory_name"),
+  partnerSignatoryTitle: text("partner_signatory_title"),
+  partnerSignatureKey: text("partner_signature_key"),
+  cpdHours: real("cpd_hours").notNull().default(0),
+  cpdPoints: real("cpd_points").notNull().default(0),
+  professionalApprovalBody: text("professional_approval_body"),
+  professionalApprovalReference: text("professional_approval_reference"),
+  showAcademicLead: integer("show_academic_lead", { mode: "boolean" }).notNull().default(false),
   requirementsJson: text("requirements_json").notNull().default("{}"),
   credentialType: text("credential_type").notNull().default("microcredential"),
   status: text("status", { enum: ["active", "revoked"] }).notNull().default("active"),
   expiresAt: text("expires_at"),
   revokedAt: text("revoked_at"),
   revocationReason: text("revocation_reason"),
+  creditValue: integer("credit_value").notNull().default(0),
+  learningMode: text("learning_mode").notNull().default("blended"),
+  facilitatorName: text("facilitator_name"),
+  facilitatorTitle: text("facilitator_title"),
+  facilitatorSignatureKey: text("facilitator_signature_key"),
+  provostName: text("provost_name"),
+  provostTitle: text("provost_title"),
+  provostSignatureKey: text("provost_signature_key"),
   issuedAt: text("issued_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 }, (table) => [uniqueIndex("certificates_code_unique").on(table.certificateCode), uniqueIndex("certificates_user_course_unique").on(table.userEmail, table.courseCode)]);
 
