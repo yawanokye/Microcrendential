@@ -1,4 +1,4 @@
-# UCC Microcredential Learning Platform — GitHub/Render Edition
+# UCC Growth+ Learning Platform — GitHub/Render Edition
 
 This package contains dedicated student, facilitator and system-administration portals; a separate student registration journey; a commercial outcome-led Course Studio; structured syllabi; versioned drafts and academic release; protected PDF/Word/media content; readable-HTML conversion; identity verification; stackable learning pathways; a lifelong skills passport; assessments; mathematical whiteboard; YouTube transcript review; free Google Colab coding assignments; realistic interactive virtual laboratories; governed UCC digital certificates with scannable verification QR codes; public credential verification; and institution-level learning analytics.
 
