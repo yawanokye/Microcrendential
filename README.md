@@ -1,12 +1,12 @@
 # UCC Growth+ Learning Platform — GitHub/Render Edition
 
-This package contains dedicated student, facilitator and system-administration portals; a separate student registration journey; a commercial outcome-led Course Studio; structured syllabi; versioned drafts and academic release; protected PDF/Word/media content; readable-HTML conversion; identity verification; stackable learning pathways; a lifelong skills passport; assessments; mathematical whiteboard; YouTube transcript review; free Google Colab coding assignments; realistic interactive virtual laboratories; governed UCC digital certificates with scannable verification QR codes; public credential verification; and institution-level learning analytics.
+This package contains dedicated learner, facilitator and system-administration portals, a public learner registration journey, a commercial outcome-led Course Studio, governed identity and assessment workflows, verifiable certificates and institution-level learning analytics. Version 12 adds the official-pilot controls for email verification, staff two-step sign-in, password recovery, support records, controlled payments, automatic backups, identity retention and deployment promotion.
 
 Each role has a separate operational experience:
 
-- **Students** register through `/student-registration` and see only their learning journey, approved course catalogue, assessment activities, live sessions, community, practicals, private skills passport and credential wallet.
-- **Facilitators** see course design, teaching, marking, cohort intelligence, assigned identity reviews and quality-testing tools; student registration and private credential-wallet screens are excluded.
-- **System administrators** see access governance, academic approvals, identity governance, the institution-wide credential registry, credential revocation/restoration and platform analytics; student delivery screens are excluded.
+- **Learners** register with any accessible personal or professional email. UCC student status and a UCC email address are not required.
+- **Facilitators** may be authorised UCC staff or approved staff from another institution. They use the professional email named in the administrator invitation.
+- **System administrators** govern access, academic approval, identity review, certificate status, support and institutional monitoring.
 
 Role separation is enforced by both the interface and the API. Hiding a navigation item is never treated as authorisation.
 
@@ -20,22 +20,23 @@ Role separation is enforced by both the interface and the API. Hiding a navigati
 - Facilitator and Provost certificate signatures are managed through restricted registers and snapshotted onto newly issued credentials. Administrators may maintain both registers; a facilitator may maintain only their own signature.
 - Facilitators can author text or sanitised HTML, upload protected files, or import a public link. `.PDF`, `.DOCX`, `.TXT`, `.MD`, `.HTML` and `.RTF` sources are converted to readable HTML where possible; the protected original remains available to authorised learners. Other Word, PowerPoint, image, audio and video files remain protected course attachments.
 - Every learning block records its section, unit, estimated time, source/licence, accessibility review and mapped learning outcomes. The learner course view presents the same structured syllabus, objectives, outcomes and authentic evidence requirements.
-- A dedicated four-step **Student Registration Portal** creates a secure account, captures learner and accessibility preferences, protects identity evidence, and assigns a unique student number.
-- A private **Skills Passport** combines earned credentials, assessed practical competencies and progress towards stackable discipline pathways. Students can export their private record as JSON.
+- A dedicated five-step **Learner Registration Portal** verifies the email, creates a secure account, captures learner and accessibility preferences, protects identity evidence, and assigns a unique learner number.
+- A private **Skills Passport** combines earned credentials, assessed practical competencies and progress towards stackable discipline pathways. Learners can export their private record as JSON.
 - A **University of Cape Coast digital certificate** is issued only when the learner identity is verified, the scored course assessment is passed and every activity marked required has passed evidence. The audit snapshot is stored with the award. Its genuine QR code opens the no-sign-in `/verify-credential` record, which checks live active, expired or revoked status.
 - Facilitators receive governed **cohort intelligence** for only their own courses, including participation, completion, average scores, pass rates and evidence queues.
 - Administrators receive institution-wide analytics plus a searchable **Credential Registry** with a recorded reason for every revocation and a controlled restoration action.
 - Commercial role-selection, sign-in, registration, learner, educator, administrator and verifier experiences share one responsive product design and remain usable on desktop, tablet and mobile.
 - Virtual laboratories use recognisable workbenches, apparatus, instrument panels, clinical stations, observations and practical reports so the learner experience resembles a real guided laboratory workflow.
 
-### Student registration and access
+### Learner registration and access
 
-1. From the public portal selector, choose **Register as a student**.
-2. Create a password-protected account using a long-term email address.
-3. Add education, occupation, organisation, learning interests, preferred language and any accessibility support needs.
-4. Upload an accepted identity document and take a current selfie using the browser camera.
-5. Review the supplied information and submit it for an authorised identity decision.
-6. After approval, sign in through **Student Portal**. The internal access role remains `learner` for backwards compatibility, while all learner-facing product labels use **Student**.
+1. From the public portal selector, choose **Register as a learner**.
+2. Create a password with at least 12 characters using any long-term email address.
+3. Enter the six-digit email verification code.
+4. Add education, occupation, organisation, learning interests, preferred language and accessibility support needs.
+5. Upload an accepted identity document and take a current selfie using the browser camera.
+6. Review the information and submit it for an authorised identity decision.
+7. After approval, sign in through **Learner Portal**.
 
 The package is adapted for Render. It uses:
 
@@ -88,18 +89,18 @@ You can also use GitHub’s **Add file → Upload files** option and upload the 
 2. Select **New → Blueprint**.
 3. Connect the repository containing this package.
 4. Render reads `render.yaml` and creates the Docker web service and persistent disk.
-5. When prompted for `INITIAL_ADMIN_EMAIL`, enter the email address that should receive the first system-administrator account.
-6. Confirm and deploy the Blueprint.
+5. Enter `INITIAL_ADMIN_EMAIL`, the final `NEXT_PUBLIC_APP_URL`, approved email-sender settings and the monitored `SUPPORT_EMAIL` when prompted.
+6. Confirm and deploy the Blueprint. Production automatic deployment is disabled, so later releases are promoted manually after GitHub checks pass.
 
 `AUTH_SECRET` is generated by Render automatically. Do not expose or change it after users begin signing in, because changing it signs out every active session.
 
 ## 3. Create the first administrator
 
-1. Open the deployed `onrender.com` URL.
+1. Open the deployed URL. Configure the approved UCC domain before certificates are issued.
 2. Select **System administrator**.
 3. Choose **First admin setup**.
 4. Register using the exact `INITIAL_ADMIN_EMAIL` configured in Render.
-5. On first successful sign-in, that email is promoted to the initial administrator.
+5. Enter the emailed security code. On first successful sign-in, that email is promoted to the initial administrator.
 
 The administrator can then create facilitator invitations from the System Administration portal. Facilitators must register/sign in with the exact invited email address.
 
@@ -147,8 +148,25 @@ Learners may attach an optional video, image or PDF evidence file up to 25 MB. O
 |---|---:|---|
 | `AUTH_SECRET` | Yes | Signs secure login cookies; use at least 32 random characters |
 | `INITIAL_ADMIN_EMAIL` | Yes | Email promoted to the first system administrator |
+| `NEXT_PUBLIC_APP_URL` | Yes | Final HTTPS UCC address used by email links, payments and certificate QR codes |
+| `PILOT_REQUIRE_OFFICIAL_DOMAIN` | Pilot | Requires the configured URL to use `ucc.edu.gh` before readiness passes |
+| `PUBLIC_REGISTRATION_ENABLED` | Pilot | Opens or closes public learner account creation |
+| `PILOT_MAX_LEARNERS` | Pilot | Controlled pilot capacity; defaults to `50` |
+| `EMAIL_VERIFICATION_REQUIRED` | Pilot | Requires a six-digit email code before learner onboarding |
+| `STAFF_MFA_REQUIRED` | Pilot | Requires a six-digit code for every facilitator and administrator sign-in |
+| `RESEND_API_KEY` | Pilot | Server-side transactional email credential |
+| `EMAIL_FROM` | Pilot | Approved sender identity for security and invitation messages |
+| `SUPPORT_EMAIL` | Pilot | Published and monitored support contact |
+| `MONITORING_WEBHOOK_URL` | Pilot | HTTPS endpoint for privacy-minimised unhandled-error alerts |
+| `PAYMENTS_ENABLED` | Pilot | Keep `false` until UCC Finance approves live payment acceptance |
+| `PAYSTACK_SECRET_KEY` | Paid courses | Server-side Paystack key used only when payments are enabled |
 | `DATA_DIR` | Yes on Render | Database and protected-upload directory; configured as `/var/data` |
 | `SQLITE_PATH` | Yes on Render | Explicit persistent database path; configured as `/var/data/ucc-microcredentials.sqlite` |
+| `AUTO_BACKUP_ENABLED` | Pilot | Runs database and upload backup maintenance from the production wrapper |
+| `BACKUP_DIR` | Pilot | Dedicated backup folder below `DATA_DIR` |
+| `BACKUP_INTERVAL_HOURS` | Pilot | Backup interval; defaults to `24` |
+| `BACKUP_RETENTION_DAYS` | Pilot | On-disk archive retention; defaults to `14` |
+| `IDENTITY_RETENTION_DAYS` | Pilot | Deletes reviewed identity images after the approved period; defaults to `90` |
 | `PORT` | Render-managed | HTTP listening port; the Blueprint uses `10000` |
 | `COURSE_AI_PROVIDER` | No | `auto`, `openai` or `vertex`; `auto` uses the available approved provider |
 | `COURSE_AI_TIMEOUT_SECONDS` | No | Provider wait per request, from 45 to 180 seconds; defaults to `120` |
@@ -167,19 +185,25 @@ The Blueprint attaches a 10 GB persistent disk. The database and every uploaded 
 
 This is a single-instance architecture because SQLite and a Render disk are attached to one web service. Before serving a large institution or running multiple instances, migrate the database to PostgreSQL and uploads to private S3-compatible object storage.
 
-Schedule regular disk snapshots or copy `/var/data/ucc-microcredentials.sqlite` and `/var/data/uploads/` to secure backup storage. National-ID and selfie files contain sensitive personal information and must be governed by UCC access, retention and data-protection rules.
+The production wrapper creates a consistent database-and-upload archive every 24 hours and records its checksum and SQLite integrity result. Run `npm run backup:verify` regularly. Copy a verified archive to approved encrypted storage outside the Render disk each day. A backup held only on the same disk is not a complete disaster-recovery copy.
+
+Reviewed identity images are removed automatically after `IDENTITY_RETENTION_DAYS`. The verification decision and limited reference data remain in the audit record. UCC must approve the period before launch.
 
 ## Security handover before public launch
 
-- Configure a custom domain and HTTPS in Render.
+- Configure an approved UCC domain and HTTPS in Render, then set `NEXT_PUBLIC_APP_URL` before certificates are issued.
 - Replace the initial administrator password after handover.
-- Connect institutional email verification and a supported password-reset or SSO recovery flow before unrestricted public registration. Login throttling is included, but production edge/WAF limits should also be enabled.
+- Configure transactional email. Learner verification, password reset, facilitator invitations and staff security codes are included.
 - Keep the service on a paid plan with a persistent disk; free Render web services have ephemeral filesystems.
-- Restrict administrator and facilitator accounts to authorised UCC personnel.
-- Define retention and deletion rules for national-ID and selfie evidence.
+- Restrict administrator accounts to authorised UCC personnel. Facilitators may be approved UCC or partner-institution staff.
+- Confirm the approved retention and deletion rules for national-ID and selfie evidence.
 - Review third-party learning materials, licences and transcripts before publication.
-- Add malware scanning for uploaded documents and identity evidence, and define an incident-response procedure.
+- File signatures are checked and executable binaries are rejected. Add managed malware scanning before high-volume public use.
 - Migrate SQLite and filesystem uploads to managed PostgreSQL and private object storage before multi-instance or high-volume operation.
+
+Use `OFFICIAL-PILOT-CHECKLIST.md` and `PILOT-OPERATIONS-RUNBOOK.md` for the formal release, daily checks, backup verification and restore rehearsal.
+
+`render-staging.yaml` provides a separate, closed-registration staging service. Use separate email, AI and future payment credentials. Never copy live identity evidence into staging.
 
 ## Important service limitation
 

@@ -22,6 +22,7 @@ ENV SQLITE_PATH=/var/data/ucc-microcredentials.sqlite
 COPY --from=build /app/public ./public
 COPY --from=build /app/.next/standalone ./
 COPY --from=build /app/.next/static ./.next/static
-RUN mkdir -p /var/data/uploads
+COPY --from=build /app/scripts ./scripts
+RUN mkdir -p /var/data/uploads /var/data/backups
 EXPOSE 10000
-CMD ["node", "server.js"]
+CMD ["node", "scripts/pilot-server.mjs"]
