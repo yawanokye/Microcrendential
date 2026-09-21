@@ -27,8 +27,23 @@ CREATE TABLE IF NOT EXISTS auth_accounts (
   full_name TEXT NOT NULL,
   password_hash TEXT NOT NULL,
   password_salt TEXT NOT NULL,
+  email_verified_at TEXT,
+  password_changed_at TEXT,
+  session_version INTEGER NOT NULL DEFAULT 1,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+CREATE TABLE IF NOT EXISTS auth_challenges (
+  id TEXT PRIMARY KEY NOT NULL,
+  email TEXT NOT NULL,
+  portal TEXT NOT NULL CHECK(portal IN ('learner','facilitator','admin')),
+  purpose TEXT NOT NULL CHECK(purpose IN ('email_verification','staff_mfa','password_reset')),
+  code_hash TEXT NOT NULL,
+  attempts INTEGER NOT NULL DEFAULT 0,
+  expires_at TEXT NOT NULL,
+  used_at TEXT,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS auth_challenges_email_idx ON auth_challenges(email,purpose,created_at);
 CREATE TABLE IF NOT EXISTS course_drafts (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   code TEXT NOT NULL,
@@ -334,6 +349,28 @@ CREATE TABLE IF NOT EXISTS admin_audit_log (
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS admin_audit_log_admin_idx ON admin_audit_log(admin_email);
+CREATE TABLE IF NOT EXISTS support_requests (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  requester_email TEXT NOT NULL,
+  requester_role TEXT NOT NULL,
+  category TEXT NOT NULL,
+  message TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'open' CHECK(status IN ('open','in_progress','resolved','closed')),
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  resolved_at TEXT
+);
+CREATE INDEX IF NOT EXISTS support_requests_status_idx ON support_requests(status,created_at);
+CREATE TABLE IF NOT EXISTS backup_runs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  backup_file TEXT NOT NULL,
+  checksum TEXT NOT NULL,
+  database_integrity TEXT NOT NULL,
+  upload_files INTEGER NOT NULL DEFAULT 0,
+  size_bytes INTEGER NOT NULL DEFAULT 0,
+  status TEXT NOT NULL CHECK(status IN ('completed','failed')),
+  details_json TEXT NOT NULL DEFAULT '{}',
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
 `;
 
 const globalForDatabase = globalThis as typeof globalThis & {
@@ -475,6 +512,9 @@ export function getRawDb() {
   ensureColumn("users", "accessibility_needs", "TEXT");
   ensureColumn("users", "terms_accepted_at", "TEXT");
   ensureColumn("users", "privacy_accepted_at", "TEXT");
+  ensureColumn("auth_accounts", "email_verified_at", "TEXT");
+  ensureColumn("auth_accounts", "password_changed_at", "TEXT");
+  ensureColumn("auth_accounts", "session_version", "INTEGER NOT NULL DEFAULT 1");
   ensureColumn("certificates", "credential_type", "TEXT NOT NULL DEFAULT 'microcredential'");
   ensureColumn("certificates", "issuer_name", "TEXT NOT NULL DEFAULT 'University of Cape Coast'");
   ensureColumn("certificates", "award_type", "TEXT NOT NULL DEFAULT 'microcredential_achievement'");
