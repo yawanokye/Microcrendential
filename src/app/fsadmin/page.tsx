@@ -1,12 +1,12 @@
-import { ArrowLeft, CheckCircle2, ChevronRight, GraduationCap, ShieldCheck, Users } from "lucide-react";
+import { ArrowLeft, CheckCircle2, ChevronRight, ShieldCheck, Users } from "lucide-react";
+import { UccBrandLockup } from "@/components/ucc-brand";
 
 export default function StaffAdminEntry() {
   return (
     <main className="access-shell commercial-access private-staff-access">
       <section className="access-card access-selector">
         <div className="access-brand">
-          <div className="brand-mark"><GraduationCap size={28} /></div>
-          <div><strong>UCC Microcredentials</strong><span>University of Cape Coast</span></div>
+          <UccBrandLockup subtitle="Restricted Staff Gateway" />
         </div>
         <div className="access-product-heading">
           <div>
