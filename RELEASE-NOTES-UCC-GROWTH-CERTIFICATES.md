@@ -26,6 +26,16 @@ This release is based on `Microcrendential-master (9).zip`, the last archive con
 - The UCC Growth+ wordmark uses a large, bold superscript plus beside `Growth`.
 - Learner, educator and administrator entry points remain role-bound.
 
+## UCC identity and certificate-view refinement
+
+- Learner, facilitator and administrator sign-in cards now use the approved UCC crest, UCC blue, red and yellow, and the shared UCC Growth+ lockup.
+- The same institutional lockup is used on portal headers, registration, loading, staff access and public verification surfaces.
+- Certificate cards are now scaled thumbnails that show the complete landscape certificate instead of clipping its lower half.
+- Clicking a certificate opens a large, scrollable detail view with the full certificate, recorded credential facts and completion requirements.
+- Print typography, contrast, spacing, QR size and signatory footer sizing are tuned for A4 landscape output.
+- Historical signature images remain available after an authorised signatory uploads a newer signature, preserving issued-certificate snapshots.
+- An authorised-signatory line remains visible on legacy credentials even when an older record has no stored signature image.
+
 ## Compatibility and deployment
 
 - Existing course designs without certificate configuration are normalised to the safe default: UCC-issued microcredential achievement.
