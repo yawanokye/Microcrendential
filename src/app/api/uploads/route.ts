@@ -1,6 +1,7 @@
 import { requireActiveProfile } from "@/lib/accounts";
 import { getStoredFile, putStoredFile } from "@/lib/render-storage";
 import { rejectCrossSiteMutation } from "@/lib/request-security";
+import { hasExecutableSignature } from "@/lib/file-security";
 
 export async function GET(request: Request) {
   const account = await requireActiveProfile(["facilitator", "admin"]);
@@ -43,6 +44,7 @@ export async function POST(request: Request) {
   if (file.size > 50 * 1024 * 1024) {
     return Response.json({ error: "Files must be 50 MB or smaller." }, { status: 413 });
   }
+  if (await hasExecutableSignature(file)) return Response.json({ error: "Executable binary files are not permitted." }, { status: 415 });
 
   const key = await putStoredFile("course-materials", file, { contentType: file.type || "application/octet-stream", originalName: file.name, ownerEmail: account.profile.email, evidenceKind: "course-material" });
 

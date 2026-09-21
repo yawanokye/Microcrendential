@@ -1,5 +1,6 @@
 import { getRawDb } from "@/db/raw";
 import { requireActiveProfile } from "@/lib/accounts";
+import { rejectCrossSiteMutation } from "@/lib/request-security";
 
 export async function GET() {
   const account = await requireActiveProfile();
@@ -9,6 +10,7 @@ export async function GET() {
 }
 
 export async function PATCH(request: Request) {
+  const securityError = rejectCrossSiteMutation(request); if (securityError) return securityError;
   const account = await requireActiveProfile();
   if (account.error || !account.profile) return account.error;
   const payload = await request.json() as { fullName?: string; dateOfBirth?: string; gender?: string; nationality?: string; phone?: string; address?: string; idType?: string; idLast4?: string; idDocumentKey?: string; selfieKey?: string; educationLevel?: string; occupation?: string; organisation?: string; interests?: string[]; preferredLanguage?: string; accessibilityNeeds?: string };

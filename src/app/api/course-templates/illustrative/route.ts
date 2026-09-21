@@ -3,6 +3,7 @@ import { join } from "node:path";
 
 import { requireActiveProfile } from "@/lib/accounts";
 import { putStoredFile } from "@/lib/render-storage";
+import { rejectCrossSiteMutation } from "@/lib/request-security";
 
 const bundledAssets = {
   casePack: { name: "Applied-Data-Literacy-Case-Pack.pdf", type: "application/pdf" },
@@ -12,6 +13,7 @@ const bundledAssets = {
 } as const;
 
 export async function POST(request: Request) {
+  const securityError = rejectCrossSiteMutation(request); if (securityError) return securityError;
   const account = await requireActiveProfile(["facilitator", "admin"]);
   if (account.error || !account.profile) return account.error;
 
@@ -35,4 +37,3 @@ export async function POST(request: Request) {
     return Response.json({ error: "The illustrative course files could not be prepared." }, { status: 500 });
   }
 }
-

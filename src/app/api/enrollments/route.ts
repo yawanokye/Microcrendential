@@ -3,6 +3,7 @@ import { requireActiveProfile } from "@/lib/accounts";
 import { normalizeCourseDesign } from "@/lib/course-design";
 import { rejectCrossSiteMutation } from "@/lib/request-security";
 import { recordAudit } from "@/lib/audit";
+import { paymentsEnabled } from "@/lib/runtime-config";
 
 export async function POST(request: Request) {
   const originError = rejectCrossSiteMutation(request); if (originError) return originError;
@@ -17,6 +18,7 @@ export async function POST(request: Request) {
   const design = normalizeCourseDesign(rawDesign);
   if (design.enrolmentMode !== "open") return Response.json({ error: "This course is not currently configured for self-enrolment." }, { status: 409 });
   if (design.priceGhs > 0) {
+    if (!paymentsEnabled()) return Response.json({ error: "Paid enrolment is not open during the official pilot. Contact UCC Growth+ support." }, { status: 503 });
     const paid = await getRawDb().prepare("SELECT id FROM payment_orders WHERE user_email = ? AND course_code = ? AND purpose = 'enrollment' AND status = 'paid' LIMIT 1")
       .bind(account.profile.email, courseCode).first();
     if (!paid) return Response.json({ error: "Payment is required to enrol in this course.", paymentRequired: true, purpose: "enrollment", amountGhs: design.priceGhs }, { status: 402 });

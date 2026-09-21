@@ -1,8 +1,10 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { getRawDb } from "@/db/raw";
 import { settlePaymentOrder, type PaymentOrder } from "@/lib/payments";
+import { paymentsEnabled } from "@/lib/runtime-config";
 
 export async function POST(request: Request) {
+  if (!paymentsEnabled()) return Response.json({ received: false, disabled: true }, { status: 503 });
   const secret = process.env.PAYSTACK_SECRET_KEY?.trim();
   if (!secret) return Response.json({ error: "Payment webhook is not configured." }, { status: 503 });
   const raw = Buffer.from(await request.arrayBuffer());

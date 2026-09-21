@@ -3,6 +3,7 @@ import { recordAudit } from "@/lib/audit";
 import { getRawDb } from "@/db/raw";
 import { getStoredFile, putStoredFile } from "@/lib/render-storage";
 import { rejectCrossSiteMutation } from "@/lib/request-security";
+import { validateCertificateImage } from "@/lib/file-security";
 
 const validKey = (key: string) => /^certificate-branding\/[a-zA-Z0-9/_\-.]+$/.test(key);
 
@@ -43,6 +44,7 @@ export async function POST(request: Request) {
   if (!["image/png", "image/jpeg", "image/webp"].includes(file.type) || file.size > 2 * 1024 * 1024) {
     return Response.json({ error: "Use PNG, JPEG or WebP no larger than 2 MB." }, { status: 400 });
   }
+  if (!await validateCertificateImage(file)) return Response.json({ error: "The certificate image contents do not match the selected format." }, { status: 415 });
   const evidenceKind = assetType === "partner_logo" ? "certificate-partner-logo" : "certificate-partner-signature";
   const key = await putStoredFile("certificate-branding", file, { contentType: file.type, originalName: file.name, ownerEmail: account.profile.email, evidenceKind });
   await recordAudit(account.profile.email, "certificate.branding_uploaded", { assetType, fileName: file.name });

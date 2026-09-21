@@ -1,7 +1,9 @@
 import { getRawDb } from "@/db/raw";
 import { requireActiveProfile } from "@/lib/accounts";
+import { rejectCrossSiteMutation } from "@/lib/request-security";
 
 export async function POST(request: Request) {
+  const securityError = rejectCrossSiteMutation(request); if (securityError) return securityError;
   const account = await requireActiveProfile(["admin", "facilitator"]);
   if (account.error || !account.profile) return account.error;
   const payload = await request.json() as { email?: string; decision?: "approve" | "reject"; note?: string };

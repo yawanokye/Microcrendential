@@ -1,10 +1,12 @@
 import { getIdentityAndProfile } from "@/lib/accounts";
 import { getRawDb } from "@/db/raw";
 import { ownsValidIdentityEvidence } from "@/lib/identity-evidence";
+import { rejectCrossSiteMutation } from "@/lib/request-security";
 
 const hashToken = async (value: string) => Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value)))).map((byte) => byte.toString(16).padStart(2, "0")).join("");
 
 export async function POST(request: Request) {
+  const securityError = rejectCrossSiteMutation(request); if (securityError) return securityError;
   const { identity, profile } = await getIdentityAndProfile();
   if (!identity) return Response.json({ error: "Sign in using the invited email address." }, { status: 401 });
   if (!profile || profile.role !== "facilitator" || profile.status !== "pending_setup") return Response.json({ error: "This account does not have a pending facilitator invitation." }, { status: 403 });

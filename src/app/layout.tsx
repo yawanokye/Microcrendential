@@ -7,6 +7,7 @@ import "./commercial-course-studio.css";
 import "./professional-public-landing.css";
 import "./certificate-template-platform.css";
 import "./ucc-brand.css";
+import "./policy.css";
 
 export const metadata: Metadata = {
   title: "UCC Growth+ Learning Platform",

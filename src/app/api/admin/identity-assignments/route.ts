@@ -1,7 +1,9 @@
 import { getRawDb } from "@/db/raw";
 import { requireActiveProfile } from "@/lib/accounts";
+import { rejectCrossSiteMutation } from "@/lib/request-security";
 
 export async function POST(request: Request) {
+  const securityError = rejectCrossSiteMutation(request); if (securityError) return securityError;
   const account = await requireActiveProfile(["admin"]);
   if (account.error) return account.error;
   const payload = await request.json() as { learnerEmail?: string; verifierEmail?: string };

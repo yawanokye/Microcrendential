@@ -3,6 +3,7 @@ import { requireActiveProfile } from "@/lib/accounts";
 import { issueCertificateIfComplete } from "@/lib/course-completion";
 import { gradeActivityEvidenceWithAi } from "@/lib/assessment-ai";
 import { putStoredFile } from "@/lib/render-storage";
+import { rejectCrossSiteMutation } from "@/lib/request-security";
 
 type SubmissionRow = {
   id: number; assignment_id: number; assignment_title: string; course_code: string; course_title: string;
@@ -42,6 +43,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const securityError = rejectCrossSiteMutation(request); if (securityError) return securityError;
   const account = await requireActiveProfile(["learner"]);
   if (account.error || !account.profile) return account.error;
   const form = await request.formData();
@@ -105,6 +107,7 @@ export async function POST(request: Request) {
 }
 
 export async function PATCH(request: Request) {
+  const securityError = rejectCrossSiteMutation(request); if (securityError) return securityError;
   const account = await requireActiveProfile(["facilitator", "admin"]);
   if (account.error || !account.profile) return account.error;
   const payload = await request.json() as { id?: number; mark?: number; feedback?: string; decision?: "assessed" | "resubmit" };

@@ -1,6 +1,7 @@
 import { getRawDb } from "@/db/raw";
 import { requireActiveProfile } from "@/lib/accounts";
 import { deleteIdentityFilesOwnedBy, deleteStoredFile } from "@/lib/render-storage";
+import { rejectCrossSiteMutation } from "@/lib/request-security";
 
 const CONFIRMATION_PHRASE = "DELETE ALL REGISTERED ACCOUNTS";
 type CountRow = { total: number };
@@ -30,6 +31,7 @@ export async function GET() {
 }
 
 export async function DELETE(request: Request) {
+  const securityError = rejectCrossSiteMutation(request); if (securityError) return securityError;
   const account = await requireActiveProfile(["admin"]);
   if (account.error || !account.profile) return account.error;
 

@@ -1,6 +1,7 @@
 import { getRawDb } from "@/db/raw";
 import { requireActiveProfile } from "@/lib/accounts";
 import { putStoredFile } from "@/lib/render-storage";
+import { rejectCrossSiteMutation } from "@/lib/request-security";
 
 type AssignmentRow = {
   id: number; course_code: string; course_title: string; title: string; instructions: string;
@@ -43,6 +44,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const securityError = rejectCrossSiteMutation(request); if (securityError) return securityError;
   const account = await requireActiveProfile(["facilitator", "admin"]);
   if (account.error || !account.profile) return account.error;
   const form = await request.formData();

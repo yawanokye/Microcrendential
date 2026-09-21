@@ -4,6 +4,7 @@ import { issueCertificateIfComplete } from "@/lib/course-completion";
 import { gradeActivityEvidenceWithAi } from "@/lib/assessment-ai";
 import { getVirtualPractical, virtualPracticals } from "@/lib/virtual-labs";
 import { putStoredFile } from "@/lib/render-storage";
+import { rejectCrossSiteMutation } from "@/lib/request-security";
 
 type VirtualCourseActivity = {
   id?: string; title?: string; instructions?: string; rubric?: string; maxMark?: number; passMark?: number; attemptsAllowed?: number; gradingMode?: string; practicalId?: string;
@@ -50,6 +51,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const securityError = rejectCrossSiteMutation(request); if (securityError) return securityError;
   const account = await requireActiveProfile(["learner"]);
   if (account.error || !account.profile) return account.error;
   const form = await request.formData();
@@ -101,6 +103,7 @@ export async function POST(request: Request) {
 }
 
 export async function PATCH(request: Request) {
+  const securityError = rejectCrossSiteMutation(request); if (securityError) return securityError;
   const account = await requireActiveProfile(["facilitator", "admin"]);
   if (account.error || !account.profile) return account.error;
   const payload = await request.json() as { id?: number; mark?: number; feedback?: string; competencyNote?: string; decision?: "competent" | "developing" | "resubmit" };

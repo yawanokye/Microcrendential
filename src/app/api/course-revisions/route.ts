@@ -2,6 +2,7 @@ import { getRawDb } from "@/db/raw";
 import { requireActiveProfile } from "@/lib/accounts";
 import { evaluateCourseQuality, normalizeCourseDesign, type CourseMaterialRecord } from "@/lib/course-design";
 import { plainTextFromHtml, sanitizeReadableHtml } from "@/lib/document-content";
+import { rejectCrossSiteMutation } from "@/lib/request-security";
 
 type CourseSourceRow = {
   id: number;
@@ -168,6 +169,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const securityError = rejectCrossSiteMutation(request); if (securityError) return securityError;
   const account = await requireActiveProfile(["facilitator", "admin"]);
   if (account.error || !account.profile) return account.error;
   const payload = await request.json() as { courseId?: number };
@@ -189,6 +191,7 @@ export async function POST(request: Request) {
 }
 
 export async function PUT(request: Request) {
+  const securityError = rejectCrossSiteMutation(request); if (securityError) return securityError;
   const account = await requireActiveProfile(["facilitator", "admin"]);
   if (account.error || !account.profile) return account.error;
   const value = await request.json() as Record<string, unknown>;
@@ -218,6 +221,7 @@ export async function PUT(request: Request) {
 }
 
 export async function PATCH(request: Request) {
+  const securityError = rejectCrossSiteMutation(request); if (securityError) return securityError;
   const account = await requireActiveProfile(["admin"]);
   if (account.error || !account.profile) return account.error;
   const value = await request.json() as { id?: number; status?: "active" | "rejected"; comment?: string; administrativeOverride?: boolean };

@@ -1,6 +1,7 @@
 import { getIdentityAndProfile } from "@/lib/accounts";
 import { getRawDb } from "@/db/raw";
 import { ownsValidIdentityEvidence } from "@/lib/identity-evidence";
+import { rejectCrossSiteMutation } from "@/lib/request-security";
 
 export async function GET() {
   const { identity, profile } = await getIdentityAndProfile();
@@ -17,13 +18,14 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const securityError = rejectCrossSiteMutation(request); if (securityError) return securityError;
   const { identity, profile } = await getIdentityAndProfile();
   if (!identity) return Response.json({ error: "Sign in is required." }, { status: 401 });
   if (profile) return Response.json({ error: "An account already exists for this email." }, { status: 409 });
   const payload = await request.json() as { fullName?: string; dateOfBirth?: string; gender?: string; nationality?: string; phone?: string; address?: string; idType?: string; idLast4?: string; idDocumentKey?: string; selfieKey?: string; consent?: boolean; educationLevel?: string; occupation?: string; organisation?: string; interests?: string[]; preferredLanguage?: string; accessibilityNeeds?: string; termsAccepted?: boolean; privacyAccepted?: boolean };
   const fullName = payload.fullName?.trim() || identity.fullName || identity.displayName;
   const required = [payload.dateOfBirth, payload.gender, payload.nationality, payload.phone, payload.address, payload.idType, payload.idLast4, payload.idDocumentKey, payload.selfieKey, payload.educationLevel, payload.preferredLanguage];
-  if (!fullName || required.some((value) => !value?.trim()) || !payload.consent || !payload.termsAccepted || !payload.privacyAccepted) return Response.json({ error: "Complete all student profile, identity evidence, terms and privacy-consent fields." }, { status: 400 });
+  if (!fullName || required.some((value) => !value?.trim()) || !payload.consent || !payload.termsAccepted || !payload.privacyAccepted) return Response.json({ error: "Complete all learner profile, identity evidence, terms and privacy-consent fields." }, { status: 400 });
   if (!await ownsValidIdentityEvidence(identity.email, payload.idDocumentKey!, payload.selfieKey!)) return Response.json({ error: "Upload a valid identity document and live selfie from this signed-in account." }, { status: 400 });
   const interests = Array.isArray(payload.interests) ? payload.interests.map((item) => String(item).trim()).filter(Boolean).slice(0, 9) : [];
   const db = getRawDb();

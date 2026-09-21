@@ -1,4 +1,5 @@
 import { requireActiveProfile } from "@/lib/accounts";
+import { rejectCrossSiteMutation } from "@/lib/request-security";
 
 const videoIdFromUrl = (value: string) => value.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([\w-]{6,})/)?.[1] ?? "";
 const decodeXml = (value: string) => value.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
@@ -24,6 +25,7 @@ async function captionText(videoId: string, track: CaptionTrack) {
 }
 
 export async function POST(request: Request) {
+  const securityError = rejectCrossSiteMutation(request); if (securityError) return securityError;
   const account = await requireActiveProfile(["facilitator", "admin"]);
   if (account.error) return account.error;
   const payload = await request.json() as { youtubeUrl?: string; language?: string };
