@@ -23,6 +23,10 @@ services:
         sync: false
       - key: PILOT_REQUIRE_OFFICIAL_DOMAIN
         value: "false"
+      - key: PLATFORM_MODE
+        value: demonstration
+      - key: EMERGENCY_DEMONSTRATION_MODE
+        value: "false"
       - key: PUBLIC_REGISTRATION_ENABLED
         value: "false"
       - key: PILOT_MAX_LEARNERS
@@ -31,11 +35,13 @@ services:
         value: "true"
       - key: STAFF_MFA_REQUIRED
         value: "true"
-      - key: RESEND_API_KEY
-        sync: false
+      - key: EMAIL_PROVIDER
+        value: resend
       - key: EMAIL_FROM
-        sync: false
+        value: UCC Growth+ <onboarding@resend.dev>
       - key: SUPPORT_EMAIL
+        sync: false
+      - key: RESEND_API_KEY
         sync: false
       - key: MONITORING_WEBHOOK_URL
         sync: false

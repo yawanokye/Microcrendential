@@ -1,6 +1,29 @@
-# UCC Growth+ v12.0.1 Official Pilot
+# UCC Growth+ v12.1.1 Render Demonstration Release
 
-Release date: 21 September 2026
+Release date: 22 September 2026
+
+## v12.1.1 Render and Resend correction
+
+- Keeps the public application address on `https://ucc-microcredential-platform.onrender.com` while UCC DNS approval is pending.
+- Selects Resend as the deployment email provider and uses its test sender for restricted demonstrations.
+- Keeps the platform in Demonstration mode, with official credential issuance disabled and Official Pilot activation blocked by the UCC-domain readiness check.
+- Retains secure manual facilitator invitation links when Resend cannot deliver to an external test recipient.
+
+## v12.1.0 controlled platform mode
+
+- Adds an administrator-controlled switch between **Demonstration** and **Official Pilot** modes.
+- Keeps Render safely in Demonstration mode while UCC completes DNS, email, signatures, backup and support readiness.
+- Shows a platform-wide Demonstration banner, enables sample learning content and bypasses learner email verification and staff MFA for controlled demonstrations.
+- Prevents all new official certificate and stacked-credential issuance while Demonstration mode is active; previously issued credentials remain available and verifiable.
+- Allows Official Pilot activation only after every administrator readiness check passes.
+- Invalidates existing sessions when Official Pilot is activated so every user signs in again under pilot security controls.
+- Provides an emergency Render setting that can restore Demonstration mode if a pilot dependency such as email delivery becomes unavailable.
+
+## v12.0.2 Google Mail support
+
+- Adds Google Mail and Google Workspace delivery for verification, MFA, invitation and password-reset messages.
+- Uses a dedicated mailbox and Google app password stored only in Render environment settings.
+- Retains Resend as an optional alternative provider.
 
 ## v12.0.1 deployment correction
 
@@ -27,18 +50,18 @@ Release date: 21 September 2026
 ## Verification completed
 
 - TypeScript type check: passed
-- Automated tests: 31 passed, 0 failed
-- ESLint: 0 errors, 30 non-blocking legacy warnings
+- Automated tests: 35 passed, 0 failed
+- ESLint: 0 errors, 31 non-blocking legacy warnings
 - Next.js production build: passed, 73 application pages generated
 - Docker-style production context build without the test directory: passed
-- Standalone runtime smoke test: liveness, privacy, password recovery and robots routes returned HTTP 200
+- Standalone runtime smoke test: platform mode and liveness routes returned HTTP 200 with Demonstration safeguards active
 - Backup creation and restore-integrity check: passed
 
 ## Required institutional setup before launch
 
 1. Approve the official hostname and point DNS to the production service.
 2. Set a unique `AUTH_SECRET` and the authorised initial administrator email.
-3. Verify the UCC sender domain with the transactional email provider, then set `RESEND_API_KEY` and `EMAIL_FROM`.
+3. Verify the approved UCC sending domain in Resend, then replace the demonstration sender and test authentication and invitation delivery to external addresses.
 4. Set and monitor `SUPPORT_EMAIL`.
 5. Connect `MONITORING_WEBHOOK_URL` to an approved incident channel.
 6. Upload approved Provost and facilitator signatures and confirm the UCC and partner branding for every issuing option.

@@ -23,9 +23,13 @@ services:
       - key: INITIAL_ADMIN_EMAIL
         sync: false
       - key: NEXT_PUBLIC_APP_URL
-        sync: false
+        value: https://ucc-microcredential-platform.onrender.com
       - key: PILOT_REQUIRE_OFFICIAL_DOMAIN
         value: "true"
+      - key: PLATFORM_MODE
+        value: demonstration
+      - key: EMERGENCY_DEMONSTRATION_MODE
+        value: "false"
       - key: PUBLIC_REGISTRATION_ENABLED
         value: "true"
       - key: PILOT_MAX_LEARNERS
@@ -34,11 +38,13 @@ services:
         value: "true"
       - key: STAFF_MFA_REQUIRED
         value: "true"
-      - key: RESEND_API_KEY
-        sync: false
+      - key: EMAIL_PROVIDER
+        value: resend
       - key: EMAIL_FROM
-        sync: false
+        value: UCC Growth+ <onboarding@resend.dev>
       - key: SUPPORT_EMAIL
+        sync: false
+      - key: RESEND_API_KEY
         sync: false
       - key: MONITORING_WEBHOOK_URL
         sync: false

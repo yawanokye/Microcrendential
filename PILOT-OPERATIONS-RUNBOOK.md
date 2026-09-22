@@ -1,5 +1,13 @@
 # UCC Growth+ pilot operations runbook
 
+## Demonstration and Official Pilot modes
+
+Keep the Render service in **Demonstration** mode while DNS, email, signatures, backups and course approval are being completed. Administrators can review every prerequisite and activate **Official Pilot** from the Users & Access area. Activation closes all existing sessions; administrators, facilitators and learners must sign in again under the pilot authentication rules.
+
+Demonstration mode must use test records only. It bypasses email-code challenges and prevents all new official certificate and stacked-credential issuance. Previously issued credentials remain visible and verifiable.
+
+If a pilot dependency fails, an administrator may return to Demonstration mode in the portal. If sign-in itself is unavailable, set `EMERGENCY_DEMONSTRATION_MODE=true` in Render and redeploy. After recovery, set the portal mode to Demonstration, restore the dependency, set the emergency variable back to `false`, redeploy, complete the readiness checks and reactivate Official Pilot.
+
 ## Daily checks
 
 1. Open `/api/health/live` and confirm the service and database are available.
@@ -52,6 +60,7 @@ Never overwrite the production database during a rehearsal.
 3. Check `/api/health/live`, then `/api/health`.
 4. If the database fails, preserve the current files before any restore.
 5. Restore only from a verified archive and record the action.
+6. If the application runs but authentication email is unavailable, use the emergency Demonstration procedure above; do not disable MFA while leaving Official Pilot mode active.
 
 ## Payment activation
 

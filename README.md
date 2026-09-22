@@ -148,13 +148,18 @@ Learners may attach an optional video, image or PDF evidence file up to 25 MB. O
 |---|---:|---|
 | `AUTH_SECRET` | Yes | Signs secure login cookies; use at least 32 random characters |
 | `INITIAL_ADMIN_EMAIL` | Yes | Email promoted to the first system administrator |
-| `NEXT_PUBLIC_APP_URL` | Yes | Final HTTPS UCC address used by email links, payments and certificate QR codes |
+| `NEXT_PUBLIC_APP_URL` | Yes | Current public address used by email links, payments and certificate QR codes. Use the Render URL for demonstration, then replace it with the approved UCC address |
 | `PILOT_REQUIRE_OFFICIAL_DOMAIN` | Pilot | Requires the configured URL to use `ucc.edu.gh` before readiness passes |
+| `PLATFORM_MODE` | Yes | Safe startup fallback; keep `demonstration` and use the admin switch for pilot activation |
+| `EMERGENCY_DEMONSTRATION_MODE` | Recovery | Set `true` in Render to override the database and immediately restore demonstration access |
 | `PUBLIC_REGISTRATION_ENABLED` | Pilot | Opens or closes public learner account creation |
 | `PILOT_MAX_LEARNERS` | Pilot | Controlled pilot capacity; defaults to `50` |
 | `EMAIL_VERIFICATION_REQUIRED` | Pilot | Requires a six-digit email code before learner onboarding |
 | `STAFF_MFA_REQUIRED` | Pilot | Requires a six-digit code for every facilitator and administrator sign-in |
-| `RESEND_API_KEY` | Pilot | Server-side transactional email credential |
+| `EMAIL_PROVIDER` | Yes | Use `resend` for the current demonstration deployment |
+| `RESEND_API_KEY` | Email | Resend API credential stored only as a Render secret |
+| `GMAIL_USER` | Optional | Dedicated Google or Google Workspace mailbox if UCC later changes provider |
+| `GMAIL_APP_PASSWORD` | Optional | Google app password used only when `EMAIL_PROVIDER=gmail` |
 | `EMAIL_FROM` | Pilot | Approved sender identity for security and invitation messages |
 | `SUPPORT_EMAIL` | Pilot | Published and monitored support contact |
 | `MONITORING_WEBHOOK_URL` | Pilot | HTTPS endpoint for privacy-minimised unhandled-error alerts |
@@ -167,6 +172,16 @@ Learners may attach an optional video, image or PDF evidence file up to 25 MB. O
 | `BACKUP_INTERVAL_HOURS` | Pilot | Backup interval; defaults to `24` |
 | `BACKUP_RETENTION_DAYS` | Pilot | On-disk archive retention; defaults to `14` |
 | `IDENTITY_RETENTION_DAYS` | Pilot | Deletes reviewed identity images after the approved period; defaults to `90` |
+
+## Demonstration-to-pilot control
+
+New deployments start in **Demonstration** mode. This mode shows a visible banner, exposes controlled sample/testing tools, bypasses learner email verification and staff MFA, and prevents new official certificates or stacked credentials from being issued. It is suitable for continued demonstrations on the Render URL while institutional setup is completed.
+
+The current demonstration blueprint uses Resend. Set `RESEND_API_KEY` in Render and keep `EMAIL_FROM=UCC Growth+ <onboarding@resend.dev>` for restricted testing. Resend requires a verified sending domain before messages can be sent normally to all learners and staff. Until UCC DNS is available, Demonstration mode does not depend on email codes and administrators can copy a facilitator’s secure invitation link when external delivery is unavailable.
+
+An administrator can open **Users & Access**, review the pilot-readiness panel and activate **Official Pilot** only when all checks pass. Activation invalidates every current session so users sign in again under the pilot security controls. The selected mode is stored in the persistent database and therefore does not require a rebuild.
+
+For emergency recovery, set `EMERGENCY_DEMONSTRATION_MODE=true` in Render and redeploy. This deployment-level override always forces Demonstration mode until it is removed.
 | `PORT` | Render-managed | HTTP listening port; the Blueprint uses `10000` |
 | `COURSE_AI_PROVIDER` | No | `auto`, `openai` or `vertex`; `auto` uses the available approved provider |
 | `COURSE_AI_TIMEOUT_SECONDS` | No | Provider wait per request, from 45 to 180 seconds; defaults to `120` |

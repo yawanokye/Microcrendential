@@ -2,6 +2,14 @@
 
 Complete every item before inviting learners.
 
+## Controlled release mode
+
+- Deploy Render with `PLATFORM_MODE=demonstration` and `EMERGENCY_DEMONSTRATION_MODE=false`.
+- Use Demonstration mode for presentations and acceptance testing, and enter test records only.
+- Confirm the amber Demonstration banner is visible and that no new official certificate can be issued.
+- When every readiness item in the administrator panel is green, use **Activate Official Pilot**.
+- Sign in again after activation and confirm learner verification codes and staff MFA arrive successfully.
+
 ## Institutional approval
 
 - Confirm the approved public name is **UCC Growth+**.
@@ -14,7 +22,8 @@ Complete every item before inviting learners.
 
 - Point an approved UCC subdomain to Render and enable HTTPS.
 - Set `NEXT_PUBLIC_APP_URL` to the final HTTPS address before issuing any certificate.
-- Verify `SUPPORT_EMAIL`, `EMAIL_FROM` and `RESEND_API_KEY`.
+- During Render demonstrations, set `EMAIL_PROVIDER=resend`, `RESEND_API_KEY` and `EMAIL_FROM=UCC Growth+ <onboarding@resend.dev>`.
+- Before Official Pilot activation, verify the approved UCC sending domain in Resend, replace `EMAIL_FROM` with that domain and test delivery to external learner and staff addresses.
 - Test learner email verification, staff security codes, password reset and facilitator invitation delivery.
 
 ## Data and recovery
@@ -47,5 +56,5 @@ Complete every item before inviting learners.
 
 - Keep `PILOT_MAX_LEARNERS=50` unless the pilot committee approves a different number.
 - Keep `PAYMENTS_ENABLED=false` until UCC Finance completes live Paystack and refund acceptance testing.
-- Keep demonstration content disabled.
+- Confirm Demonstration-only testing content disappears after Official Pilot activation.
 - Review support cases, backup status, disk use and security events each working day.
