@@ -1,6 +1,14 @@
-# UCC Growth+ v12.1.1 Render Demonstration Release
+# UCC Growth+ v12.1.2 Render Demonstration Recovery Release
 
 Release date: 22 September 2026
+
+## v12.1.2 authentication delivery recovery
+
+- Adds a Render-level Demonstration lock so an older Pilot selection in the persistent database cannot trigger authentication codes while UCC DNS is pending.
+- Prevents password-reset email attempts during the locked demonstration and returns a controlled message instead of an unhandled server error.
+- Converts Resend 403 responses into an actionable test-sender explanation without exposing the API key.
+- Invalidates a password-reset challenge when its email cannot be delivered.
+- Keeps the administrator mode panel aware of both the planned Demonstration lock and the emergency override.
 
 ## v12.1.1 Render and Resend correction
 
@@ -50,11 +58,11 @@ Release date: 22 September 2026
 ## Verification completed
 
 - TypeScript type check: passed
-- Automated tests: 35 passed, 0 failed
+- Automated tests: 36 passed, 0 failed
 - ESLint: 0 errors, 31 non-blocking legacy warnings
 - Next.js production build: passed, 73 application pages generated
 - Docker-style production context build without the test directory: passed
-- Standalone runtime smoke test: platform mode and liveness routes returned HTTP 200 with Demonstration safeguards active
+- Standalone runtime smoke test: a persisted Official Pilot selection was forced to Demonstration, and password recovery returned a controlled response without contacting Resend
 - Backup creation and restore-integrity check: passed
 
 ## Required institutional setup before launch

@@ -151,6 +151,7 @@ Learners may attach an optional video, image or PDF evidence file up to 25 MB. O
 | `NEXT_PUBLIC_APP_URL` | Yes | Current public address used by email links, payments and certificate QR codes. Use the Render URL for demonstration, then replace it with the approved UCC address |
 | `PILOT_REQUIRE_OFFICIAL_DOMAIN` | Pilot | Requires the configured URL to use `ucc.edu.gh` before readiness passes |
 | `PLATFORM_MODE` | Yes | Safe startup fallback; keep `demonstration` and use the admin switch for pilot activation |
+| `DEMONSTRATION_MODE_LOCK` | Render demo | Keep `true` while the platform uses the Render URL; this overrides any older Pilot selection stored in the database |
 | `EMERGENCY_DEMONSTRATION_MODE` | Recovery | Set `true` in Render to override the database and immediately restore demonstration access |
 | `PUBLIC_REGISTRATION_ENABLED` | Pilot | Opens or closes public learner account creation |
 | `PILOT_MAX_LEARNERS` | Pilot | Controlled pilot capacity; defaults to `50` |
@@ -177,7 +178,7 @@ Learners may attach an optional video, image or PDF evidence file up to 25 MB. O
 
 New deployments start in **Demonstration** mode. This mode shows a visible banner, exposes controlled sample/testing tools, bypasses learner email verification and staff MFA, and prevents new official certificates or stacked credentials from being issued. It is suitable for continued demonstrations on the Render URL while institutional setup is completed.
 
-The current demonstration blueprint uses Resend. Set `RESEND_API_KEY` in Render and keep `EMAIL_FROM=UCC Growth+ <onboarding@resend.dev>` for restricted testing. Resend requires a verified sending domain before messages can be sent normally to all learners and staff. Until UCC DNS is available, Demonstration mode does not depend on email codes and administrators can copy a facilitator’s secure invitation link when external delivery is unavailable.
+The current demonstration blueprint uses Resend. Set `RESEND_API_KEY` in Render and keep `EMAIL_FROM=UCC Growth+ <onboarding@resend.dev>` for restricted testing. Resend requires a verified sending domain before messages can be sent normally to all learners and staff. Until UCC DNS is available, `DEMONSTRATION_MODE_LOCK=true` guarantees that sign-in does not depend on email codes. Administrators can copy a facilitator’s secure invitation link when external delivery is unavailable. Email password recovery is intentionally unavailable in this locked mode because a reset code cannot be delivered reliably.
 
 An administrator can open **Users & Access**, review the pilot-readiness panel and activate **Official Pilot** only when all checks pass. Activation invalidates every current session so users sign in again under the pilot security controls. The selected mode is stored in the persistent database and therefore does not require a rebuild.
 

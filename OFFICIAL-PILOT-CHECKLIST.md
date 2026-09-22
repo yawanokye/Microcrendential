@@ -4,10 +4,11 @@ Complete every item before inviting learners.
 
 ## Controlled release mode
 
-- Deploy Render with `PLATFORM_MODE=demonstration` and `EMERGENCY_DEMONSTRATION_MODE=false`.
+- Deploy Render with `PLATFORM_MODE=demonstration`, `DEMONSTRATION_MODE_LOCK=true` and `EMERGENCY_DEMONSTRATION_MODE=false`.
 - Use Demonstration mode for presentations and acceptance testing, and enter test records only.
 - Confirm the amber Demonstration banner is visible and that no new official certificate can be issued.
 - When every readiness item in the administrator panel is green, use **Activate Official Pilot**.
+- Remove `DEMONSTRATION_MODE_LOCK` only after the UCC domain and Resend sending domain have been verified.
 - Sign in again after activation and confirm learner verification codes and staff MFA arrive successfully.
 
 ## Institutional approval

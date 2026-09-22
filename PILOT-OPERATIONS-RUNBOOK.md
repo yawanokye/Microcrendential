@@ -2,7 +2,7 @@
 
 ## Demonstration and Official Pilot modes
 
-Keep the Render service in **Demonstration** mode while DNS, email, signatures, backups and course approval are being completed. Administrators can review every prerequisite and activate **Official Pilot** from the Users & Access area. Activation closes all existing sessions; administrators, facilitators and learners must sign in again under the pilot authentication rules.
+Keep the Render service in **Demonstration** mode with `DEMONSTRATION_MODE_LOCK=true` while DNS, email, signatures, backups and course approval are being completed. The lock prevents an older database selection from restoring Pilot authentication on the Render address. After ICT completes DNS and Resend is verified, remove the lock, review every prerequisite and activate **Official Pilot** from the Users & Access area. Activation closes all existing sessions; administrators, facilitators and learners must sign in again under the pilot authentication rules.
 
 Demonstration mode must use test records only. It bypasses email-code challenges and prevents all new official certificate and stacked-credential issuance. Previously issued credentials remain visible and verifiable.
 

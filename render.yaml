@@ -28,6 +28,8 @@ services:
         value: "true"
       - key: PLATFORM_MODE
         value: demonstration
+      - key: DEMONSTRATION_MODE_LOCK
+        value: "true"
       - key: EMERGENCY_DEMONSTRATION_MODE
         value: "false"
       - key: PUBLIC_REGISTRATION_ENABLED

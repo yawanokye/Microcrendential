@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import { createPasswordRecord, passwordMatches, validatePassword } from "../src/lib/passwords";
 import { hasExecutableSignature, validateIdentityUpload } from "../src/lib/file-security";
-import { transactionalEmailConfigured, transactionalEmailProvider } from "../src/lib/email";
+import { EmailDeliveryError, emailDeliveryUserMessage, transactionalEmailConfigured, transactionalEmailProvider } from "../src/lib/email";
 import { normalizePlatformMode } from "../src/lib/platform-mode";
 
 test("pilot password policy requires a long password and stores a salted hash", () => {
@@ -62,11 +62,17 @@ test("Resend is selected for the Render demonstration", () => {
   if (previous.from === undefined) delete process.env.EMAIL_FROM; else process.env.EMAIL_FROM = previous.from;
 });
 
+test("Resend test-sender rejection is translated into an actionable message", () => {
+  const message = emailDeliveryUserMessage(new EmailDeliveryError(403, "Testing sender restriction"));
+  assert.match(message, /test sender can email only the address registered to the Resend account/);
+});
+
 test("official pilot deployment keeps manual promotion and payments off", () => {
   const blueprint = readFileSync(new URL("../render.yaml", import.meta.url), "utf8");
   const security = readFileSync(new URL("../next.config.mjs", import.meta.url), "utf8");
   assert.match(blueprint, /autoDeploy: false/);
   assert.match(blueprint, /key: PLATFORM_MODE\s+value: demonstration/);
+  assert.match(blueprint, /key: DEMONSTRATION_MODE_LOCK\s+value: "true"/);
   assert.match(blueprint, /key: EMERGENCY_DEMONSTRATION_MODE\s+value: "false"/);
   assert.match(blueprint, /key: EMAIL_PROVIDER\s+value: resend/);
   assert.match(blueprint, /key: PAYMENTS_ENABLED\s+value: "false"/);
@@ -85,7 +91,10 @@ test("pilot activation invalidates sessions and Demonstration blocks credential 
   const modeRoute = readFileSync(new URL("../src/app/api/platform-mode/route.ts", import.meta.url), "utf8");
   const certificateRoute = readFileSync(new URL("../src/app/api/certificates/route.ts", import.meta.url), "utf8");
   const completion = readFileSync(new URL("../src/lib/course-completion.ts", import.meta.url), "utf8");
+  const passwordReset = readFileSync(new URL("../src/app/api/auth/password-reset/route.ts", import.meta.url), "utf8");
   assert.match(modeRoute, /UPDATE auth_accounts SET session_version = session_version \+ 1/);
   assert.match(certificateRoute, /Official certificate issuance is disabled while the platform is in Demonstration mode/);
   assert.match(completion, /officialCredentialsEnabled/);
+  assert.match(passwordReset, /Email password recovery is unavailable while the platform is in Demonstration mode/);
+  assert.match(passwordReset, /Password recovery email failed/);
 });
