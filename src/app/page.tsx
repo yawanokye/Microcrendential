@@ -37,6 +37,13 @@ type ColabSubmission = { id: number; assignmentId: number; assignmentTitle: stri
 type VirtualLabSubmission = { id: number; practicalId: string; discipline: string; practicalTitle: string; learnerEmail: string; learnerName: string; attemptNumber: number; observations: { trial?: string; input?: number; result?: number; note?: string }[]; answers: Record<string, unknown>; report: string; evidenceFileName?: string | null; status: string; mark?: number | null; passed: boolean; feedback: string; competencyNote: string; submittedAt: string; assessedAt?: string | null };
 type LabObservation = { trial: string; input: number; result: number; note: string };
 type PortalRole = "learner" | "facilitator" | "admin";
+type PlatformMode = "demonstration" | "official_pilot";
+type PilotReadinessResponse = {
+  status: "pilot_ready" | "action_required";
+  checks: Record<string, boolean>;
+  metrics: { activeCourses: number; learners: number; openSupportRequests: number };
+  lastBackup: { createdAt: string; sizeBytes: number; checksum: string } | null;
+};
 type StudioStepId = "details" | "outcomes" | "content" | "activities" | "assessment" | "review";
 
 const disciplines = ["Education", "Humanities & Social Sciences", "Business & Management", "Science", "Technology & Engineering", "Health Sciences", "Agriculture & Natural Resources", "Creative Arts & Design", "Interdisciplinary"];
@@ -85,11 +92,11 @@ const courses: Course[] = [
   { code: "DEMO 303", title: "Assessment & Progression Gate", school: "Platform Testing Unit", discipline: "Science", progress: 75, modules: "3 of 4 test activities", accent: "blue", next: "Test assessment gate" },
 ];
 
-const liveSessions = process.env.NEXT_PUBLIC_ENABLE_DEMO_CONTENT === "true" ? [
+const liveSessions = [
   { day: "27", month: "AUG", title: "Designing authentic online assessment", course: "Digital Pedagogy", time: "10:00–11:30 GMT", host: "Dr. E. A. Mensah", status: "Tomorrow" },
   { day: "29", month: "AUG", title: "Applied data clinic", course: "Data Analytics", time: "14:00–15:00 GMT", host: "Prof. K. O. Arthur", status: "In 3 days" },
   { day: "02", month: "SEP", title: "Community evidence review", course: "Coastal Resilience", time: "09:00–10:30 GMT", host: "Dr. Aba Quansah", status: "Next week" },
-] : [];
+];
 
 type PortalNavItem = { id: string; label: string; icon: typeof LayoutDashboard };
 type PortalNavGroup = { label: string; items: PortalNavItem[] };
@@ -191,6 +198,7 @@ export default function Home() {
   const [answerState, setAnswerState] = useState<"idle" | "correct" | "incorrect">("idle");
   const [activityMode, setActivityMode] = useState<"watch" | "read" | "code">("watch");
   const [utility, setUtility] = useState<"notifications" | "support" | "preferences" | "profile" | "assessment" | null>(null);
+  const [platformMode, setPlatformMode] = useState<PlatformMode>("demonstration");
   useEffect(() => {
     const parameters = new URLSearchParams(window.location.search);
     const isDedicatedStudio = window.location.pathname === "/facilitator-studio";
@@ -199,6 +207,7 @@ export default function Home() {
     const portal = parameters.get("portal");
     setRequestedPortal(isDedicatedStudio ? "facilitator" : portal === "learner" || portal === "facilitator" || portal === "admin" ? portal : null);
     fetch("/api/auth/session").then((response) => response.json()).then((data: AccountSession) => setAccount(data)).catch(() => setAccount({ authenticated: false }));
+    fetch("/api/platform-mode", { cache: "no-store" }).then((response) => response.json()).then((data: { mode?: PlatformMode }) => setPlatformMode(data.mode ?? "demonstration")).catch(() => setPlatformMode("demonstration"));
   }, []);
   useEffect(() => {
     if (!account?.profile || account.profile.role !== "learner") return;
@@ -264,7 +273,8 @@ export default function Home() {
   const initials = displayName.split(/\s+/).slice(0, 2).map((part) => part[0]).join("").toUpperCase();
   if (dedicatedStudio) return <DedicatedFacilitatorStudio profile={account.profile} query={resourceQuery} setQuery={setResourceQuery} initials={initials} />;
   const navigationGroups = roleNavigation[role];
-  const allowedNav = navigationGroups.flatMap((group) => group.items).filter((item) => item.id !== "testing" || process.env.NEXT_PUBLIC_ENABLE_DEMO_CONTENT === "true");
+  const demoContentEnabled = platformMode === "demonstration" || process.env.NEXT_PUBLIC_ENABLE_DEMO_CONTENT === "true";
+  const allowedNav = navigationGroups.flatMap((group) => group.items).filter((item) => item.id !== "testing" || demoContentEnabled);
   const todayLabel = new Intl.DateTimeFormat("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(new Date());
   const roleLabel = role === "admin" ? "System administrator" : role === "facilitator" ? "Facilitator" : "Learner";
   const roleMessage = role === "learner"
@@ -289,7 +299,7 @@ export default function Home() {
       </header>
 
       <aside className={`side-nav ${mobileOpen ? "open" : ""}`}>
-        {navigationGroups.map((group, index) => <div className="nav-group" key={group.label}>{index > 0 && <div className="nav-divider" />}<p className="nav-label">{group.label}</p><nav aria-label={`${group.label} navigation`}>{group.items.filter((item) => item.id !== "testing" || process.env.NEXT_PUBLIC_ENABLE_DEMO_CONTENT === "true").map((item) => { const Icon = item.icon; return <button key={item.id} onClick={() => selectView(item.id)} className={active === item.id ? "active" : ""}><Icon size={19} /><span>{item.label}</span></button>; })}</nav></div>)}
+        {navigationGroups.map((group, index) => <div className="nav-group" key={group.label}>{index > 0 && <div className="nav-divider" />}<p className="nav-label">{group.label}</p><nav aria-label={`${group.label} navigation`}>{group.items.filter((item) => item.id !== "testing" || demoContentEnabled).map((item) => { const Icon = item.icon; return <button key={item.id} onClick={() => selectView(item.id)} className={active === item.id ? "active" : ""}><Icon size={19} /><span>{item.label}</span></button>; })}</nav></div>)}
         <div className="nav-divider" /><p className="nav-label">Help & account</p>
         <nav><button onClick={() => setUtility("support")}><Users size={19} /><span>{role === "learner" ? "Learner support" : role === "facilitator" ? "Teaching support" : "Platform support"}</span></button><button onClick={() => setUtility("preferences")}><Settings size={19} /><span>Preferences</span></button></nav>
         <button className="qa-card" onClick={() => toast.success("Quality controls active", { description: role === "learner" ? "Your assessed learning and credential records are protected." : "Role permissions, evidence controls and governance records are enabled." })}><FileCheck2 size={20} /><div><b>{role === "learner" ? "Verified achievement" : role === "facilitator" ? "Assessment integrity" : "Governance controls"}</b><span>{role === "learner" ? "Assessment-backed credentials" : "UCC quality assurance active"}</span></div></button>
@@ -300,11 +310,11 @@ export default function Home() {
 
         <Tabs value={active} onValueChange={setActive} className="content-tabs">
           <TabsList variant="line" className="mobile-tabs" aria-label="Dashboard sections">{allowedNav.slice(0, 4).map((item) => <TabsTrigger key={item.id} value={item.id}>{item.label}</TabsTrigger>)}</TabsList>
-          <TabsContent value="overview"><RoleOverview role={role} summary={dashboardSummary} courses={filteredCourses} onNavigate={selectView} onCourse={setSelectedCourse} onSession={setSelectedSession} /></TabsContent>
+          <TabsContent value="overview"><RoleOverview role={role} summary={dashboardSummary} courses={filteredCourses} onNavigate={selectView} onCourse={setSelectedCourse} onSession={setSelectedSession} showDemoContent={demoContentEnabled} /></TabsContent>
           {role === "learner" && <TabsContent value="learning"><div className="learning-stack"><CredentialPathwaysPanel /><div className="page-panel"><div className="page-title"><div><p className="eyebrow">ASYNCHRONOUS LEARNING</p><h2>My microcredentials</h2><p>Work through course materials, activities and assessments at your pace.</p></div><label className="inline-search"><Search size={17} /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Find a course" /></label></div><div className="course-card-grid">{filteredCourses.map((course) => <CourseCard key={course.code} course={course} onOpen={() => setSelectedCourse(course)} />)}{filteredCourses.length === 0 && <div className="empty-state wide">You have not enrolled in an active microcredential yet. Choose an open course below.</div>}</div></div><OpenCourseCatalog courses={allCourses} enrolledCodes={enrolledCodes} query={query} onEnrol={enrolCourse} onOpen={setSelectedCourse} /></div></TabsContent>}
           {role === "learner" && <TabsContent value="passport"><SkillsPassport /></TabsContent>}
           {role === "learner" && <TabsContent value="certificates"><CertificateWallet /></TabsContent>}
-          {(role === "learner" || role === "facilitator") && <TabsContent value="live"><div className="page-panel"><div className="page-title"><div><p className="eyebrow">SYNCHRONOUS LEARNING</p><h2>{role === "learner" ? "Live sessions" : "Live facilitation"}</h2><p>{role === "learner" ? "Join scheduled classes, clinics and academic discussions." : "Prepare and host scheduled learner sessions and academic clinics."}</p></div><button className="secondary-action" onClick={downloadCalendar}><CalendarDays size={17} /> Add calendar feed</button></div><div className="live-grid">{liveSessions.map((session) => <LiveCard key={session.title} session={session} onOpen={() => setSelectedSession(session)} />)}</div></div></TabsContent>}
+          {(role === "learner" || role === "facilitator") && <TabsContent value="live"><div className="page-panel"><div className="page-title"><div><p className="eyebrow">SYNCHRONOUS LEARNING</p><h2>{role === "learner" ? "Live sessions" : "Live facilitation"}</h2><p>{role === "learner" ? "Join scheduled classes, clinics and academic discussions." : "Prepare and host scheduled learner sessions and academic clinics."}</p></div><button className="secondary-action" onClick={downloadCalendar}><CalendarDays size={17} /> Add calendar feed</button></div><div className="live-grid">{demoContentEnabled ? liveSessions.map((session) => <LiveCard key={session.title} session={session} onOpen={() => setSelectedSession(session)} />) : <div className="empty-state">No live pilot session has been scheduled.</div>}</div></div></TabsContent>}
           {role === "learner" && <TabsContent value="assessments"><Assessments onOpen={() => setUtility("assessment")} /></TabsContent>}
           <TabsContent value="colab"><ColabWorkspace role={role} email={account.profile.email} /></TabsContent>
           <TabsContent value="virtual_labs"><VirtualLabsWorkspace role={role} /></TabsContent>
@@ -318,7 +328,7 @@ export default function Home() {
           {role === "admin" && <TabsContent value="course_admin"><CourseApprovalPanel /><RevisionApprovalPanel /></TabsContent>}
           {role === "admin" && <TabsContent value="credential_registry"><CredentialRegistry /></TabsContent>}
           {role === "admin" && <TabsContent value="analytics"><CohortAnalytics role="admin" /></TabsContent>}
-          {role !== "learner" && process.env.NEXT_PUBLIC_ENABLE_DEMO_CONTENT === "true" && <TabsContent value="testing"><TestingSandbox onCourse={(course) => { setSelectedCourse(course); setLessonStage("content"); }} onLive={() => liveSessions[0] ? setSelectedSession(liveSessions[0]) : toast.info("No pilot live session is configured")} onAssessment={() => role === "facilitator" ? setUtility("assessment") : selectView("course_admin")} onFacilitator={() => selectView(role === "facilitator" ? "facilitator" : "course_admin")} /></TabsContent>}
+          {role !== "learner" && demoContentEnabled && <TabsContent value="testing"><TestingSandbox onCourse={(course) => { setSelectedCourse(course); setLessonStage("content"); }} onLive={() => liveSessions[0] ? setSelectedSession(liveSessions[0]) : toast.info("No demonstration session is configured")} onAssessment={() => role === "facilitator" ? setUtility("assessment") : selectView("course_admin")} onFacilitator={() => selectView(role === "facilitator" ? "facilitator" : "course_admin")} /></TabsContent>}
         </Tabs>
 
         <Dialog open={Boolean(selectedCourse)} onOpenChange={(open) => !open && setSelectedCourse(null)}>
@@ -390,13 +400,14 @@ function FacilitatorStudioLauncher() {
   </section>;
 }
 
-function RoleOverview({ role, summary, courses: activeCourses, onNavigate, onCourse, onSession }: {
+function RoleOverview({ role, summary, courses: activeCourses, onNavigate, onCourse, onSession, showDemoContent }: {
   role: PortalRole;
   summary: DashboardSummary | null;
   courses: Course[];
   onNavigate: (view: string) => void;
   onCourse: (course: Course) => void;
   onSession: (session: (typeof liveSessions)[number]) => void;
+  showDemoContent: boolean;
 }) {
   const metric = (key: string) => summary ? String(summary.metrics[key] ?? 0) : "—";
   const cards = role === "learner" ? [
@@ -421,7 +432,7 @@ function RoleOverview({ role, summary, courses: activeCourses, onNavigate, onCou
 
     {role === "learner" && <div className="main-grid learner-home-grid">
       <section className="panel course-panel"><div className="panel-heading"><div><p className="eyebrow">PERSONALISED LEARNING PATH</p><h2>Continue where you stopped</h2></div><button onClick={() => onNavigate("learning")}>View my learning <ChevronRight size={16} /></button></div><div className="course-list">{activeCourses.slice(0, 3).map((course) => <CourseRow key={course.code} course={course} onOpen={() => onCourse(course)} />)}{activeCourses.length === 0 && <div className="empty-state action-empty"><BookOpen /><b>Your learning space is ready</b><span>Browse approved UCC microcredentials and enrol in the course that matches your goals.</span><button onClick={() => onNavigate("learning")}>Browse open courses</button></div>}</div></section>
-      <section className="panel schedule-panel"><div className="panel-heading"><div><p className="eyebrow">NEXT ON YOUR SCHEDULE</p><h2>Live learning</h2></div><button onClick={() => onNavigate("live")}>Full calendar <ChevronRight size={16} /></button></div><div className="session-list">{liveSessions.slice(0, 2).map((session) => <button className="session-button" key={session.title} onClick={() => onSession(session)}><SessionRow session={session} /></button>)}</div><button className="learner-focus-card passport" onClick={() => onNavigate("passport")}><ShieldCheck /><div><b>Skills passport</b><span>Track stackable pathways and portable achievement evidence.</span></div><ChevronRight /></button><button className="learner-focus-card" onClick={() => onNavigate("assessments")}><FileCheck2 /><div><b>Assessment centre</b><span>Review requirements, submit work and track feedback.</span></div><ChevronRight /></button></section>
+      <section className="panel schedule-panel"><div className="panel-heading"><div><p className="eyebrow">NEXT ON YOUR SCHEDULE</p><h2>Live learning</h2></div><button onClick={() => onNavigate("live")}>Full calendar <ChevronRight size={16} /></button></div><div className="session-list">{showDemoContent ? liveSessions.slice(0, 2).map((session) => <button className="session-button" key={session.title} onClick={() => onSession(session)}><SessionRow session={session} /></button>) : <div className="empty-state">No live pilot session has been scheduled.</div>}</div><button className="learner-focus-card passport" onClick={() => onNavigate("passport")}><ShieldCheck /><div><b>Skills passport</b><span>Track stackable pathways and portable achievement evidence.</span></div><ChevronRight /></button><button className="learner-focus-card" onClick={() => onNavigate("assessments")}><FileCheck2 /><div><b>Assessment centre</b><span>Review requirements, submit work and track feedback.</span></div><ChevronRight /></button></section>
     </div>}
 
     {role === "facilitator" && <div className="role-priority-grid">
@@ -1045,6 +1056,61 @@ function CertificateSignatureManager({ role, email }: { role: PortalRole; email:
   return <section className="page-panel signature-manager"><div className="page-title"><div><p className="eyebrow">CERTIFICATE AUTHORISATION</p><h2>Digital signature register</h2><p>Transparent PNG, JPEG or WebP signatures are stored privately and copied to a certificate only when it is issued.</p></div><span className="access-badge"><ShieldCheck /> Controlled access</span></div><div className="signature-layout"><form onSubmit={(event) => { event.preventDefault(); void upload(); }}><label>Signatory role<select value={signatureRole} onChange={(event) => changeRole(event.target.value as "facilitator" | "provost")}><option value="facilitator">Course facilitator</option>{role === "admin" && <option value="provost">Provost</option>}</select></label>{role === "admin" && signatureRole === "facilitator" && <label>Facilitator email<input type="email" value={ownerEmail} onChange={(event) => setOwnerEmail(event.target.value)} /></label>}<label>Printed name<input value={name} onChange={(event) => setName(event.target.value)} placeholder="Full official name" /></label><label>Official title<input value={title} onChange={(event) => setTitle(event.target.value)} /></label><label className="signature-upload"><Upload /><span><b>{file?.name ?? "Choose signature image"}</b><small>PNG, JPEG or WebP · maximum 2 MB</small></span><input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => setFile(event.target.files?.[0] ?? null)} /></label><button className="dialog-primary" disabled={saving}>{saving ? "Saving…" : "Save approved signature"}</button></form><div className="signature-register">{items.map((item) => <article key={item.key}><img src={item.imageUrl} alt={`${item.signatoryName} digital signature`} /><div><span>{item.role}</span><b>{item.signatoryName}</b><small>{item.signatoryTitle}</small><em>Updated {new Date(item.updatedAt).toLocaleDateString()}</em></div></article>)}{items.length === 0 && <div className="empty-state">No authorised signature has been uploaded.</div>}</div></div></section>;
 }
 
+function PlatformModeControl() {
+  const [mode, setMode] = useState<PlatformMode>("demonstration");
+  const [selectedMode, setSelectedMode] = useState<PlatformMode>("demonstration");
+  const [emergencyOverride, setEmergencyOverride] = useState(false);
+  const [readiness, setReadiness] = useState<PilotReadinessResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const labels: Record<string, string> = {
+    officialDomain: "Official UCC HTTPS domain",
+    transactionalEmail: "Authentication email delivery",
+    staffMfa: "Staff multi-factor authentication",
+    automaticBackup: "Recent verified backup",
+    approvedPilotCourse: "Approved pilot course",
+    provostSignature: "Provost signature",
+    facilitatorSignature: "Facilitator signature",
+    supportContact: "Monitored support email",
+    paymentModeSafe: "Safe payment configuration",
+  };
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [modeResponse, readinessResponse] = await Promise.all([fetch("/api/platform-mode", { cache: "no-store" }), fetch("/api/admin/pilot-readiness", { cache: "no-store" })]);
+      const modeResult = await modeResponse.json() as { mode?: PlatformMode; selectedMode?: PlatformMode; emergencyOverride?: boolean; error?: string };
+      const readinessResult = await readinessResponse.json() as PilotReadinessResponse & { error?: string };
+      if (!modeResponse.ok) throw new Error(modeResult.error ?? "Could not read the platform mode.");
+      if (!readinessResponse.ok) throw new Error(readinessResult.error ?? "Could not evaluate pilot readiness.");
+      setMode(modeResult.mode ?? "demonstration");
+      setSelectedMode(modeResult.selectedMode ?? modeResult.mode ?? "demonstration");
+      setEmergencyOverride(Boolean(modeResult.emergencyOverride));
+      setReadiness(readinessResult);
+    } catch (error) { toast.error(error instanceof Error ? error.message : "Could not evaluate platform readiness."); }
+    finally { setLoading(false); }
+  }, []);
+  useEffect(() => { void load(); }, [load]);
+  const changeMode = async (nextMode: PlatformMode) => {
+    const message = nextMode === "official_pilot"
+      ? "Activate Official Pilot mode? Existing sessions will close and all users must sign in again with the required security code."
+      : "Return to Demonstration mode? New official certificate issuance and authentication codes will be disabled until Pilot mode is restored.";
+    if (!window.confirm(message)) return;
+    setSaving(true);
+    try {
+      const response = await fetch("/api/platform-mode", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ mode: nextMode }) });
+      const result = await response.json() as { error?: string; mode?: PlatformMode; selectedMode?: PlatformMode; reauthenticationRequired?: boolean; readiness?: PilotReadinessResponse };
+      if (!response.ok) { if (result.readiness) setReadiness(result.readiness); throw new Error(result.error ?? "The platform mode could not be changed."); }
+      setMode(result.mode ?? nextMode);
+      setSelectedMode(result.selectedMode ?? nextMode);
+      toast.success(nextMode === "official_pilot" ? "Official Pilot mode activated" : "Demonstration mode activated");
+      if (result.reauthenticationRequired) window.location.assign("/admin-signin?mode=official-pilot"); else window.location.reload();
+    } catch (error) { toast.error(error instanceof Error ? error.message : "The platform mode could not be changed."); }
+    finally { setSaving(false); }
+  };
+  const ready = readiness?.status === "pilot_ready";
+  return <section className={`page-panel mode-control ${mode === "official_pilot" ? "pilot" : "demo"}`}><div className="page-title"><div><p className="eyebrow">CONTROLLED RELEASE MODE</p><h2>Demonstration and Official Pilot</h2><p>Use Demonstration mode on the Render address. Activate the official pilot only after every institutional control is ready.</p></div><span className="access-badge"><ShieldCheck /> Administrator controlled</span></div>{emergencyOverride && <div className="mode-emergency"><AlertTriangle /><div><b>Emergency Demonstration override is active</b><span>Render is forcing Demonstration mode. Set the saved mode to Demonstration, then remove the override only after the failed dependency is restored.</span></div></div>}<div className="mode-control-body"><div className="mode-current"><span>{mode === "official_pilot" ? <ShieldCheck /> : <AlertTriangle />}</span><div><h3>{mode === "official_pilot" ? "Official Pilot mode is active" : "Demonstration mode is active"}</h3><p>{mode === "official_pilot" ? "Email verification, staff security codes and official certificate issuance are enforced." : "Use test records only. Email codes are bypassed and the platform cannot issue new official certificates."}</p></div></div><div className="mode-actions">{emergencyOverride && selectedMode === "official_pilot" ? <button className="secondary" disabled={saving} onClick={() => void changeMode("demonstration")}><AlertTriangle /> {saving ? "Saving…" : "Save Demonstration rollback"}</button> : mode === "demonstration" ? <button disabled={loading || saving || !ready || emergencyOverride} onClick={() => void changeMode("official_pilot")}><ShieldCheck /> {saving ? "Activating…" : "Activate Official Pilot"}</button> : <button className="secondary" disabled={saving} onClick={() => void changeMode("demonstration")}><AlertTriangle /> {saving ? "Switching…" : "Return to Demonstration"}</button>}<button className="secondary" disabled={loading || saving} onClick={() => void load()}><RotateCcw /> Refresh readiness</button><small>{emergencyOverride ? "Pilot activation is locked by the Render emergency override." : ready ? "All required pilot checks have passed." : "Pilot activation remains blocked while one or more checks are incomplete."}</small></div></div><div className="pilot-readiness-grid">{Object.entries(readiness?.checks ?? labels).map(([key, value]) => { const passed = typeof value === "boolean" ? value : false; return <span key={key} className={passed ? "ready" : "pending"}>{passed ? <CheckCircle2 /> : <AlertTriangle />}{labels[key] ?? key}</span>; })}</div></section>;
+}
+
 function AdminPortal({ onOpenRegister }: { onOpenRegister: () => void }) {
   const [facilitators, setFacilitators] = useState<FacilitatorRecord[]>([]);
   const [verifications, setVerifications] = useState<VerificationRecord[]>([]);
@@ -1088,7 +1154,7 @@ function AdminPortal({ onOpenRegister }: { onOpenRegister: () => void }) {
     if (!response.ok) return toast.error(result.error ?? "The reviewer could not be assigned.");
     toast.success("Identity case assigned"); await load();
   };
-  return <div className="admin-layout">
+  return <div className="admin-portal-stack"><PlatformModeControl /><div className="admin-layout">
     <div className="admin-main-stack">
       <section className="page-panel">
         <div className="page-title"><div><p className="eyebrow">SYSTEM ADMINISTRATION</p><h2>User and access management</h2><p>Learners submit identity evidence. Facilitators from UCC or approved partner institutions begin with a one-time administrator invitation.</p></div><span className="access-badge"><ShieldCheck /> Admin protected</span></div>
@@ -1098,7 +1164,7 @@ function AdminPortal({ onOpenRegister }: { onOpenRegister: () => void }) {
       <section className="page-panel verification-panel"><div className="page-title"><div><p className="eyebrow">VERIFICATION ASSIGNMENTS</p><h2>Assign each identity case</h2><p>Only the assigned facilitator and system administrators can open the protected ID and live photo.</p></div></div><div className="verification-queue assignment-queue">{verifications.map((record) => <article key={record.email}><div className="verification-person"><span>{record.full_name.split(/\s+/).map((part) => part[0]).slice(0,2).join("")}</span><div><b>{record.full_name}</b><p>{record.role} · {record.email}</p><small>{record.id_type} ending {record.id_last4}</small></div></div><label className="reviewer-select">Assigned reviewer<select value={record.verifier_email ?? ""} onChange={(event) => assign(record.email, event.target.value)}><option value="">Select administrator or facilitator</option>{reviewers.map((reviewer) => <option key={reviewer.email} value={reviewer.email}>{reviewer.full_name} · {reviewer.role}</option>)}</select></label><button className="open-register" onClick={onOpenRegister}><FileCheck2 /> Open identity register</button></article>)}{!loading && verifications.length === 0 && <div className="empty-state">No identity submissions are awaiting assignment.</div>}</div></section>
     </div>
     <aside className="admin-create"><p className="eyebrow">INVITE FACILITATOR</p><h2>Create one-time setup link</h2><p>Approved staff from UCC or another institution may be invited. The account is tied to the exact professional email entered below.</p><label>Full name<input value={fullName} onChange={(event) => setFullName(event.target.value)} placeholder="e.g. Dr. Esi Mensah" /></label><label>Professional or work email<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@university.edu" /></label><label>Institution or professional affiliation<input value={institution} onChange={(event) => setInstitution(event.target.value)} placeholder="University, professional body or organisation" /></label><div className="registration-rule"><ShieldCheck /><p><b>Secure sign-in</b>The invitation is emailed automatically when delivery is configured. Staff complete a second security-code check at every sign-in.</p></div><button className="dialog-primary" disabled={saving} onClick={createFacilitator}><Users /> {saving ? "Creating invitation…" : "Create setup invitation"}</button>{invite && <div className="invite-result"><CheckCircle2 /><div><b>Invitation ready for {invite.email}</b><span>Expires {new Date(invite.expiresAt).toLocaleString()}</span></div><button onClick={copyInvite}>Copy link</button><a href={`mailto:${encodeURIComponent(invite.email)}?subject=${encodeURIComponent("UCC Growth+ facilitator setup")}&body=${encodeURIComponent(`Complete your permanent facilitator profile using this one-time link:\n\n${invite.url}`)}`}>Email link</a></div>}</aside>
-  </div>;
+  </div></div>;
 }
 
 function CredentialPathwaysPanel() {

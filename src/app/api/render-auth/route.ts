@@ -5,6 +5,7 @@ import { clearLoginFailures, loginThrottle, recordLoginFailure } from "@/lib/aut
 import { createAuthChallenge, verifyAuthChallenge, type ChallengePurpose } from "@/lib/auth-challenges";
 import { sendSecurityCode } from "@/lib/email";
 import { createPasswordRecord, passwordMatches, validatePassword } from "@/lib/passwords";
+import { getPlatformMode } from "@/lib/platform-mode";
 import { emailVerificationRequired, pilotLearnerLimit, publicRegistrationEnabled, staffMfaRequired } from "@/lib/runtime-config";
 import { rejectCrossSiteMutation } from "@/lib/request-security";
 
@@ -48,6 +49,7 @@ export async function POST(request: Request) {
   const payload = await request.json() as { mode?: AuthMode; portal?: PortalRole; email?: string; fullName?: string; password?: string; termsAccepted?: boolean; inviteToken?: string; challengeId?: string; code?: string };
   const portal = payload.portal;
   if (!portal || !["learner", "facilitator", "admin"].includes(portal)) return Response.json({ error: "Open the Learner, Facilitator or Administration sign-in portal." }, { status: 400 });
+  const platformMode = await getPlatformMode();
 
   if (payload.mode === "verify_challenge") {
     const challengeId = payload.challengeId?.trim() ?? "";
@@ -93,7 +95,7 @@ export async function POST(request: Request) {
     if (!payload.termsAccepted) return Response.json({ error: "Accept the platform terms before creating a learner account." }, { status: 400 });
     if (existing) return Response.json({ error: "An account already exists for this email. Sign in instead." }, { status: 409 });
     const learnerCount = await db.prepare("SELECT COUNT(*) AS total FROM auth_accounts a LEFT JOIN users u ON u.email = a.email WHERE COALESCE(u.role,'learner') = 'learner'").first<{ total: number }>();
-    if (Number(learnerCount?.total ?? 0) >= pilotLearnerLimit()) return Response.json({ error: "The official pilot has reached its current learner capacity. Contact UCC Growth+ support." }, { status: 409 });
+    if (Number(learnerCount?.total ?? 0) >= pilotLearnerLimit()) return Response.json({ error: `${platformMode === "official_pilot" ? "The official pilot" : "The demonstration environment"} has reached its current learner capacity. Contact UCC Growth+ support.` }, { status: 409 });
     const passwordRecord = createPasswordRecord(password);
     await db.prepare("INSERT INTO auth_accounts (email,full_name,password_hash,password_salt,password_changed_at) VALUES (?,?,?,?,CURRENT_TIMESTAMP)")
       .bind(email, fullName, passwordRecord.passwordHash, passwordRecord.salt).run();
@@ -147,8 +149,8 @@ export async function POST(request: Request) {
 
   const destination = returnPath(portal, payload.mode, payload.inviteToken);
   try {
-    if (portal === "learner" && emailVerificationRequired() && !account.email_verified_at) return await challengeResponse(account, portal, "email_verification", destination);
-    if (portal !== "learner" && staffMfaRequired()) return await challengeResponse(account, portal, "staff_mfa", destination);
+    if (platformMode === "official_pilot" && portal === "learner" && emailVerificationRequired() && !account.email_verified_at) return await challengeResponse(account, portal, "email_verification", destination);
+    if (platformMode === "official_pilot" && portal !== "learner" && staffMfaRequired()) return await challengeResponse(account, portal, "staff_mfa", destination);
   } catch (error) {
     if (accountCreated) await db.prepare("DELETE FROM auth_accounts WHERE email = ?").bind(email).run();
     console.error("Authentication code delivery failed", error);

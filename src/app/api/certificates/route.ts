@@ -4,6 +4,7 @@ import { issueCertificateIfComplete } from "@/lib/course-completion";
 import { rejectCrossSiteMutation } from "@/lib/request-security";
 import { recordAudit } from "@/lib/audit";
 import { issueBroaderCredentialsIfEligible } from "@/lib/credential-stack";
+import { getPlatformMode } from "@/lib/platform-mode";
 
 type CertificateRow = {
   certificate_code: string; learner_name: string; course_code: string; course_title: string; issuer_name: string;
@@ -44,23 +45,25 @@ export async function GET(request: Request) {
   }
   const account = await requireActiveProfile(["learner"]);
   if (account.error || !account.profile) return account.error;
-  await issueBroaderCredentialsIfEligible(account.profile.email);
+  const platformMode = await getPlatformMode();
+  if (platformMode === "official_pilot") await issueBroaderCredentialsIfEligible(account.profile.email);
   const certificates = await getRawDb().prepare(`SELECT ${columns} FROM certificates WHERE user_email = ? ORDER BY issued_at DESC`).bind(account.profile.email).all<CertificateRow>();
   const eligible = await getRawDb().prepare(`SELECT e.course_code, c.title AS course_title, c.design_json
     FROM enrollments e JOIN course_drafts c ON c.code = e.course_code
     LEFT JOIN certificates cert ON cert.user_email = e.user_email AND cert.course_code = e.course_code
     WHERE e.user_email = ? AND e.status = 'completed' AND c.status = 'active' AND c.certificate_enabled = 1 AND c.certificate_preapproved = 1 AND cert.id IS NULL
     ORDER BY e.enrolled_at DESC`).bind(account.profile.email).all<{ course_code: string; course_title: string; design_json: string }>();
-  return Response.json({ certificates: certificates.results.map((item) => presentCertificate(item)), eligibleCertificates: eligible.results.map((item) => {
+  return Response.json({ certificates: certificates.results.map((item) => presentCertificate(item)), eligibleCertificates: platformMode === "official_pilot" ? eligible.results.map((item) => {
     try { const design = JSON.parse(item.design_json || "{}") as { certificateFeeGhs?: number }; return { courseCode: item.course_code, courseTitle: item.course_title, certificateFeeGhs: Math.max(0, Number(design.certificateFeeGhs) || 0) }; }
     catch { return { courseCode: item.course_code, courseTitle: item.course_title, certificateFeeGhs: 0 }; }
-  }) });
+  }) : [], platformMode });
 }
 
 export async function POST(request: Request) {
   const originError = rejectCrossSiteMutation(request); if (originError) return originError;
   const account = await requireActiveProfile(["learner"]);
   if (account.error || !account.profile) return account.error;
+  if (await getPlatformMode() !== "official_pilot") return Response.json({ error: "Official certificate issuance is disabled while the platform is in Demonstration mode." }, { status: 409 });
   const payload = await request.json() as { courseCode?: string };
   const courseCode = String(payload.courseCode ?? "").trim().toUpperCase();
   if (!courseCode) return Response.json({ error: "Choose a completed course." }, { status: 400 });

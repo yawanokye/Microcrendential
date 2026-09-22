@@ -8,6 +8,8 @@ import "./professional-public-landing.css";
 import "./certificate-template-platform.css";
 import "./ucc-brand.css";
 import "./policy.css";
+import "./platform-mode.css";
+import { PlatformModeBanner } from "@/components/platform-mode-banner";
 
 export const metadata: Metadata = {
   title: "UCC Growth+ Learning Platform",
@@ -16,5 +18,5 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="en"><body>{children}</body></html>;
+  return <html lang="en"><body><PlatformModeBanner />{children}</body></html>;
 }

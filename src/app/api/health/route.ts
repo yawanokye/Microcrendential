@@ -1,10 +1,12 @@
 import { getRawDb } from "@/db/raw";
 import { transactionalEmailConfigured } from "@/lib/email";
 import { isTrue, paymentsEnabled, staffMfaRequired } from "@/lib/runtime-config";
+import { getPlatformMode } from "@/lib/platform-mode";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
+  const mode = await getPlatformMode();
   const secret = process.env.AUTH_SECRET ?? "";
   const adminEmail = process.env.INITIAL_ADMIN_EMAIL?.trim() ?? "";
   const dataDirectory = process.env.DATA_DIR?.trim() ?? "";
@@ -55,7 +57,7 @@ export async function GET() {
 
   const ready = Object.values(checks).every(Boolean);
   return Response.json(
-    { status: ready ? "ready" : "configuration_required", checks },
+    { status: ready ? "ready" : "configuration_required", mode, checks },
     { status: ready ? 200 : 503, headers: { "cache-control": "no-store" } },
   );
 }
