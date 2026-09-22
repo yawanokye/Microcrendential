@@ -3,7 +3,7 @@ import { createSessionToken, SESSION_COOKIE } from "@/app/chatgpt-auth";
 import { getRawDb } from "@/db/raw";
 import { clearLoginFailures, loginThrottle, recordLoginFailure } from "@/lib/auth-rate-limit";
 import { createAuthChallenge, verifyAuthChallenge, type ChallengePurpose } from "@/lib/auth-challenges";
-import { sendSecurityCode } from "@/lib/email";
+import { emailDeliveryUserMessage, sendSecurityCode } from "@/lib/email";
 import { createPasswordRecord, passwordMatches, validatePassword } from "@/lib/passwords";
 import { getPlatformMode } from "@/lib/platform-mode";
 import { emailVerificationRequired, pilotLearnerLimit, publicRegistrationEnabled, staffMfaRequired } from "@/lib/runtime-config";
@@ -154,7 +154,7 @@ export async function POST(request: Request) {
   } catch (error) {
     if (accountCreated) await db.prepare("DELETE FROM auth_accounts WHERE email = ?").bind(email).run();
     console.error("Authentication code delivery failed", error);
-    return Response.json({ error: "Secure email delivery is not available. Contact the platform administrator." }, { status: 503 });
+    return Response.json({ error: emailDeliveryUserMessage(error), platformMode }, { status: 503 });
   }
 
   await clearLoginFailures(throttle.key);

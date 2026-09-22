@@ -2,7 +2,7 @@ import { getRawDb } from "@/db/raw";
 import { requireActiveProfile } from "@/lib/accounts";
 import { recordAudit } from "@/lib/audit";
 import { evaluatePilotReadiness } from "@/lib/pilot-readiness";
-import { emergencyDemonstrationMode, getPlatformMode, getSelectedPlatformMode, normalizePlatformMode, setPlatformMode } from "@/lib/platform-mode";
+import { demonstrationModeLocked, emergencyDemonstrationMode, getPlatformMode, getSelectedPlatformMode, normalizePlatformMode, setPlatformMode } from "@/lib/platform-mode";
 import { rejectCrossSiteMutation } from "@/lib/request-security";
 
 export const dynamic = "force-dynamic";
@@ -14,6 +14,7 @@ export async function GET() {
     mode,
     selectedMode,
     emergencyOverride: emergencyDemonstrationMode(),
+    demonstrationLock: demonstrationModeLocked(),
     label: mode === "official_pilot" ? "Official Pilot" : "Demonstration",
     officialCredentialsEnabled: mode === "official_pilot",
     emailVerificationEnforced: mode === "official_pilot",
@@ -29,9 +30,9 @@ export async function PATCH(request: Request) {
   const payload = await request.json() as { mode?: string };
   if (!payload.mode || !["demonstration", "official_pilot"].includes(payload.mode)) return Response.json({ error: "Choose Demonstration or Official Pilot mode." }, { status: 400 });
   const requestedMode = normalizePlatformMode(payload.mode);
-  if (requestedMode === "official_pilot" && emergencyDemonstrationMode()) return Response.json({ error: "Official Pilot activation is blocked while EMERGENCY_DEMONSTRATION_MODE is enabled in the deployment environment." }, { status: 409 });
+  if (requestedMode === "official_pilot" && (emergencyDemonstrationMode() || demonstrationModeLocked())) return Response.json({ error: "Official Pilot activation is blocked by the deployment Demonstration lock. Remove the lock only after UCC DNS and every readiness control are complete." }, { status: 409 });
   const currentMode = await getSelectedPlatformMode();
-  if (requestedMode === currentMode) return Response.json({ updated: false, mode: await getPlatformMode(), selectedMode: currentMode, emergencyOverride: emergencyDemonstrationMode() });
+  if (requestedMode === currentMode) return Response.json({ updated: false, mode: await getPlatformMode(), selectedMode: currentMode, emergencyOverride: emergencyDemonstrationMode(), demonstrationLock: demonstrationModeLocked() });
 
   let readiness: Awaited<ReturnType<typeof evaluatePilotReadiness>> | null = null;
   if (requestedMode === "official_pilot") {
@@ -42,5 +43,5 @@ export async function PATCH(request: Request) {
   await setPlatformMode(requestedMode, account.profile.email);
   if (requestedMode === "official_pilot") await getRawDb().prepare("UPDATE auth_accounts SET session_version = session_version + 1").run();
   await recordAudit(account.profile.email, "platform.mode_changed", { from: currentMode, to: requestedMode, readiness: readiness?.checks ?? null });
-  return Response.json({ updated: true, mode: await getPlatformMode(), selectedMode: requestedMode, emergencyOverride: emergencyDemonstrationMode(), reauthenticationRequired: requestedMode === "official_pilot" });
+  return Response.json({ updated: true, mode: await getPlatformMode(), selectedMode: requestedMode, emergencyOverride: emergencyDemonstrationMode(), demonstrationLock: demonstrationModeLocked(), reauthenticationRequired: requestedMode === "official_pilot" });
 }

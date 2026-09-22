@@ -1,9 +1,10 @@
 import { getRawDb } from "@/db/raw";
 import { createAuthChallenge, verifyAuthChallenge, type ChallengePortal } from "@/lib/auth-challenges";
-import { sendSecurityCode, transactionalEmailConfigured } from "@/lib/email";
+import { emailDeliveryUserMessage, sendSecurityCode, transactionalEmailConfigured } from "@/lib/email";
 import { createPasswordRecord, validatePassword } from "@/lib/passwords";
 import { rejectCrossSiteMutation } from "@/lib/request-security";
 import { clearLoginFailures, loginThrottle, recordLoginFailure } from "@/lib/auth-rate-limit";
+import { getPlatformMode } from "@/lib/platform-mode";
 
 type AccountRow = { email: string };
 type UserRow = { role: ChallengePortal };
@@ -20,13 +21,22 @@ export async function POST(request: Request) {
     const throttle = await loginThrottle(request, "password-reset", email);
     if (throttle.blocked) return Response.json({ error: "Too many recovery requests. Try again later." }, { status: 429, headers: { "retry-after": String(throttle.retryAfterSeconds) } });
     await recordLoginFailure(throttle.key);
+    if (await getPlatformMode() === "demonstration") return Response.json({ error: "Email password recovery is unavailable while the platform is in Demonstration mode. Sign in with your existing password or contact the platform administrator." }, { status: 409 });
     if (!transactionalEmailConfigured()) return Response.json({ error: "Password recovery email is not configured. Contact UCC Growth+ support." }, { status: 503 });
     const account = await db.prepare("SELECT email FROM auth_accounts WHERE email = ? LIMIT 1").bind(email).first<AccountRow>();
     const user = await db.prepare("SELECT role FROM users WHERE email = ? LIMIT 1").bind(email).first<UserRow>();
     const initialAdmin = (process.env.INITIAL_ADMIN_EMAIL || "").trim().toLowerCase();
     const portal: ChallengePortal = user?.role ?? (email === initialAdmin ? "admin" : "learner");
     const challenge = await createAuthChallenge(email, portal, "password_reset");
-    if (account) await sendSecurityCode(email, challenge.code, "password_reset");
+    if (account) {
+      try {
+        await sendSecurityCode(email, challenge.code, "password_reset");
+      } catch (error) {
+        await db.prepare("UPDATE auth_challenges SET used_at = CURRENT_TIMESTAMP WHERE id = ?").bind(challenge.id).run();
+        console.error("Password recovery email failed", error);
+        return Response.json({ error: emailDeliveryUserMessage(error) }, { status: 503 });
+      }
+    }
     return Response.json({ challengeId: challenge.id, message: "If an account matches that email, a six-digit reset code has been sent." });
   }
 
