@@ -146,6 +146,12 @@ CREATE TABLE IF NOT EXISTS platform_migrations (
   migration_key TEXT PRIMARY KEY NOT NULL,
   applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+CREATE TABLE IF NOT EXISTS platform_settings (
+  setting_key TEXT PRIMARY KEY NOT NULL,
+  setting_value TEXT NOT NULL,
+  updated_by_email TEXT,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
 CREATE TABLE IF NOT EXISTS assessment_attempts (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_email TEXT NOT NULL,

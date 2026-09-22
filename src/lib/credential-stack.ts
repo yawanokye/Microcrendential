@@ -1,6 +1,7 @@
 import { getRawDb } from "@/db/raw";
 import { normalizeCourseDesign } from "@/lib/course-design";
 import { certificateIssuerName, requiresUccSignatory, type CertificateConfiguration } from "@/lib/certificate-policy";
+import { officialCredentialsEnabled } from "@/lib/platform-mode";
 
 type PathCourseRow = { code: string; title: string; design_json: string; created_by_email: string; certificate_enabled: number; certificate_preapproved: number };
 type ActiveCertificateRow = { course_code: string };
@@ -43,6 +44,7 @@ function collectDefinitions(courses: PathCourseRow[]) {
 }
 
 export async function issueBroaderCredentialsIfEligible(userEmail: string) {
+  if (!await officialCredentialsEnabled()) return [] as string[];
   const db = getRawDb();
   const learner = await db.prepare("SELECT full_name FROM users WHERE email=? AND role='learner' LIMIT 1").bind(userEmail).first<{ full_name: string }>();
   if (!learner) return [] as string[];

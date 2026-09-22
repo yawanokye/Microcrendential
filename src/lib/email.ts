@@ -1,7 +1,23 @@
+import nodemailer from "nodemailer";
+
 const APP_NAME = "UCC Growth+";
 
+type EmailProvider = "gmail" | "resend" | "unconfigured";
+
+export function transactionalEmailProvider(): EmailProvider {
+  const requested = process.env.EMAIL_PROVIDER?.trim().toLowerCase();
+  if (requested === "gmail" || requested === "google") return "gmail";
+  if (requested === "resend") return "resend";
+  if (process.env.GMAIL_USER?.trim() && process.env.GMAIL_APP_PASSWORD?.trim()) return "gmail";
+  if (process.env.RESEND_API_KEY?.trim() && process.env.EMAIL_FROM?.trim()) return "resend";
+  return "unconfigured";
+}
+
 export function transactionalEmailConfigured() {
-  return Boolean(process.env.RESEND_API_KEY?.trim() && process.env.EMAIL_FROM?.trim());
+  const provider = transactionalEmailProvider();
+  if (provider === "gmail") return Boolean(process.env.GMAIL_USER?.trim() && process.env.GMAIL_APP_PASSWORD?.trim());
+  if (provider === "resend") return Boolean(process.env.RESEND_API_KEY?.trim() && process.env.EMAIL_FROM?.trim());
+  return false;
 }
 
 const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (character) => ({
@@ -9,13 +25,31 @@ const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (character) => (
 }[character] ?? character));
 
 export async function sendTransactionalEmail(input: { to: string; subject: string; heading: string; text: string; actionUrl?: string; actionLabel?: string }) {
+  const provider = transactionalEmailProvider();
+  const gmailUser = process.env.GMAIL_USER?.trim();
+  const gmailAppPassword = process.env.GMAIL_APP_PASSWORD?.replace(/\s+/g, "");
   const apiKey = process.env.RESEND_API_KEY?.trim();
-  const from = process.env.EMAIL_FROM?.trim();
-  if (!apiKey || !from) throw new Error("Transactional email is not configured.");
-  const supportEmail = process.env.SUPPORT_EMAIL?.trim() || from.replace(/^.*<|>$/g, "");
+  const from = process.env.EMAIL_FROM?.trim() || (gmailUser ? `${APP_NAME} <${gmailUser}>` : "");
+  if (provider === "gmail" && (!gmailUser || !gmailAppPassword)) throw new Error("Google Mail is not configured.");
+  if (provider === "resend" && (!apiKey || !from)) throw new Error("Resend is not configured.");
+  if (provider === "unconfigured") throw new Error("Transactional email is not configured.");
+  const senderAddress = from.match(/<([^>]+)>/)?.[1] || from;
+  const supportEmail = process.env.SUPPORT_EMAIL?.trim() || senderAddress;
   const action = input.actionUrl && input.actionLabel
     ? `<p style="margin:24px 0"><a href="${escapeHtml(input.actionUrl)}" style="display:inline-block;padding:12px 18px;border-radius:8px;background:#173b57;color:#fff;text-decoration:none;font-weight:700">${escapeHtml(input.actionLabel)}</a></p>`
     : "";
+  const text = `${input.heading}\n\n${input.text}\n\nSupport: ${supportEmail}`;
+  const html = `<div style="font-family:Arial,sans-serif;max-width:620px;margin:auto;color:#17324a"><div style="padding:18px 22px;background:#173b57;color:#fff"><strong>${APP_NAME}</strong><br><span style="font-size:12px">University of Cape Coast</span></div><div style="padding:26px 22px;border:1px solid #d8e1e8;border-top:0"><h1 style="font-size:22px">${escapeHtml(input.heading)}</h1><p style="line-height:1.65;white-space:pre-line">${escapeHtml(input.text)}</p>${action}<p style="font-size:12px;color:#5c6e7b">If you did not request this message, contact ${escapeHtml(supportEmail)}.</p></div></div>`;
+
+  if (provider === "gmail") {
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: { user: gmailUser, pass: gmailAppPassword },
+    });
+    await transporter.sendMail({ from, to: input.to, subject: input.subject, text, html });
+    return;
+  }
+
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { authorization: `Bearer ${apiKey}`, "content-type": "application/json" },
@@ -23,8 +57,8 @@ export async function sendTransactionalEmail(input: { to: string; subject: strin
       from,
       to: [input.to],
       subject: input.subject,
-      text: `${input.heading}\n\n${input.text}\n\nSupport: ${supportEmail}`,
-      html: `<div style="font-family:Arial,sans-serif;max-width:620px;margin:auto;color:#17324a"><div style="padding:18px 22px;background:#173b57;color:#fff"><strong>${APP_NAME}</strong><br><span style="font-size:12px">University of Cape Coast</span></div><div style="padding:26px 22px;border:1px solid #d8e1e8;border-top:0"><h1 style="font-size:22px">${escapeHtml(input.heading)}</h1><p style="line-height:1.65;white-space:pre-line">${escapeHtml(input.text)}</p>${action}<p style="font-size:12px;color:#5c6e7b">If you did not request this message, contact ${escapeHtml(supportEmail)}.</p></div></div>`,
+      text,
+      html,
     }),
     cache: "no-store",
   });

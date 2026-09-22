@@ -4,6 +4,7 @@ import { issueBroaderCredentialsIfEligible } from "@/lib/credential-stack";
 import { ensureStructuredLearningActivities } from "@/lib/structured-learning-activities";
 import type { CourseMaterialRecord } from "@/lib/course-design";
 import { certificateIssuerName, isCpdAward, requiresUccSignatory, type CertificateConfiguration } from "@/lib/certificate-policy";
+import { officialCredentialsEnabled } from "@/lib/platform-mode";
 
 type CourseActivity = {
   id?: string;
@@ -179,6 +180,7 @@ export async function issueCertificateIfComplete(userEmail: string, courseCode: 
   const db = getRawDb();
   await db.prepare("UPDATE enrollments SET status = 'completed' WHERE user_email = ? AND course_code = ? AND status IN ('active', 'completed')")
     .bind(userEmail, courseCode).run();
+  if (!await officialCredentialsEnabled()) return { evaluation, certificate: null };
   if (!evaluation.certificateEnabled || !evaluation.certificatePreauthorised || evaluation.certificatePaymentRequired) return { evaluation, certificate: null };
 
   const learner = await db.prepare("SELECT full_name FROM users WHERE email = ? AND role = 'learner' LIMIT 1")
