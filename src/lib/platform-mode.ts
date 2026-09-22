@@ -14,6 +14,10 @@ export function emergencyDemonstrationMode() {
   return process.env.EMERGENCY_DEMONSTRATION_MODE?.trim().toLowerCase() === "true";
 }
 
+export function demonstrationModeLocked() {
+  return process.env.DEMONSTRATION_MODE_LOCK?.trim().toLowerCase() === "true";
+}
+
 export async function getSelectedPlatformMode(): Promise<PlatformMode> {
   const row = await getRawDb().prepare("SELECT setting_value FROM platform_settings WHERE setting_key = 'platform_mode' LIMIT 1")
     .first<{ setting_value: string }>();
@@ -21,7 +25,7 @@ export async function getSelectedPlatformMode(): Promise<PlatformMode> {
 }
 
 export async function getPlatformMode(): Promise<PlatformMode> {
-  if (emergencyDemonstrationMode()) return "demonstration";
+  if (emergencyDemonstrationMode() || demonstrationModeLocked()) return "demonstration";
   return getSelectedPlatformMode();
 }
 

@@ -4,6 +4,20 @@ const APP_NAME = "UCC Growth+";
 
 type EmailProvider = "gmail" | "resend" | "unconfigured";
 
+export class EmailDeliveryError extends Error {
+  constructor(public readonly status: number, public readonly providerMessage = "") {
+    super(`Email delivery failed with status ${status}.`);
+    this.name = "EmailDeliveryError";
+  }
+}
+
+export function emailDeliveryUserMessage(error: unknown) {
+  if (error instanceof EmailDeliveryError && error.status === 403) {
+    return "Resend rejected this recipient. The resend.dev test sender can email only the address registered to the Resend account. Keep the platform in Demonstration mode or verify an approved sending domain.";
+  }
+  return "Secure email delivery is temporarily unavailable. Contact the platform administrator.";
+}
+
 export function transactionalEmailProvider(): EmailProvider {
   const requested = process.env.EMAIL_PROVIDER?.trim().toLowerCase();
   if (requested === "gmail" || requested === "google") return "gmail";
@@ -62,7 +76,14 @@ export async function sendTransactionalEmail(input: { to: string; subject: strin
     }),
     cache: "no-store",
   });
-  if (!response.ok) throw new Error(`Email delivery failed with status ${response.status}.`);
+  if (!response.ok) {
+    let providerMessage = "";
+    try {
+      const failure = await response.json() as { message?: string };
+      providerMessage = String(failure.message ?? "").slice(0, 500);
+    } catch { providerMessage = ""; }
+    throw new EmailDeliveryError(response.status, providerMessage);
+  }
 }
 
 export async function sendSecurityCode(to: string, code: string, purpose: "email_verification" | "staff_mfa" | "password_reset") {
