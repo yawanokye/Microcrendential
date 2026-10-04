@@ -4,11 +4,11 @@ Complete every item before inviting learners.
 
 ## Controlled release mode
 
-- Deploy Render with `PLATFORM_MODE=demonstration`, `DEMONSTRATION_MODE_LOCK=true` and `EMERGENCY_DEMONSTRATION_MODE=false`.
-- Use Demonstration mode for presentations and acceptance testing, and enter test records only.
+- Deploy Render with `PLATFORM_MODE=demonstration`, `DEMONSTRATION_MODE_LOCK=true`, `DEMONSTRATION_FULL_FUNCTIONALITY=true` and `EMERGENCY_DEMONSTRATION_MODE=false`.
+- Use the Render acceptance environment to exercise the complete workflow, including authentication codes, approved completion processing and credential issuance.
 - Confirm the amber Demonstration banner is visible and that no new official certificate can be issued.
 - When every readiness item in the administrator panel is green, use **Activate Official Pilot**.
-- Remove `DEMONSTRATION_MODE_LOCK` only after the UCC domain and Resend sending domain have been verified.
+- Remove `DEMONSTRATION_MODE_LOCK` only when the deployment is ready to be relabelled and promoted to Official Pilot.
 - Sign in again after activation and confirm learner verification codes and staff MFA arrive successfully.
 
 ## Institutional approval
@@ -23,8 +23,8 @@ Complete every item before inviting learners.
 
 - Point an approved UCC subdomain to Render and enable HTTPS.
 - Set `NEXT_PUBLIC_APP_URL` to the final HTTPS address before issuing any certificate.
-- During Render demonstrations, set `EMAIL_PROVIDER=resend`, `RESEND_API_KEY` and `EMAIL_FROM=UCC Growth+ <onboarding@resend.dev>`.
-- Before Official Pilot activation, verify the approved UCC sending domain in Resend, replace `EMAIL_FROM` with that domain and test delivery to external learner and staff addresses.
+- During Render acceptance, set `EMAIL_PROVIDER=google_oauth` and configure `GMAIL_USER`, `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, `GOOGLE_OAUTH_REFRESH_TOKEN` and `EMAIL_FROM`.
+- Before Official Pilot activation, confirm the approved Google or Google Workspace sending mailbox, review its access with ICT and test delivery to external learner and staff addresses.
 - Test learner email verification, staff security codes, password reset and facilitator invitation delivery.
 
 ## Data and recovery

@@ -64,7 +64,7 @@ Public-link imports reject private, loopback and internal-network addresses, val
 
 The completion engine evaluates four governed evidence classes: active verified learner identity, a passing course assessment, every required virtual practical, and every required Colab notebook activity. Optional activities do not delay issuance. When all configured requirements pass, the enrolment is marked complete and one certificate is issued for that learner/course pair.
 
-The certificate records the issuer as **University of Cape Coast**, the learner and course, credit value, delivery mode, requirements snapshot, issue time and live governance status. The learner wallet and printable/PDF view use the supplied UCC CoDE certificate artwork and original crest asset; the untouched reference template is retained in `certificate-assets/`. Its QR encodes the full public verification URL using a standards-based QR matrix with error correction. Administrators can revoke or restore the record, and a scan always reflects the current registry status rather than a static image claim.
+The certificate records the issuer, learner and course, credit value, delivery mode, requirements snapshot, issue time and live governance status. The learner can download a server-generated A4 landscape PDF directly without opening the preview. The course code becomes the filename, and the UCC crest, approved partner branding, stored signatures and verification QR are embedded into the PDF so they remain visible outside the browser. The expanded preview and print option remain available. Administrators can revoke or restore the record, and a scan always reflects the current registry status rather than a static image claim.
 
 ## 1. Upload to GitHub
 
@@ -96,7 +96,7 @@ You can also use GitHub’s **Add file → Upload files** option and upload the 
 
 ## 3. Create the first administrator
 
-1. Open the deployed URL. Configure the approved UCC domain before certificates are issued.
+1. Open the deployed URL. Confirm `NEXT_PUBLIC_APP_URL` matches the active HTTPS address so authentication links and certificate QR codes point to the correct deployment.
 2. Select **System administrator**.
 3. Choose **First admin setup**.
 4. Register using the exact `INITIAL_ADMIN_EMAIL` configured in Render.
@@ -149,19 +149,22 @@ Learners may attach an optional video, image or PDF evidence file up to 25 MB. O
 | `AUTH_SECRET` | Yes | Signs secure login cookies; use at least 32 random characters |
 | `INITIAL_ADMIN_EMAIL` | Yes | Email promoted to the first system administrator |
 | `NEXT_PUBLIC_APP_URL` | Yes | Current public address used by email links, payments and certificate QR codes. Use the Render URL for demonstration, then replace it with the approved UCC address |
-| `PILOT_REQUIRE_OFFICIAL_DOMAIN` | Pilot | Requires the configured URL to use `ucc.edu.gh` before readiness passes |
+| `PILOT_REQUIRE_OFFICIAL_DOMAIN` | Pilot | Set `false` for Render acceptance and `true` when promotion must require an approved `ucc.edu.gh` address |
 | `PLATFORM_MODE` | Yes | Safe startup fallback; keep `demonstration` and use the admin switch for pilot activation |
-| `DEMONSTRATION_MODE_LOCK` | Render demo | Keep `true` while the platform uses the Render URL; this overrides any older Pilot selection stored in the database |
+| `DEMONSTRATION_MODE_LOCK` | Render acceptance | Keep `true` to preserve the acceptance label on Render; this no longer disables capabilities when full functionality is enabled |
+| `DEMONSTRATION_FULL_FUNCTIONALITY` | Render acceptance | Set `true` to enable email security codes, password recovery, completion processing and approved credential issuance on Render |
 | `EMERGENCY_DEMONSTRATION_MODE` | Recovery | Set `true` in Render to override the database and immediately restore demonstration access |
 | `PUBLIC_REGISTRATION_ENABLED` | Pilot | Opens or closes public learner account creation |
 | `PILOT_MAX_LEARNERS` | Pilot | Controlled pilot capacity; defaults to `50` |
 | `EMAIL_VERIFICATION_REQUIRED` | Pilot | Requires a six-digit email code before learner onboarding |
 | `STAFF_MFA_REQUIRED` | Pilot | Requires a six-digit code for every facilitator and administrator sign-in |
-| `EMAIL_PROVIDER` | Yes | Use `resend` for the current demonstration deployment |
-| `RESEND_API_KEY` | Email | Resend API credential stored only as a Render secret |
-| `GMAIL_USER` | Optional | Dedicated Google or Google Workspace mailbox if UCC later changes provider |
-| `GMAIL_APP_PASSWORD` | Optional | Google app password used only when `EMAIL_PROVIDER=gmail` |
-| `EMAIL_FROM` | Pilot | Approved sender identity for security and invitation messages |
+| `EMAIL_PROVIDER` | Yes | Use `google_oauth` for Google OAuth 2.0 delivery |
+| `GMAIL_USER` | Email | Google or Google Workspace mailbox authorised to send platform messages |
+| `GOOGLE_OAUTH_CLIENT_ID` | Email | OAuth client ID stored as a Render secret |
+| `GOOGLE_OAUTH_CLIENT_SECRET` | Email | OAuth client secret stored as a Render secret |
+| `GOOGLE_OAUTH_REFRESH_TOKEN` | Email | Offline refresh token for the sending mailbox, stored as a Render secret |
+| `EMAIL_FROM` | Email | Sender identity, normally `UCC Growth+ <the same GMAIL_USER address>` |
+| `GMAIL_APP_PASSWORD` | Optional legacy fallback | Used only when `EMAIL_PROVIDER=gmail`; it is not required for Google OAuth |
 | `SUPPORT_EMAIL` | Pilot | Published and monitored support contact |
 | `MONITORING_WEBHOOK_URL` | Pilot | HTTPS endpoint for privacy-minimised unhandled-error alerts |
 | `PAYMENTS_ENABLED` | Pilot | Keep `false` until UCC Finance approves live payment acceptance |
@@ -176,13 +179,13 @@ Learners may attach an optional video, image or PDF evidence file up to 25 MB. O
 
 ## Demonstration-to-pilot control
 
-New deployments start in **Demonstration** mode. This mode shows a visible banner, exposes controlled sample/testing tools, bypasses learner email verification and staff MFA, and prevents new official certificates or stacked credentials from being issued. It is suitable for continued demonstrations on the Render URL while institutional setup is completed.
+New Render deployments start as an **Acceptance environment**. The label makes the hosting stage clear, while `DEMONSTRATION_FULL_FUNCTIONALITY=true` enables learner email verification, staff MFA, password recovery, course completion and approved certificate or stacked-credential issuance. Academic approval, verified identity, assessment, payment and signature requirements remain enforced.
 
-The current demonstration blueprint uses Resend. Set `RESEND_API_KEY` in Render and keep `EMAIL_FROM=UCC Growth+ <onboarding@resend.dev>` for restricted testing. Resend requires a verified sending domain before messages can be sent normally to all learners and staff. Until UCC DNS is available, `DEMONSTRATION_MODE_LOCK=true` guarantees that sign-in does not depend on email codes. Administrators can copy a facilitator’s secure invitation link when external delivery is unavailable. Email password recovery is intentionally unavailable in this locked mode because a reset code cannot be delivered reliably.
+The current acceptance blueprint uses Google OAuth 2.0. Configure the Gmail or Google Workspace sending mailbox, OAuth client and refresh token in Render. Authentication codes, invitations and password-recovery messages are then delivered directly to each learner or staff address without depending on UCC DNS. Keep the refresh token and client secret out of the repository.
 
 An administrator can open **Users & Access**, review the pilot-readiness panel and activate **Official Pilot** only when all checks pass. Activation invalidates every current session so users sign in again under the pilot security controls. The selected mode is stored in the persistent database and therefore does not require a rebuild.
 
-For emergency recovery, set `EMERGENCY_DEMONSTRATION_MODE=true` in Render and redeploy. This deployment-level override always forces Demonstration mode until it is removed.
+For emergency recovery, set `EMERGENCY_DEMONSTRATION_MODE=true` in Render and redeploy. This deployment-level override pauses security-code-dependent operations and new credential issuance until it is removed.
 | `PORT` | Render-managed | HTTP listening port; the Blueprint uses `10000` |
 | `COURSE_AI_PROVIDER` | No | `auto`, `openai` or `vertex`; `auto` uses the available approved provider |
 | `COURSE_AI_TIMEOUT_SECONDS` | No | Provider wait per request, from 45 to 180 seconds; defaults to `120` |
@@ -207,7 +210,7 @@ Reviewed identity images are removed automatically after `IDENTITY_RETENTION_DAY
 
 ## Security handover before public launch
 
-- Configure an approved UCC domain and HTTPS in Render, then set `NEXT_PUBLIC_APP_URL` before certificates are issued.
+- Set `NEXT_PUBLIC_APP_URL` to the current HTTPS Render address for acceptance. Replace it with the approved UCC address at production promotion so new email links and certificate QR codes use the institutional domain.
 - Replace the initial administrator password after handover.
 - Configure transactional email. Learner verification, password reset, facilitator invitations and staff security codes are included.
 - Keep the service on a paid plan with a persistent disk; free Render web services have ephemeral filesystems.

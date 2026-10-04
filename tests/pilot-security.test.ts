@@ -4,7 +4,7 @@ import test from "node:test";
 import { createPasswordRecord, passwordMatches, validatePassword } from "../src/lib/passwords";
 import { hasExecutableSignature, validateIdentityUpload } from "../src/lib/file-security";
 import { EmailDeliveryError, emailDeliveryUserMessage, transactionalEmailConfigured, transactionalEmailProvider } from "../src/lib/email";
-import { normalizePlatformMode } from "../src/lib/platform-mode";
+import { demonstrationFullFunctionalityEnabled, fullFunctionalityEnabled, normalizePlatformMode } from "../src/lib/platform-mode";
 
 test("pilot password policy requires a long password and stores a salted hash", () => {
   assert.match(validatePassword("short"), /12/);
@@ -46,7 +46,29 @@ test("Google Mail can provide transactional authentication email", () => {
   if (previous.password === undefined) delete process.env.GMAIL_APP_PASSWORD; else process.env.GMAIL_APP_PASSWORD = previous.password;
 });
 
-test("Resend is selected for the Render demonstration", () => {
+test("Google OAuth is configured for Render email delivery", () => {
+  const previous = {
+    provider: process.env.EMAIL_PROVIDER,
+    user: process.env.GMAIL_USER,
+    clientId: process.env.GOOGLE_OAUTH_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_OAUTH_CLIENT_SECRET,
+    refreshToken: process.env.GOOGLE_OAUTH_REFRESH_TOKEN,
+  };
+  process.env.EMAIL_PROVIDER = "google_oauth";
+  process.env.GMAIL_USER = "uccgrowth@gmail.com";
+  process.env.GOOGLE_OAUTH_CLIENT_ID = "example.apps.googleusercontent.com";
+  process.env.GOOGLE_OAUTH_CLIENT_SECRET = "example-client-secret";
+  process.env.GOOGLE_OAUTH_REFRESH_TOKEN = "example-refresh-token";
+  assert.equal(transactionalEmailProvider(), "google_oauth");
+  assert.equal(transactionalEmailConfigured(), true);
+  const keys = { provider: "EMAIL_PROVIDER", user: "GMAIL_USER", clientId: "GOOGLE_OAUTH_CLIENT_ID", clientSecret: "GOOGLE_OAUTH_CLIENT_SECRET", refreshToken: "GOOGLE_OAUTH_REFRESH_TOKEN" } as const;
+  for (const key of Object.keys(previous) as (keyof typeof previous)[]) {
+    const environmentKey = keys[key]; const value = previous[key];
+    if (value === undefined) delete process.env[environmentKey]; else process.env[environmentKey] = value;
+  }
+});
+
+test("Resend remains available as an optional compatibility provider", () => {
   const previous = {
     provider: process.env.EMAIL_PROVIDER,
     key: process.env.RESEND_API_KEY,
@@ -67,14 +89,16 @@ test("Resend test-sender rejection is translated into an actionable message", ()
   assert.match(message, /test sender can email only the address registered to the Resend account/);
 });
 
-test("official pilot deployment keeps manual promotion and payments off", () => {
+test("Render acceptance deployment keeps manual promotion and payments off while enabling the full workflow", () => {
   const blueprint = readFileSync(new URL("../render.yaml", import.meta.url), "utf8");
   const security = readFileSync(new URL("../next.config.mjs", import.meta.url), "utf8");
   assert.match(blueprint, /autoDeploy: false/);
   assert.match(blueprint, /key: PLATFORM_MODE\s+value: demonstration/);
   assert.match(blueprint, /key: DEMONSTRATION_MODE_LOCK\s+value: "true"/);
+  assert.match(blueprint, /key: DEMONSTRATION_FULL_FUNCTIONALITY\s+value: "true"/);
   assert.match(blueprint, /key: EMERGENCY_DEMONSTRATION_MODE\s+value: "false"/);
-  assert.match(blueprint, /key: EMAIL_PROVIDER\s+value: resend/);
+  assert.match(blueprint, /key: EMAIL_PROVIDER\s+value: google_oauth/);
+  assert.match(blueprint, /key: GOOGLE_OAUTH_REFRESH_TOKEN\s+sync: false/);
   assert.match(blueprint, /key: PAYMENTS_ENABLED\s+value: "false"/);
   assert.match(blueprint, /key: STAFF_MFA_REQUIRED\s+value: "true"/);
   assert.match(security, /default-src 'self'/);
@@ -87,14 +111,27 @@ test("platform mode fails safely to Demonstration", () => {
   assert.equal(normalizePlatformMode("official_pilot"), "official_pilot");
 });
 
-test("pilot activation invalidates sessions and Demonstration blocks credential issuance", () => {
+test("Render acceptance can exercise full functionality without changing its environment label", async () => {
+  const previousFullFunctionality = process.env.DEMONSTRATION_FULL_FUNCTIONALITY;
+  const previousEmergencyMode = process.env.EMERGENCY_DEMONSTRATION_MODE;
+  process.env.DEMONSTRATION_FULL_FUNCTIONALITY = "true";
+  process.env.EMERGENCY_DEMONSTRATION_MODE = "false";
+  assert.equal(demonstrationFullFunctionalityEnabled(), true);
+  assert.equal(await fullFunctionalityEnabled(), true);
+  process.env.EMERGENCY_DEMONSTRATION_MODE = "true";
+  assert.equal(await fullFunctionalityEnabled(), false);
+  if (previousFullFunctionality === undefined) delete process.env.DEMONSTRATION_FULL_FUNCTIONALITY; else process.env.DEMONSTRATION_FULL_FUNCTIONALITY = previousFullFunctionality;
+  if (previousEmergencyMode === undefined) delete process.env.EMERGENCY_DEMONSTRATION_MODE; else process.env.EMERGENCY_DEMONSTRATION_MODE = previousEmergencyMode;
+});
+
+test("pilot activation invalidates sessions and emergency restriction blocks credential issuance", () => {
   const modeRoute = readFileSync(new URL("../src/app/api/platform-mode/route.ts", import.meta.url), "utf8");
   const certificateRoute = readFileSync(new URL("../src/app/api/certificates/route.ts", import.meta.url), "utf8");
   const completion = readFileSync(new URL("../src/lib/course-completion.ts", import.meta.url), "utf8");
   const passwordReset = readFileSync(new URL("../src/app/api/auth/password-reset/route.ts", import.meta.url), "utf8");
   assert.match(modeRoute, /UPDATE auth_accounts SET session_version = session_version \+ 1/);
-  assert.match(certificateRoute, /Official certificate issuance is disabled while the platform is in Demonstration mode/);
+  assert.match(certificateRoute, /officialCredentialsEnabled/);
   assert.match(completion, /officialCredentialsEnabled/);
-  assert.match(passwordReset, /Email password recovery is unavailable while the platform is in Demonstration mode/);
+  assert.match(passwordReset, /fullFunctionalityEnabled/);
   assert.match(passwordReset, /Password recovery email failed/);
 });

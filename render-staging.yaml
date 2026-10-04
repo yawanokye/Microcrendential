@@ -27,10 +27,12 @@ services:
         value: demonstration
       - key: DEMONSTRATION_MODE_LOCK
         value: "true"
+      - key: DEMONSTRATION_FULL_FUNCTIONALITY
+        value: "true"
       - key: EMERGENCY_DEMONSTRATION_MODE
         value: "false"
       - key: PUBLIC_REGISTRATION_ENABLED
-        value: "false"
+        value: "true"
       - key: PILOT_MAX_LEARNERS
         value: "10"
       - key: EMAIL_VERIFICATION_REQUIRED
@@ -38,12 +40,18 @@ services:
       - key: STAFF_MFA_REQUIRED
         value: "true"
       - key: EMAIL_PROVIDER
-        value: resend
-      - key: EMAIL_FROM
-        value: UCC Growth+ <onboarding@resend.dev>
-      - key: SUPPORT_EMAIL
+        value: google_oauth
+      - key: GMAIL_USER
         sync: false
-      - key: RESEND_API_KEY
+      - key: EMAIL_FROM
+        sync: false
+      - key: GOOGLE_OAUTH_CLIENT_ID
+        sync: false
+      - key: GOOGLE_OAUTH_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_OAUTH_REFRESH_TOKEN
+        sync: false
+      - key: SUPPORT_EMAIL
         sync: false
       - key: MONITORING_WEBHOOK_URL
         sync: false

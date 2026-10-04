@@ -2,11 +2,11 @@
 
 ## Demonstration and Official Pilot modes
 
-Keep the Render service in **Demonstration** mode with `DEMONSTRATION_MODE_LOCK=true` while DNS, email, signatures, backups and course approval are being completed. The lock prevents an older database selection from restoring Pilot authentication on the Render address. After ICT completes DNS and Resend is verified, remove the lock, review every prerequisite and activate **Official Pilot** from the Users & Access area. Activation closes all existing sessions; administrators, facilitators and learners must sign in again under the pilot authentication rules.
+Keep the Render service in the **Acceptance environment** with `DEMONSTRATION_MODE_LOCK=true` and `DEMONSTRATION_FULL_FUNCTIONALITY=true` while institutional DNS is being completed. The lock preserves the pre-production label, while Google OAuth enables authentication codes, password recovery, approved completion processing and credential issuance for acceptance testing. After ICT completes the approved UCC address and confirms the production Google or Google Workspace sending mailbox, remove the label lock, set `PILOT_REQUIRE_OFFICIAL_DOMAIN=true`, review every prerequisite and activate **Official Pilot** from the Users & Access area. Activation closes all existing sessions.
 
-Demonstration mode must use test records only. It bypasses email-code challenges and prevents all new official certificate and stacked-credential issuance. Previously issued credentials remain visible and verifiable.
+Acceptance records and credentials are live records. Use authorised acceptance participants, approved courses and signatories, and revoke any credential created only for a scripted test before production promotion.
 
-If a pilot dependency fails, an administrator may return to Demonstration mode in the portal. If sign-in itself is unavailable, set `EMERGENCY_DEMONSTRATION_MODE=true` in Render and redeploy. After recovery, set the portal mode to Demonstration, restore the dependency, set the emergency variable back to `false`, redeploy, complete the readiness checks and reactivate Official Pilot.
+If an authentication, email or credential dependency fails, set `EMERGENCY_DEMONSTRATION_MODE=true` in Render and redeploy. This pauses authentication-code-dependent operations and new credential issuance. Restore the dependency, return the variable to `false`, redeploy and complete a focused acceptance check before resuming.
 
 ## Daily checks
 

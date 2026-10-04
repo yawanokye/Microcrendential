@@ -25,6 +25,10 @@ COPY --from=build /app/public ./public
 COPY --from=build /app/.next/standalone ./
 COPY --from=build /app/.next/static ./.next/static
 COPY --from=build /app/scripts ./scripts
-RUN mkdir -p /var/data/uploads /var/data/backups
+RUN groupadd --system --gid 1001 nodejs \
+    && useradd --system --uid 1001 --gid nodejs --home-dir /app nextjs \
+    && mkdir -p /var/data/uploads /var/data/backups \
+    && chown -R nextjs:nodejs /app /var/data
+USER nextjs
 EXPOSE 10000
 CMD ["node", "scripts/pilot-server.mjs"]
