@@ -2,7 +2,8 @@ import { getRawDb } from "@/db/raw";
 import { requireActiveProfile } from "@/lib/accounts";
 import { recordAudit } from "@/lib/audit";
 import { evaluatePilotReadiness } from "@/lib/pilot-readiness";
-import { demonstrationModeLocked, emergencyDemonstrationMode, getPlatformMode, getSelectedPlatformMode, normalizePlatformMode, setPlatformMode } from "@/lib/platform-mode";
+import { demonstrationFullFunctionalityEnabled, demonstrationModeLocked, emergencyDemonstrationMode, fullFunctionalityEnabled, getPlatformMode, getSelectedPlatformMode, normalizePlatformMode, setPlatformMode } from "@/lib/platform-mode";
+import { emailVerificationRequired, staffMfaRequired } from "@/lib/runtime-config";
 import { rejectCrossSiteMutation } from "@/lib/request-security";
 
 export const dynamic = "force-dynamic";
@@ -10,15 +11,18 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const mode = await getPlatformMode();
   const selectedMode = await getSelectedPlatformMode();
+  const fullFunctionality = await fullFunctionalityEnabled();
   return Response.json({
     mode,
     selectedMode,
     emergencyOverride: emergencyDemonstrationMode(),
     demonstrationLock: demonstrationModeLocked(),
-    label: mode === "official_pilot" ? "Official Pilot" : "Demonstration",
-    officialCredentialsEnabled: mode === "official_pilot",
-    emailVerificationEnforced: mode === "official_pilot",
-    staffMfaEnforced: mode === "official_pilot",
+    label: mode === "official_pilot" ? "Official Pilot" : fullFunctionality ? "Acceptance" : "Restricted Demonstration",
+    demonstrationFullFunctionality: demonstrationFullFunctionalityEnabled(),
+    fullFunctionalityEnabled: fullFunctionality,
+    officialCredentialsEnabled: fullFunctionality,
+    emailVerificationEnforced: fullFunctionality && emailVerificationRequired(),
+    staffMfaEnforced: fullFunctionality && staffMfaRequired(),
   }, { headers: { "cache-control": "no-store" } });
 }
 

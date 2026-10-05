@@ -5,7 +5,7 @@ import { clearLoginFailures, loginThrottle, recordLoginFailure } from "@/lib/aut
 import { createAuthChallenge, verifyAuthChallenge, type ChallengePurpose } from "@/lib/auth-challenges";
 import { emailDeliveryUserMessage, sendSecurityCode } from "@/lib/email";
 import { createPasswordRecord, passwordMatches, validatePassword } from "@/lib/passwords";
-import { getPlatformMode } from "@/lib/platform-mode";
+import { fullFunctionalityEnabled, getPlatformMode } from "@/lib/platform-mode";
 import { emailVerificationRequired, pilotLearnerLimit, publicRegistrationEnabled, staffMfaRequired } from "@/lib/runtime-config";
 import { rejectCrossSiteMutation } from "@/lib/request-security";
 
@@ -50,6 +50,7 @@ export async function POST(request: Request) {
   const portal = payload.portal;
   if (!portal || !["learner", "facilitator", "admin"].includes(portal)) return Response.json({ error: "Open the Learner, Facilitator or Administration sign-in portal." }, { status: 400 });
   const platformMode = await getPlatformMode();
+  const fullFunctionality = await fullFunctionalityEnabled();
 
   if (payload.mode === "verify_challenge") {
     const challengeId = payload.challengeId?.trim() ?? "";
@@ -149,8 +150,8 @@ export async function POST(request: Request) {
 
   const destination = returnPath(portal, payload.mode, payload.inviteToken);
   try {
-    if (platformMode === "official_pilot" && portal === "learner" && emailVerificationRequired() && !account.email_verified_at) return await challengeResponse(account, portal, "email_verification", destination);
-    if (platformMode === "official_pilot" && portal !== "learner" && staffMfaRequired()) return await challengeResponse(account, portal, "staff_mfa", destination);
+    if (fullFunctionality && portal === "learner" && emailVerificationRequired() && !account.email_verified_at) return await challengeResponse(account, portal, "email_verification", destination);
+    if (fullFunctionality && portal !== "learner" && staffMfaRequired()) return await challengeResponse(account, portal, "staff_mfa", destination);
   } catch (error) {
     if (accountCreated) await db.prepare("DELETE FROM auth_accounts WHERE email = ?").bind(email).run();
     console.error("Authentication code delivery failed", error);

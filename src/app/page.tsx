@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import {
   Activity, AlertTriangle, ArrowLeft, Award, Beaker, Bell, BookOpen, CalendarDays, CheckCircle2, ChevronDown, ChevronRight, CirclePlay, ClipboardCheck, Clock3,
-  Code2, Eye, FileCheck2, FileText, FlaskConical, Gauge, GraduationCap, GripVertical, HeartPulse, Layers3, LayoutDashboard, Menu,
+  Code2, Download, Eye, FileCheck2, FileText, FlaskConical, Gauge, GraduationCap, GripVertical, HeartPulse, Layers3, LayoutDashboard, Menu,
   MessageSquareText, Microscope, Pencil, QrCode, RotateCcw, Search, Settings, ShieldCheck, Sigma, Sparkles, Stethoscope, Undo2, Upload, Users, Video, Wrench, X,
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
@@ -496,6 +496,7 @@ function CertificateCard({ certificate }: { certificate: CertificateRecord }) {
   const [expanded, setExpanded] = useState(false);
   const active = (certificate.status ?? "active") === "active";
   const verificationPath = certificate.sharePath ?? `/verify-credential?code=${encodeURIComponent(certificate.certificate_code)}`;
+  const downloadPath = `/api/certificates/download?code=${encodeURIComponent(certificate.certificate_code)}`;
   const copyVerification = async () => {
     await navigator.clipboard.writeText(new URL(verificationPath, window.location.origin).toString());
     toast.success("Verification link copied");
@@ -554,7 +555,7 @@ function CertificateCard({ certificate }: { certificate: CertificateRecord }) {
     </div>
     <div className="certificate-card-summary"><div><span>{certificate.course_code}</span><b>{certificate.course_title}</b><small>Issued {certificateDate(certificate.issued_at)}</small></div><span className={`credential-state ${active ? "active" : "revoked"}`}><ShieldCheck /> {active ? "Active" : "Not valid"}</span></div>
     {!active && <div className="credential-revocation"><ShieldCheck /><div><b>This credential is not currently valid</b><span>{certificate.revocation_reason || "Contact the issuing institution for details."}</span></div></div>}
-    <div className="certificate-actions"><button className="secondary-action" onClick={() => setExpanded(true)}><Eye /> View details</button><button className="secondary-action certificate-print" disabled={printing || !active} onClick={() => void printCertificate()}><Award /> {!active ? "Download disabled" : printing ? "Preparing certificate…" : `Print / save ${safeCertificateFilename(certificate.course_code)}`}</button><button className="secondary-action" onClick={copyVerification}><QrCode /> Copy verification link</button></div>
+    <div className="certificate-actions"><button className="secondary-action" onClick={() => setExpanded(true)}><Eye /> View details</button>{active ? <a className="secondary-action certificate-download" href={downloadPath} download={safeCertificateFilename(certificate.course_code)}><Download /> Download PDF</a> : <button className="secondary-action" disabled><Download /> Download disabled</button>}<button className="secondary-action certificate-print" disabled={printing || !active} onClick={() => void printCertificate()}><Award /> {printing ? "Preparing print copy…" : "Print certificate"}</button><button className="secondary-action" onClick={copyVerification}><QrCode /> Copy verification link</button></div>
     <Dialog open={expanded} onOpenChange={setExpanded}>
       <DialogContent className="certificate-detail-dialog">
         <DialogHeader><p className="eyebrow">VERIFIED UCC GROWTH+ CREDENTIAL</p><DialogTitle>{certificate.course_title}</DialogTitle><DialogDescription>Review the full certificate and its recorded completion details.</DialogDescription></DialogHeader>
@@ -562,7 +563,7 @@ function CertificateCard({ certificate }: { certificate: CertificateRecord }) {
         <div className="certificate-detail-facts"><span><b>Credential ID</b>{certificate.certificate_code}</span><span><b>Course code</b>{certificate.course_code}</span><span><b>Award</b>{certificateTitle(configuration.awardType)}</span><span><b>Issued</b>{certificateDate(certificate.issued_at)}</span>{configuration.cpdHours > 0 && <span><b>CPD hours</b>{configuration.cpdHours}</span>}{configuration.cpdPoints > 0 && <span><b>CPD points</b>{configuration.cpdPoints}</span>}</div>
         {requirements}
         {!active && <div className="credential-revocation"><ShieldCheck /><div><b>This credential is not currently valid</b><span>{certificate.revocation_reason || "Contact the issuing institution for details."}</span></div></div>}
-        <div className="certificate-actions expanded-actions"><button className="secondary-action certificate-print" disabled={printing || !active} onClick={() => void printCertificate()}><Award /> {!active ? "Download disabled" : printing ? "Preparing certificate…" : `Print / save ${safeCertificateFilename(certificate.course_code)}`}</button><a className="secondary-action" href={verificationPath} target="_blank" rel="noreferrer"><QrCode /> Verify online</a><button className="secondary-action" onClick={copyVerification}><QrCode /> Copy verification link</button></div>
+        <div className="certificate-actions expanded-actions">{active ? <a className="secondary-action certificate-download" href={downloadPath} download={safeCertificateFilename(certificate.course_code)}><Download /> Download PDF</a> : <button className="secondary-action" disabled><Download /> Download disabled</button>}<button className="secondary-action certificate-print" disabled={printing || !active} onClick={() => void printCertificate()}><Award /> {printing ? "Preparing print copy…" : "Print certificate"}</button><a className="secondary-action" href={verificationPath} target="_blank" rel="noreferrer"><QrCode /> Verify online</a><button className="secondary-action" onClick={copyVerification}><QrCode /> Copy verification link</button></div>
       </DialogContent>
     </Dialog>
   </article>;
@@ -1061,11 +1062,12 @@ function PlatformModeControl() {
   const [selectedMode, setSelectedMode] = useState<PlatformMode>("demonstration");
   const [emergencyOverride, setEmergencyOverride] = useState(false);
   const [demonstrationLock, setDemonstrationLock] = useState(false);
+  const [fullFunctionality, setFullFunctionality] = useState(false);
   const [readiness, setReadiness] = useState<PilotReadinessResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const labels: Record<string, string> = {
-    officialDomain: "Official UCC HTTPS domain",
+    officialDomain: "Approved HTTPS deployment address",
     transactionalEmail: "Authentication email delivery",
     staffMfa: "Staff multi-factor authentication",
     automaticBackup: "Recent verified backup",
@@ -1079,7 +1081,7 @@ function PlatformModeControl() {
     setLoading(true);
     try {
       const [modeResponse, readinessResponse] = await Promise.all([fetch("/api/platform-mode", { cache: "no-store" }), fetch("/api/admin/pilot-readiness", { cache: "no-store" })]);
-      const modeResult = await modeResponse.json() as { mode?: PlatformMode; selectedMode?: PlatformMode; emergencyOverride?: boolean; demonstrationLock?: boolean; error?: string };
+      const modeResult = await modeResponse.json() as { mode?: PlatformMode; selectedMode?: PlatformMode; emergencyOverride?: boolean; demonstrationLock?: boolean; fullFunctionalityEnabled?: boolean; error?: string };
       const readinessResult = await readinessResponse.json() as PilotReadinessResponse & { error?: string };
       if (!modeResponse.ok) throw new Error(modeResult.error ?? "Could not read the platform mode.");
       if (!readinessResponse.ok) throw new Error(readinessResult.error ?? "Could not evaluate pilot readiness.");
@@ -1087,6 +1089,7 @@ function PlatformModeControl() {
       setSelectedMode(modeResult.selectedMode ?? modeResult.mode ?? "demonstration");
       setEmergencyOverride(Boolean(modeResult.emergencyOverride));
       setDemonstrationLock(Boolean(modeResult.demonstrationLock));
+      setFullFunctionality(Boolean(modeResult.fullFunctionalityEnabled));
       setReadiness(readinessResult);
     } catch (error) { toast.error(error instanceof Error ? error.message : "Could not evaluate platform readiness."); }
     finally { setLoading(false); }
@@ -1095,7 +1098,7 @@ function PlatformModeControl() {
   const changeMode = async (nextMode: PlatformMode) => {
     const message = nextMode === "official_pilot"
       ? "Activate Official Pilot mode? Existing sessions will close and all users must sign in again with the required security code."
-      : "Return to Demonstration mode? New official certificate issuance and authentication codes will be disabled until Pilot mode is restored.";
+      : "Return to the Render acceptance profile? Full functionality will remain available unless the emergency restriction is enabled in the deployment settings.";
     if (!window.confirm(message)) return;
     setSaving(true);
     try {
@@ -1111,7 +1114,7 @@ function PlatformModeControl() {
   };
   const ready = readiness?.status === "pilot_ready";
   const forcedDemonstration = emergencyOverride || demonstrationLock;
-  return <section className={`page-panel mode-control ${mode === "official_pilot" ? "pilot" : "demo"}`}><div className="page-title"><div><p className="eyebrow">CONTROLLED RELEASE MODE</p><h2>Demonstration and Official Pilot</h2><p>Use Demonstration mode on the Render address. Activate the official pilot only after every institutional control is ready.</p></div><span className="access-badge"><ShieldCheck /> Administrator controlled</span></div>{forcedDemonstration && <div className="mode-emergency"><AlertTriangle /><div><b>{emergencyOverride ? "Emergency Demonstration override is active" : "Render Demonstration lock is active"}</b><span>{emergencyOverride ? "Render is forcing Demonstration mode. Set the saved mode to Demonstration, then remove the override only after the failed dependency is restored." : "Authentication codes and official credential issuance stay disabled until ICT completes the UCC DNS and the deployment lock is removed."}</span></div></div>}<div className="mode-control-body"><div className="mode-current"><span>{mode === "official_pilot" ? <ShieldCheck /> : <AlertTriangle />}</span><div><h3>{mode === "official_pilot" ? "Official Pilot mode is active" : "Demonstration mode is active"}</h3><p>{mode === "official_pilot" ? "Email verification, staff security codes and official certificate issuance are enforced." : "Use test records only. Email codes are bypassed and the platform cannot issue new official certificates."}</p></div></div><div className="mode-actions">{forcedDemonstration && selectedMode === "official_pilot" ? <button className="secondary" disabled={saving} onClick={() => void changeMode("demonstration")}><AlertTriangle /> {saving ? "Saving…" : "Save Demonstration rollback"}</button> : mode === "demonstration" ? <button disabled={loading || saving || !ready || forcedDemonstration} onClick={() => void changeMode("official_pilot")}><ShieldCheck /> {saving ? "Activating…" : "Activate Official Pilot"}</button> : <button className="secondary" disabled={saving} onClick={() => void changeMode("demonstration")}><AlertTriangle /> {saving ? "Switching…" : "Return to Demonstration"}</button>}<button className="secondary" disabled={loading || saving} onClick={() => void load()}><RotateCcw /> Refresh readiness</button><small>{forcedDemonstration ? "Pilot activation is locked by the Render deployment settings." : ready ? "All required pilot checks have passed." : "Pilot activation remains blocked while one or more checks are incomplete."}</small></div></div><div className="pilot-readiness-grid">{Object.entries(readiness?.checks ?? labels).map(([key, value]) => { const passed = typeof value === "boolean" ? value : false; return <span key={key} className={passed ? "ready" : "pending"}>{passed ? <CheckCircle2 /> : <AlertTriangle />}{labels[key] ?? key}</span>; })}</div></section>;
+  return <section className={`page-panel mode-control ${mode === "official_pilot" ? "pilot" : "demo"}`}><div className="page-title"><div><p className="eyebrow">CONTROLLED RELEASE MODE</p><h2>Acceptance and Official Pilot</h2><p>The Render acceptance environment can exercise the complete workflow before migration to the approved UCC address.</p></div><span className="access-badge"><ShieldCheck /> Administrator controlled</span></div>{forcedDemonstration && <div className="mode-emergency"><AlertTriangle /><div><b>{emergencyOverride ? "Emergency restriction is active" : "Render environment label is locked"}</b><span>{emergencyOverride ? "Live authentication-code and credential operations are paused until the failed dependency is restored and the emergency override is removed." : fullFunctionality ? "The deployment remains labelled as an acceptance environment, but authentication codes and approved credential issuance are active." : "Full functionality is not enabled for this deployment."}</span></div></div>}<div className="mode-control-body"><div className="mode-current"><span>{fullFunctionality ? <ShieldCheck /> : <AlertTriangle />}</span><div><h3>{mode === "official_pilot" ? "Official Pilot mode is active" : fullFunctionality ? "Full acceptance functionality is active" : "Emergency restricted operation is active"}</h3><p>{fullFunctionality ? "Email verification, staff security codes, password recovery and approved credential issuance are enabled." : "Authentication codes and new credential issuance are temporarily paused."}</p></div></div><div className="mode-actions">{forcedDemonstration && selectedMode === "official_pilot" ? <button className="secondary" disabled={saving} onClick={() => void changeMode("demonstration")}><AlertTriangle /> {saving ? "Saving…" : "Save acceptance rollback"}</button> : mode === "demonstration" ? <button disabled={loading || saving || !ready || forcedDemonstration} onClick={() => void changeMode("official_pilot")}><ShieldCheck /> {saving ? "Activating…" : "Activate Official Pilot"}</button> : <button className="secondary" disabled={saving} onClick={() => void changeMode("demonstration")}><AlertTriangle /> {saving ? "Switching…" : "Return to acceptance"}</button>}<button className="secondary" disabled={loading || saving} onClick={() => void load()}><RotateCcw /> Refresh readiness</button><small>{emergencyOverride ? "Emergency restricted operation is controlled by the deployment settings." : demonstrationLock ? "The acceptance label is locked by the deployment settings; enabled capabilities remain active." : ready ? "All required pilot checks have passed." : "Official Pilot activation remains blocked while one or more checks are incomplete; acceptance functionality is unaffected."}</small></div></div><div className="pilot-readiness-grid">{Object.entries(readiness?.checks ?? labels).map(([key, value]) => { const passed = typeof value === "boolean" ? value : false; return <span key={key} className={passed ? "ready" : "pending"}>{passed ? <CheckCircle2 /> : <AlertTriangle />}{labels[key] ?? key}</span>; })}</div></section>;
 }
 
 function AdminPortal({ onOpenRegister }: { onOpenRegister: () => void }) {
