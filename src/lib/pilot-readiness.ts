@@ -18,8 +18,13 @@ export async function evaluatePilotReadiness() {
   ]);
   const recentBackup = Boolean(lastBackup?.created_at && Date.now() - Date.parse(lastBackup.created_at) < 36 * 60 * 60 * 1000);
   const appUrl = process.env.NEXT_PUBLIC_APP_URL?.trim() ?? "";
+  const requiresOfficialDomain = isTrue(process.env.PILOT_REQUIRE_OFFICIAL_DOMAIN);
   let officialDomain = false;
-  try { const host = new URL(appUrl); officialDomain = host.protocol === "https:" && (host.hostname === "ucc.edu.gh" || host.hostname.endsWith(".ucc.edu.gh")); } catch { officialDomain = false; }
+  try {
+    const host = new URL(appUrl);
+    const isUccDomain = host.hostname === "ucc.edu.gh" || host.hostname.endsWith(".ucc.edu.gh");
+    officialDomain = host.protocol === "https:" && (!requiresOfficialDomain || isUccDomain);
+  } catch { officialDomain = false; }
   const checks = {
     officialDomain,
     transactionalEmail: transactionalEmailConfigured(),
