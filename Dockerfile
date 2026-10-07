@@ -29,6 +29,9 @@ RUN groupadd --system --gid 1001 nodejs \
     && useradd --system --uid 1001 --gid nodejs --home-dir /app nextjs \
     && mkdir -p /var/data/uploads /var/data/backups \
     && chown -R nextjs:nodejs /app /var/data
-USER nextjs
+# Render mounts its persistent disk after the image is built. The entrypoint
+# repairs only application storage, then permanently drops to UID/GID 1001.
+USER root
 EXPOSE 10000
+ENTRYPOINT ["node", "scripts/pilot-entrypoint.mjs"]
 CMD ["node", "scripts/pilot-server.mjs"]

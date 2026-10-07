@@ -10,9 +10,20 @@ const runMaintenance = () => {
   if (!enabled || running) return;
   running = true;
   const backup = spawn(process.execPath, [join("scripts", "pilot-backup.mjs")], { stdio: "inherit", env: process.env });
-  backup.on("exit", () => {
+  backup.on("error", (error) => {
+    console.error(JSON.stringify({ event: "maintenance.backup_start_failed", message: error.message }));
+  });
+  backup.on("close", (code) => {
+    if (code !== 0) {
+      console.error(JSON.stringify({ event: "maintenance.retention_skipped", reason: "The backup failed.", backupExitCode: code }));
+      running = false;
+      return;
+    }
     const retention = spawn(process.execPath, [join("scripts", "enforce-identity-retention.mjs")], { stdio: "inherit", env: process.env });
-    retention.on("exit", () => { running = false; });
+    retention.on("error", (error) => {
+      console.error(JSON.stringify({ event: "maintenance.retention_start_failed", message: error.message }));
+    });
+    retention.on("close", () => { running = false; });
   });
 };
 
@@ -22,3 +33,7 @@ if (enabled) {
 }
 for (const signal of ["SIGTERM", "SIGINT"]) process.on(signal, () => child.kill(signal));
 child.on("exit", (code, signal) => process.exit(signal ? 0 : code ?? 1));
+child.on("error", (error) => {
+  console.error(JSON.stringify({ event: "server.start_failed", message: error.message }));
+  process.exit(1);
+});

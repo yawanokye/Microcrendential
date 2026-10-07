@@ -20,6 +20,8 @@ If an authentication, email or credential dependency fails, set `EMERGENCY_DEMON
 
 The production wrapper creates a consistent SQLite and upload archive every 24 hours. Fourteen days are retained by default.
 
+The Docker entrypoint repairs storage ownership after Render mounts the persistent disk and then starts the server as `nextjs`, UID/GID 1001. Keep the existing disk attached and look for `storage.ready` on startup. Do not bypass `scripts/pilot-entrypoint.mjs` or replace the disk to resolve a permission error. Backup failures are recorded when the database is writable. Scheduled identity retention is skipped until a backup completes successfully.
+
 Run a manual backup from the Render shell:
 
 ```bash

@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { basename, join, resolve, sep } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
@@ -12,13 +12,9 @@ const retentionDays = Math.min(90, Math.max(2, Number(process.env.BACKUP_RETENTI
 if (backupDir === "/" || backupDir === dataDir || !backupDir.startsWith(`${dataDir}${sep}`)) throw new Error("BACKUP_DIR must be a dedicated directory below DATA_DIR.");
 if (!existsSync(databasePath)) throw new Error(`Database not found at ${databasePath}.`);
 
-mkdirSync(backupDir, { recursive: true });
 const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-const working = join(backupDir, `.in-progress-${stamp}`);
-const snapshot = join(working, "snapshot");
-const snapshotDatabase = join(snapshot, "ucc-microcredentials.sqlite");
 const archive = join(backupDir, `ucc-growthplus-${stamp}.tar.gz`);
-mkdirSync(snapshot, { recursive: true });
+let working;
 
 const countFiles = (directory) => {
   if (!existsSync(directory)) return 0;
@@ -39,6 +35,13 @@ source.exec(`CREATE TABLE IF NOT EXISTS backup_runs (
 )`);
 
 try {
+  // Keep filesystem setup inside the failure-recording boundary. A mounted
+  // disk permission failure must be visible in the administrator's register.
+  mkdirSync(backupDir, { recursive: true });
+  working = mkdtempSync(join(backupDir, `.in-progress-${stamp}-`));
+  const snapshot = join(working, "snapshot");
+  const snapshotDatabase = join(snapshot, "ucc-microcredentials.sqlite");
+  mkdirSync(snapshot);
   source.exec("PRAGMA wal_checkpoint(PASSIVE)");
   const escaped = snapshotDatabase.replaceAll("'", "''");
   source.exec(`VACUUM INTO '${escaped}'`);
@@ -52,6 +55,7 @@ try {
   const verifyDb = new DatabaseSync(snapshotDatabase, { readOnly: true });
   const integrity = String(verifyDb.prepare("PRAGMA integrity_check").get()?.integrity_check || "unknown");
   verifyDb.close();
+  if (integrity !== "ok") throw new Error(`Backup database integrity check returned ${integrity}.`);
   const size = statSync(archive).size;
   source.prepare("INSERT INTO backup_runs (backup_file,checksum,database_integrity,upload_files,size_bytes,status,details_json) VALUES (?,?,?,?,?,'completed',?)")
     .run(basename(archive), checksum, integrity, uploadFiles, size, JSON.stringify({ retentionDays }));
@@ -63,10 +67,19 @@ try {
   }
   console.log(JSON.stringify({ status: "completed", archive, checksum, integrity, uploadFiles, sizeBytes: size }));
 } catch (error) {
-  source.prepare("INSERT INTO backup_runs (backup_file,checksum,database_integrity,status,details_json) VALUES (?,'','failed','failed',?)")
-    .run(basename(archive), JSON.stringify({ error: error instanceof Error ? error.message : String(error) }));
-  throw error;
+  const details = { error: error instanceof Error ? error.message : String(error), code: error?.code };
+  try {
+    source.prepare("INSERT INTO backup_runs (backup_file,checksum,database_integrity,status,details_json) VALUES (?,'','failed','failed',?)")
+      .run(basename(archive), JSON.stringify(details));
+  } catch (recordError) {
+    console.error(JSON.stringify({ status: "failed", operation: "backup.record_failure", error: recordError.message }));
+  }
+  console.error(JSON.stringify({ status: "failed", operation: "backup", ...details }));
+  process.exitCode = 1;
 } finally {
   source.close();
-  rmSync(working, { recursive: true, force: true });
+  if (working) {
+    try { rmSync(working, { recursive: true, force: true }); }
+    catch (error) { console.error(JSON.stringify({ status: "failed", operation: "backup.cleanup", error: error.message })); }
+  }
 }

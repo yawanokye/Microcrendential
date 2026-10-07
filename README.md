@@ -202,11 +202,15 @@ The **Course Studio entry gateway** asks the facilitator to choose **Manual desi
 
 The Blueprint attaches a 10 GB persistent disk. The database and every uploaded identity/course file are written below `/var/data`; only files under the disk mount survive deploys and restarts.
 
+Version 12.2.2 prepares the mounted disk at container startup, then permanently drops to the `nextjs` UID/GID 1001 before starting the server and maintenance jobs. Existing database files, uploads and backup folders are repaired without deleting their contents. The log entry `storage.ready` confirms writable storage. Keep the Docker entrypoint enabled. See `RENDER-ACCEPTANCE-DEPLOYMENT-v12.2.2.md` for the permission-error repair procedure.
+
 This is a single-instance architecture because SQLite and a Render disk are attached to one web service. Before serving a large institution or running multiple instances, migrate the database to PostgreSQL and uploads to private S3-compatible object storage.
 
 The production wrapper creates a consistent database-and-upload archive every 24 hours and records its checksum and SQLite integrity result. Run `npm run backup:verify` regularly. Copy a verified archive to approved encrypted storage outside the Render disk each day. A backup held only on the same disk is not a complete disaster-recovery copy.
 
 Reviewed identity images are removed automatically after `IDENTITY_RETENTION_DAYS`. The verification decision and limited reference data remain in the audit record. UCC must approve the period before launch.
+
+Scheduled identity cleanup runs only after a successful backup. A failed backup is recorded in `backup_runs` when the database remains writable, and the supervisor logs `maintenance.retention_skipped`.
 
 ## Security handover before public launch
 
