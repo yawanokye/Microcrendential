@@ -15,6 +15,22 @@ async function api(name,path,body,method="POST") {const response=await fetch(`${
 const checks=[];const check=(name,actual,expected=200)=>{assert.equal(actual,expected,name);checks.push(name);};
 try {
   let ready=false;for(let i=0;i<100;i++){try{if((await fetch(`${origin}/api/health/live`)).ok){ready=true;break;}}catch{}await new Promise(r=>setTimeout(r,250));}assert.ok(ready);checks.push("Production standalone liveness is healthy");
+  for (const path of ["/", "/facilitator-studio"]) {
+    const response = await fetch(`${origin}${path}`);
+    check(`Platform page renders independently of the learner route: ${path}`, response.status);
+    assert.equal(response.redirected, false);
+    const html = await response.text();
+    assert.ok(html.includes("Opening your learning portal"));
+    assert.ok(!html.includes("permanent-learning-page"));
+  }
+  for (const [path, lesson] of [["/learn/E2E-COMM", ""], ["/learn/E2E-COMM/lesson-one", "lesson-one"], ["/learn?courseCode=E2E-COMM&lesson=lesson-one", "lesson-one"]]) {
+    const response = await fetch(`${origin}${path}`, { headers: { cookie: `ucc_render_session=${cookie("learner")}` } });
+    check(`Learning route resolves without bracket folders: ${path}`, response.status);
+    assert.equal(response.redirected, false);
+    const html = (await response.text()).replaceAll('\\"', '"');
+    assert.ok(html.includes('"courseCode":"E2E-COMM"'));
+    assert.ok(html.includes(`"lessonId":"${lesson}"`), `${path}: ${html.match(/"lessonId":"[^"]*"/)?.[0] || "missing lesson prop"}`);
+  }
   let worker=await fetch(`${origin}/api/internal/delivery`,{method:"POST"});check("Background worker rejects unauthenticated calls",worker.status,401);
   worker=await fetch(`${origin}/api/internal/delivery`,{method:"POST",headers:{authorization:`Bearer ${createHmac("sha256",secret).update("ucc-delivery-worker-v1").digest("hex")}`}});check("Authenticated background maintenance runs",worker.status);
   let result=await api("learner","/api/courses");check("Authenticated learner can read enrolled course",result.response.status);assert.equal(result.data.courses[0].assessmentConfig.questions[0].correctAnswer,undefined);checks.push("Learner assessment omits answer keys");

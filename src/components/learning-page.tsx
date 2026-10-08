@@ -1,10 +1,15 @@
 "use client";
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
 import { PublishedCourseExperience, type Course } from "./platform-home";
 import { UccBrandLockup } from "./ucc-brand";
-export default function LearningPage() {
-  const params=useParams<{courseCode:string;lesson?:string[]}>(),[course,setCourse]=useState<Course|null>(null),[error,setError]=useState("");
-  useEffect(()=>{fetch(`/api/courses?code=${encodeURIComponent(params.courseCode)}`,{cache:"no-store"}).then(async response=>{const data=await response.json() as {courses?:Course[];error?:string};if(!response.ok)throw new Error(data.error||"Sign in to open this course.");const match=data.courses?.find(c=>c.code===params.courseCode);if(!match?.enrolled)throw new Error("Enrol in this course from your learner portal before opening the learning materials.");setCourse({...match,published:true,school:match.facilitatorName||"UCC Growth+"});}).catch(e=>setError(e.message));},[params.courseCode]);
-  return <main className="permanent-learning-page"><header><UccBrandLockup compact subtitle="Learning workspace"/><a href="/?portal=learner&view=learning">My microcredentials</a></header>{error?<section role="alert"><h1>Course access</h1><p>{error}</p><a href="/student-signin">Learner sign in</a></section>:course?<section><h1>{course.title}</h1><p>{course.code} · Approved version {course.versionNumber}</p><PublishedCourseExperience course={course} onExit={()=>window.location.assign("/?portal=learner&view=learning")} onOpenActivity={activity=>{sessionStorage.setItem("ucc-course-context",course.code);if(activity.practicalId)sessionStorage.setItem("ucc-open-practical",activity.practicalId);window.location.assign(`/?view=${activity.kind==="colab"?"colab":"virtual_labs"}&courseCode=${encodeURIComponent(course.code)}`);}}/></section>:<p role="status">Opening your saved course…</p>}</main>;
+
+export type LearningPageProps = {
+  courseCode: string;
+  lessonId?: string;
+};
+
+export default function LearningPage({ courseCode, lessonId = "" }: LearningPageProps) {
+  const [course,setCourse]=useState<Course|null>(null),[error,setError]=useState("");
+  useEffect(()=>{if(!courseCode)return;const controller=new AbortController();fetch(`/api/courses?code=${encodeURIComponent(courseCode)}`,{cache:"no-store",signal:controller.signal}).then(async response=>{const data=await response.json() as {courses?:Course[];error?:string};if(!response.ok)throw new Error(data.error||"Sign in to open this course.");const match=data.courses?.find(c=>c.code===courseCode);if(!match?.enrolled)throw new Error("Enrol in this course from your learner portal before opening the learning materials.");setCourse({...match,published:true,school:match.facilitatorName||"UCC Growth+"});setError("");}).catch(e=>{if(!controller.signal.aborted)setError(e.message);});return()=>controller.abort();},[courseCode]);
+  return <main className="permanent-learning-page"><header><UccBrandLockup compact subtitle="Learning workspace"/><a href="/?portal=learner&view=learning">My microcredentials</a></header>{(error||!courseCode)?<section role="alert"><h1>Course access</h1><p>{error||"Open an enrolled course from your learner portal."}</p><a href="/student-signin">Learner sign in</a></section>:course?<section><h1>{course.title}</h1><p>{course.code} · Approved version {course.versionNumber}</p><PublishedCourseExperience course={course} initialMaterialId={lessonId} onExit={()=>window.location.assign("/?portal=learner&view=learning")} onOpenActivity={activity=>{sessionStorage.setItem("ucc-course-context",course.code);if(activity.practicalId)sessionStorage.setItem("ucc-open-practical",activity.practicalId);window.location.assign(`/?view=${activity.kind==="colab"?"colab":"virtual_labs"}&courseCode=${encodeURIComponent(course.code)}`);}}/></section>:<p role="status">Opening your saved course…</p>}</main>;
 }

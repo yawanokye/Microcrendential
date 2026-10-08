@@ -1,6 +1,11 @@
 {
   "checks": [
     "Production standalone liveness is healthy",
+    "Platform page renders independently of the learner route: /",
+    "Platform page renders independently of the learner route: /facilitator-studio",
+    "Learning route resolves without bracket folders: /learn/E2E-COMM",
+    "Learning route resolves without bracket folders: /learn/E2E-COMM/lesson-one",
+    "Learning route resolves without bracket folders: /learn?courseCode=E2E-COMM&lesson=lesson-one",
     "Background worker rejects unauthenticated calls",
     "Authenticated background maintenance runs",
     "Authenticated learner can read enrolled course",
@@ -42,7 +47,7 @@
     "Corrected grade flags the issued certificate for review",
     "Test accounts are excluded from Anovlad usage reconciliation"
   ],
-  "node": "v24.19.0",
+  "node": "v22.23.3",
   "host": "Local production standalone server",
   "browserVerification": "Blocked: Chromium download unavailable",
   "externalEmail": "Not sent",
