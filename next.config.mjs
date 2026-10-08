@@ -20,6 +20,12 @@ const contentSecurityPolicy = [
 const nextConfig = {
   output: "standalone",
   poweredByHeader: false,
+  // Keep saved course/lesson links without bracketed upload folder names.
+  async rewrites() { return [{
+    source: "/learn/:courseCode/:lesson*",
+    // Unused source parameters are passed as query values by Next.js.
+    destination: "/learn",
+  }]; },
   async headers() { return [{ source: "/:path*", headers: [
     { key: "X-Content-Type-Options", value: "nosniff" },
     { key: "X-Frame-Options", value: "DENY" },
