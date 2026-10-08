@@ -1,5 +1,7 @@
 import { getRawDb } from "@/db/raw";
 import { normalizeCourseDesign } from "@/lib/course-design";
+import { enrolWithSnapshot } from "./course-access";
+import { notify } from "./delivery-notifications";
 
 export type PaymentPurpose = "enrollment" | "certificate";
 
@@ -44,13 +46,14 @@ export async function settlePaymentOrder(reference: string, providerData: unknow
       .bind(JSON.stringify(providerData ?? {}), reference).run();
   }
   if (order.purpose === "enrollment") {
-    await db.prepare("INSERT OR IGNORE INTO enrollments (user_email, course_code, status) VALUES (?, ?, 'active')")
-      .bind(order.user_email, order.course_code).run();
+    const enrolled = enrolWithSnapshot(order.user_email,order.course_code);
+    if (enrolled.error) { await notify(order.user_email,`paid-unenrolled-${reference}`,"payment","Payment received; enrolment needs support",`${reference}: ${enrolled.error}. Request support or a refund in your payment history.`,"/?view=payments"); return {error:enrolled.error,status:409} as const; }
   }
   if (order.purpose === "certificate") {
     const { issueCertificateIfComplete } = await import("@/lib/course-completion");
     await issueCertificateIfComplete(order.user_email, order.course_code);
   }
+  await notify(order.user_email,`paid-${reference}`,"payment","Payment receipt available",`Payment ${reference} was verified. Your receipt is available in payment history.`,"/?view=payments");
   return { order: { ...order, status: "paid" } } as const;
 }
 
