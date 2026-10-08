@@ -1,43 +1,21 @@
-UCC MICRO-CREDENTIAL PLATFORM — FACILITATOR STUDIO AND PDF PREVIEW UPDATE
+UCC GROWTH+ v13.0.2 - PAGE UPLOAD REPAIR
 
-This is a cumulative update. It includes the earlier governed
-Approve & Publish correction as well as the redesigned outcome editor
-and protected PDF learner preview.
+Extract the ZIP. Open the directory containing package.json and src.
+Open the root of the existing Microcrendential repository in GitHub.
+Drag the extracted src and scripts folders and the root configuration files
+into Upload files. Preserve each folder path.
 
-UPLOAD LOCATION
-Upload from the ROOT of the GitHub repository.
+The three page.tsx destinations must be:
+  src/app/page.tsx
+  src/app/facilitator-studio/page.tsx
+  src/app/learn/page.tsx
 
-The GitHub breadcrumb must show:
-  Microcrendential
+Do not drag the three page.tsx files individually into src/app.
+Do not upload the containing release folder as a nested repository directory.
 
-It must NOT show:
-  Microcrendential / src
-  Microcrendential / src / app
+Upload matching components, next.config.mjs, package.json, package-lock.json
+and scripts/check-route-layout.mjs together. Remove the obsolete bracketed
+learner route file if it already exists.
 
-STEPS
-1. Extract this ZIP on your computer.
-2. Open https://github.com/yawanokye/Microcrendential
-3. Select Add file > Upload files.
-4. Drag the extracted "src" folder into the upload area.
-5. Confirm that GitHub lists these exact destinations:
-     src/app/page.tsx
-     src/app/commercial-course-studio.css
-     src/app/modern-platform.css
-     src/app/api/content/ingest/route.ts
-     src/app/api/courses/route.ts
-     src/lib/document-content.ts
-6. Commit with this message:
-     Improve facilitator outcome design and PDF learner preview
-7. Allow Render to deploy the new commit.
-
-WHAT CHANGES AFTER DEPLOYMENT
-- Objectives, outcomes, skills and sections appear in compact dropdown panels.
-- Outcome capability and assessment method use structured drop-down menus.
-- Skills use a multi-select checkbox menu and still support custom skills.
-- The layout is responsive and prevents labels and fields from overlapping.
-- Uploaded PDFs open in a protected, searchable original-layout viewer.
-- Unreliable binary PDF extraction is never displayed as learner-readable text.
-- Administrators retain the governed approval and publication correction.
-
-Do not create src/app/app. If GitHub shows a destination beginning with
-src/app/app, cancel the upload and return to the repository root first.
+See BUILD-REPAIR-v13.0.2.md for the full file list and instructions.
+The next Render build must show version 13.0.2.
