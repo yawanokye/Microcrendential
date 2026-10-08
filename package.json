@@ -1,6 +1,6 @@
 {
   "name": "ucc-microcredentials",
-  "version": "12.2.2",
+  "version": "13.0.0",
   "private": true,
   "engines": {
     "node": ">=22.13.0"
@@ -15,7 +15,9 @@
     "backup": "node scripts/pilot-backup.mjs",
     "backup:verify": "node scripts/verify-backup.mjs",
     "retention:enforce": "node scripts/enforce-identity-retention.mjs",
-    "pilot:check": "npm run lint && npm test && npm run typecheck && npm run build"
+    "pilot:check": "npm run lint && npm test && npm run typecheck && npm run build",
+    "test:api": "node scripts/test-commercial-api.mjs",
+    "test:browser": "node scripts/test-commercial-browser.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

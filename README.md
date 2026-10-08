@@ -1,6 +1,6 @@
-# UCC Growth+ Learning Platform — GitHub/Render Edition
+# UCC Growth+ Learning Platform - GitHub/Render Edition
 
-This package contains dedicated learner, facilitator and system-administration portals, a public learner registration journey, a commercial outcome-led Course Studio, governed identity and assessment workflows, verifiable certificates and institution-level learning analytics. Version 12 adds the official-pilot controls for email verification, staff two-step sign-in, password recovery, support records, controlled payments, automatic backups, identity retention and deployment promotion.
+This package contains dedicated learner, facilitator and system-administration portals, a public learner registration journey, a commercial outcome-led Course Studio, governed identity and assessment workflows, verifiable certificates and institution-level learning analytics. Version 13 adds saved learner work, permanent lesson routes, durable grading, course teams, intakes and cohorts, working discussions and schedules, threaded support, PDF receipts, refund tracking and UCC-to-Anovlad usage reconciliation. Existing email, pilot security and Render storage controls are retained. See [commercial release notes](RELEASE-NOTES-UCC-GROWTHPLUS-v13.0.0.md), [setup and acceptance](COMMERCIAL-DELIVERY-RUNBOOK.md) and [validation](VALIDATION-2026-10-07-v13.0.0.md).
 
 Each role has a separate operational experience:
 
@@ -16,14 +16,14 @@ Role separation is enforced by both the interface and the API. Hiding a navigati
 - A facilitator can upload a complete course manual and receive an editable, section-based course proposal. The original file is retained, while extracted headings and rich content become guided learner lessons. Automatic extraction never bypasses facilitator review or academic approval.
 - Learner reading progress is persisted per lesson. Required lessons unlock in sequence, each lesson ends with **Complete and continue**, and the course assessment stays locked until required learning is complete.
 - Human-marked questions are never auto-awarded. Learners see an awaiting-marking state; facilitators receive a dedicated evidence, rubric, scoring, feedback and resubmission queue.
-- Published courses are immutable. Facilitators edit a controlled revision while the approved version remains available to learners; only an administrator-approved revision replaces the live version.
+- Published courses are immutable. Facilitators edit a controlled revision while the approved version remains available to learners; an administrator-approved revision becomes the version for future enrolments. Existing enrolments retain their approved syllabus snapshot.
 - Facilitator and Provost certificate signatures are managed through restricted registers and snapshotted onto newly issued credentials. Administrators may maintain both registers; a facilitator may maintain only their own signature.
 - Facilitators can author text or sanitised HTML, upload protected files, or import a public link. `.PDF`, `.DOCX`, `.TXT`, `.MD`, `.HTML` and `.RTF` sources are converted to readable HTML where possible; the protected original remains available to authorised learners. Other Word, PowerPoint, image, audio and video files remain protected course attachments.
 - Every learning block records its section, unit, estimated time, source/licence, accessibility review and mapped learning outcomes. The learner course view presents the same structured syllabus, objectives, outcomes and authentic evidence requirements.
-- A dedicated five-step **Learner Registration Portal** verifies the email, creates a secure account, captures learner and accessibility preferences, protects identity evidence, and assigns a unique learner number.
+- The **Learner Registration Portal** verifies an accessible email and supports starting with a basic profile and accepted privacy terms. Extended biodata can be saved and resumed. Identity evidence is reviewed before an award, or before learning when the approved course requires it.
 - A private **Skills Passport** combines earned credentials, assessed practical competencies and progress towards stackable discipline pathways. Learners can export their private record as JSON.
-- A **University of Cape Coast digital certificate** is issued only when the learner identity is verified, the scored course assessment is passed and every activity marked required has passed evidence. The audit snapshot is stored with the award. Its genuine QR code opens the no-sign-in `/verify-credential` record, which checks live active, expired or revoked status.
-- Facilitators receive governed **cohort intelligence** for only their own courses, including participation, completion, average scores, pass rates and evidence queues.
+- A **University of Cape Coast digital certificate** is issued only when the learner identity is verified, the approved requirements are met. Achievement awards require a passing assessment; participation and attendance awards use the approved attendance and learning requirements. The audit snapshot is stored with the award. Its genuine QR code opens the no-sign-in `/verify-credential` record, which checks live active, under-review, expired or revoked status.
+- Facilitators receive governed **cohort intelligence** for courses they own or are assigned to, including participation, completion, average scores, pass rates and evidence queues.
 - Administrators receive institution-wide analytics plus a searchable **Credential Registry** with a recorded reason for every revocation and a controlled restoration action.
 - Commercial role-selection, sign-in, registration, learner, educator, administrator and verifier experiences share one responsive product design and remain usable on desktop, tablet and mobile.
 - Virtual laboratories use recognisable workbenches, apparatus, instrument panels, clinical stations, observations and practical reports so the learner experience resembles a real guided laboratory workflow.
@@ -33,10 +33,9 @@ Role separation is enforced by both the interface and the API. Hiding a navigati
 1. From the public portal selector, choose **Register as a learner**.
 2. Create a password with at least 12 characters using any long-term email address.
 3. Enter the six-digit email verification code.
-4. Add education, occupation, organisation, learning interests, preferred language and accessibility support needs.
-5. Upload an accepted identity document and take a current selfie using the browser camera.
-6. Review the information and submit it for an authorised identity decision.
-7. After approval, sign in through **Learner Portal**.
+4. Accept the privacy terms and start learning with a basic profile, or continue the extended profile journey.
+5. Add optional biodata and learning preferences later. Saved biodata excludes passwords, identity numbers and identity images.
+6. Submit identity evidence for an authorised review before an award. A course may require this review before learning instead.
 
 The package is adapted for Render. It uses:
 
@@ -62,7 +61,7 @@ Public-link imports reject private, loopback and internal-network addresses, val
 
 ## UCC certificate and QR verification lifecycle
 
-The completion engine evaluates four governed evidence classes: active verified learner identity, a passing course assessment, every required virtual practical, and every required Colab notebook activity. Optional activities do not delay issuance. When all configured requirements pass, the enrolment is marked complete and one certificate is issued for that learner/course pair.
+The completion engine uses the pinned approved course design: verified learner identity, required lessons and lesson activities, the applicable final assessment, selected practical requirements and participation attendance. Additional Colab and virtual practicals are optional unless selected as award requirements. Participation and attendance awards do not require a scored final assessment. When all configured requirements pass, the enrolment is marked complete and one certificate is issued for that learner/course pair.
 
 The certificate records the issuer, learner and course, credit value, delivery mode, requirements snapshot, issue time and live governance status. The learner can download a server-generated A4 landscape PDF directly without opening the preview. The course code becomes the filename, and the UCC crest, approved partner branding, stored signatures and verification QR are embedded into the PDF so they remain visible outside the browser. The expanded preview and print option remain available. Administrators can revoke or restore the record, and a scan always reflects the current registry status rather than a static image claim.
 

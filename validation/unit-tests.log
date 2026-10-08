@@ -1,0 +1,77 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> ucc-microcredentials@13.0.0 test
+> node --import tsx --test tests/*.test.ts
+
+✔ AI course output is normalized to platform editorial limits (11.009746ms)
+✔ Vertex media accepts only supported YouTube and Cloud Storage sources (1.409667ms)
+✔ Vertex media rejects arbitrary and insecure URLs (0.882231ms)
+✔ AI status is safe for the browser and always requires human approval (1.827708ms)
+✔ AI Studio accepts the canonical base64 Vertex credential variable (0.288355ms)
+✔ learner payload never contains answer keys or marking rubrics (1.565273ms)
+✔ rule questions are scored locally and rubric questions are queued for AI grading (0.820458ms)
+✔ facilitator pass marks are applied exactly without rounding a failing mark up (0.387745ms)
+✔ attempt parsing is bounded (0.321886ms)
+✔ publication requires a rubric for AI-marked evidence (0.427545ms)
+✔ course code becomes a safe PDF filename (0.956253ms)
+✔ joint issuance requires partner identity, logo and authorised signatory (0.370168ms)
+✔ CPD points require traceable approval (0.278631ms)
+✔ issued certificate snapshots reconstruct partnership wording (0.402257ms)
+✔ downloaded certificates are generated as readable landscape PDFs (362.134861ms)
+✔ correcting a passing grade downward removes the aggregate pass (8.725989ms)
+✔ a separate valid passing attempt remains authoritative after another attempt is corrected (2.277337ms)
+✔ saved enrolment pins the approved syllabus across later amendments (1.348405ms)
+✔ course team permissions distinguish teaching, marking, moderation and management (1.563009ms)
+✔ attendance awards require attendance rather than an assessment pass (8.635482ms)
+✔ future attendance cannot satisfy a participation award (3.64465ms)
+✔ a certificate becomes under review when corrected evidence no longer satisfies the award (12.888071ms)
+✔ a saved grading job finishes independently of the original request (8.982351ms)
+✔ assisted grading records a draft score without publishing a pass (4.217885ms)
+✔ learning progress and resume records use the same saved lesson data (6.51966ms)
+✔ billable usage excludes staff and test learners and deduplicates users across courses (3.665341ms)
+✔ notification deduplication preserves read state and avoids repeat messages (0.586055ms)
+✔ intake capacity and closure are enforced atomically (2.056274ms)
+✔ failed transactions roll back all writes (0.471672ms)
+✔ delivery policy validates dates and bounds without requiring institutional emails (0.151429ms)
+✔ Course Studio AI status reports readiness without exposing credentials (1.334243ms)
+✔ Course Studio AI timeout is configurable and safely bounded (0.279562ms)
+✔ Course Studio accepts the canonical base64 Vertex credential variable (0.21223ms)
+✔ programme initiation source and programme home are normalized as governance metadata (3.489286ms)
+✔ publish readiness requires programme source, originating unit and programme home (1.127372ms)
+✔ readable course HTML preserves safe figures and authorised inline images (2.186119ms)
+✔ readable course HTML permits HTTPS images but removes unsafe image sources (1.41119ms)
+✔ pilot password policy requires a long password and stores a salted hash (147.313321ms)
+✔ identity upload validation checks actual file signatures (1.406132ms)
+✔ executable binary signatures are rejected (0.467907ms)
+✔ Google Mail can provide transactional authentication email (0.427656ms)
+✔ Google OAuth is configured for Render email delivery (0.367064ms)
+✔ Resend remains available as an optional compatibility provider (0.251019ms)
+✔ Resend test-sender rejection is translated into an actionable message (0.329537ms)
+✔ Render acceptance deployment keeps manual promotion and payments off while enabling the full workflow (0.734418ms)
+✔ platform mode fails safely to Demonstration (0.305481ms)
+✔ Render acceptance can exercise full functionality without changing its environment label (0.421697ms)
+✔ pilot activation invalidates sessions and emergency restriction blocks credential issuance (0.581868ms)
+✔ entrypoint orders scoped ownership repair before privilege drop and server launch (175.723537ms)
+﹣ mounted root-owned storage is repaired before the server runs without root (0.259762ms) # Requires CHOWN, SETUID and SETGID capabilities, unavailable in this workspace.
+﹣ ownership repair leaves a nested symlink's external target untouched (0.166181ms) # Requires CHOWN, SETUID and SETGID capabilities, unavailable in this workspace.
+✔ storage initialization rejects system roots before making changes (83.297931ms)
+✔ storage initialization rejects a backup directory outside DATA_DIR (70.035214ms)
+﹣ backup succeeds as the unprivileged user after mounted-storage repair (0.134964ms) # Requires CHOWN, SETUID and SETGID capabilities, unavailable in this workspace.
+✔ a backup-directory permission failure is recorded without a misleading success (88.972484ms)
+✔ a writable storage directory produces a verified database-and-upload archive (210.87949ms)
+✔ retention runs after a completed backup (905.146674ms)
+✔ retention is skipped after a failed backup (852.256716ms)
+✔ same-origin mutations are accepted (4.070362ms)
+✔ cross-origin mutations are rejected (3.78298ms)
+✔ same-site browser requests without Origin remain compatible (0.407776ms)
+✔ same-origin browser mutations survive an HTTPS reverse proxy (0.380444ms)
+✔ proxy origin is accepted when fetch metadata is unavailable (0.514366ms)
+✔ a foreign origin remains blocked behind the proxy (0.663151ms)
+ℹ tests 64
+ℹ suites 0
+ℹ pass 61
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 3
+ℹ todo 0
+ℹ duration_ms 3189.941458
