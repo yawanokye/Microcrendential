@@ -1,8 +1,9 @@
+import { learningAccess } from "@/lib/course-access";
 import { getRawDb } from "@/db/raw";
 import { requireActiveProfile } from "@/lib/accounts";
 import { getStoredFile } from "@/lib/render-storage";
 
-type CandidateCourse = { created_by_email: string; status: string; materials_json: string; enrolled?: number };
+type CandidateCourse = { code:string;created_by_email: string; status: string; materials_json: string; enrolled?: number };
 
 function containsFileKey(materialsJson: string, key: string) {
   try {
@@ -34,15 +35,15 @@ export async function GET(request: Request) {
       const needle = `%${key.replaceAll("%", "\\%").replaceAll("_", "\\_")}%`;
       if (account.profile.role === "learner") {
         const candidates = await db.prepare(`
-          SELECT c.created_by_email, c.status, c.materials_json, 1 AS enrolled
+          SELECT c.code,c.created_by_email, c.status, COALESCE(json_extract(e.course_snapshot_json,'$.materials_json'),c.materials_json) materials_json, 1 AS enrolled
           FROM course_drafts c JOIN enrollments e ON e.course_code = c.code
           WHERE c.status = 'active' AND e.user_email = ? AND e.status IN ('active','completed')
-            AND c.materials_json LIKE ? ESCAPE '\\'
+            AND COALESCE(json_extract(e.course_snapshot_json,'$.materials_json'),c.materials_json) LIKE ? ESCAPE '\\'
         `).bind(account.profile.email, needle).all<CandidateCourse>();
-        authorised = candidates.results.some((course) => containsFileKey(course.materials_json, key) && (!stored.metadata.ownerEmail || stored.metadata.ownerEmail === course.created_by_email));
+        for(const course of candidates.results)if(containsFileKey(course.materials_json,key)&&!(await learningAccess(account.profile,course.code)).error){authorised=true;break;}
       } else {
-        const candidates = await db.prepare("SELECT created_by_email, status, materials_json FROM course_drafts WHERE created_by_email = ? AND materials_json LIKE ? ESCAPE '\\'")
-          .bind(account.profile.email, needle).all<CandidateCourse>();
+        const candidates = await db.prepare("SELECT code,created_by_email, status, materials_json FROM course_drafts c WHERE (created_by_email = ? OR EXISTS(SELECT 1 FROM course_team t WHERE t.course_code=c.code AND t.user_email=?)) AND materials_json LIKE ? ESCAPE '\\'")
+          .bind(account.profile.email,account.profile.email, needle).all<CandidateCourse>();
         authorised = candidates.results.some((course) => containsFileKey(course.materials_json, key));
       }
     }

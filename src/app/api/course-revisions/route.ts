@@ -1,3 +1,4 @@
+import { coursePermission } from "@/lib/course-access";
 import { getRawDb } from "@/db/raw";
 import { requireActiveProfile } from "@/lib/accounts";
 import { evaluateCourseQuality, normalizeCourseDesign, type CourseMaterialRecord } from "@/lib/course-design";
@@ -178,7 +179,7 @@ export async function POST(request: Request) {
   const db = getRawDb();
   const source = await db.prepare("SELECT * FROM course_drafts WHERE id = ? AND status = 'active' LIMIT 1").bind(courseId).first<CourseSourceRow>();
   if (!source) return Response.json({ error: "The active course was not found." }, { status: 404 });
-  if (account.profile.role !== "admin" && source.created_by_email !== account.profile.email) return Response.json({ error: "You can revise only your own active courses." }, { status: 403 });
+  if (!await coursePermission(account.profile,source.code,"teach")) return Response.json({ error: "You can revise only your own active courses." }, { status: 403 });
   const existing = await db.prepare(`SELECT r.*, u.full_name AS facilitator_name FROM course_revisions r LEFT JOIN users u ON u.email = r.created_by_email
     WHERE r.course_id = ? AND r.status IN ('draft','pending_review','rejected') ORDER BY r.updated_at DESC LIMIT 1`)
     .bind(courseId).first<RevisionRow>();

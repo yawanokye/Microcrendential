@@ -4,6 +4,7 @@ import { normalizeCourseDesign } from "@/lib/course-design";
 import { rejectCrossSiteMutation } from "@/lib/request-security";
 import { recordAudit } from "@/lib/audit";
 import { paymentsEnabled } from "@/lib/runtime-config";
+import { enrolWithSnapshot } from "@/lib/course-access";
 
 export async function POST(request: Request) {
   const originError = rejectCrossSiteMutation(request); if (originError) return originError;
@@ -23,8 +24,8 @@ export async function POST(request: Request) {
       .bind(account.profile.email, courseCode).first();
     if (!paid) return Response.json({ error: "Payment is required to enrol in this course.", paymentRequired: true, purpose: "enrollment", amountGhs: design.priceGhs }, { status: 402 });
   }
-  await getRawDb().prepare("INSERT OR IGNORE INTO enrollments (user_email, course_code, status) VALUES (?, ?, 'active')")
-    .bind(account.profile.email, courseCode).run();
+  const enrolled = enrolWithSnapshot(account.profile.email,courseCode);
+  if (enrolled.error) return Response.json({error:enrolled.error},{status:409});
   await recordAudit(account.profile.email, "course.enrolled", { courseCode });
   return Response.json({ enrolled: true, courseCode }, { status: 201 });
 }

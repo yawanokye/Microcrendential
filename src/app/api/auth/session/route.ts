@@ -8,7 +8,7 @@ export async function GET() {
   if (!identity) return Response.json({ authenticated: false });
   let enrollments: string[] = [];
   if (profile?.role === "learner") {
-    const rows = await getRawDb().prepare("SELECT course_code FROM enrollments WHERE user_email = ? AND status = 'active' ORDER BY enrolled_at DESC")
+    const rows = await getRawDb().prepare("SELECT course_code FROM enrollments WHERE user_email = ? AND status IN ('active','completed') ORDER BY enrolled_at DESC")
       .bind(profile.email).all<{ course_code: string }>();
     enrollments = rows.results.map((row) => row.course_code);
   }
@@ -24,6 +24,14 @@ export async function POST(request: Request) {
   if (profile) return Response.json({ error: "An account already exists for this email." }, { status: 409 });
   const payload = await request.json() as { fullName?: string; dateOfBirth?: string; gender?: string; nationality?: string; phone?: string; address?: string; idType?: string; idLast4?: string; idDocumentKey?: string; selfieKey?: string; consent?: boolean; educationLevel?: string; occupation?: string; organisation?: string; interests?: string[]; preferredLanguage?: string; accessibilityNeeds?: string; termsAccepted?: boolean; privacyAccepted?: boolean };
   const fullName = payload.fullName?.trim() || identity.fullName || identity.displayName;
+  if (!payload.idDocumentKey && !payload.selfieKey) {
+    if (!fullName || !payload.termsAccepted || !payload.privacyAccepted) return Response.json({error:"Your name and acceptance of the terms and privacy notice are required."},{status:400});
+    const db=getRawDb();
+    const created=await db.prepare("INSERT INTO users(email,full_name,role,status,identity_status,preferred_language,terms_accepted_at,privacy_accepted_at) VALUES(?,?,'learner','active','not_submitted',?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)").bind(identity.email.toLowerCase(),fullName,payload.preferredLanguage||"English").run();
+    const studentNumber=`UCC-MC-${new Date().getUTCFullYear()}-${String(created.meta.last_row_id).padStart(6,"0")}`;
+    await db.prepare("UPDATE users SET student_number=? WHERE id=?").bind(studentNumber,created.meta.last_row_id).run();
+    return Response.json({profile:{email:identity.email.toLowerCase(),fullName,role:"learner",status:"active",identityStatus:"not_submitted",studentNumber},enrollments:[]},{status:201});
+  }
   const required = [payload.dateOfBirth, payload.gender, payload.nationality, payload.phone, payload.address, payload.idType, payload.idLast4, payload.idDocumentKey, payload.selfieKey, payload.educationLevel, payload.preferredLanguage];
   if (!fullName || required.some((value) => !value?.trim()) || !payload.consent || !payload.termsAccepted || !payload.privacyAccepted) return Response.json({ error: "Complete all learner profile, identity evidence, terms and privacy-consent fields." }, { status: 400 });
   if (!await ownsValidIdentityEvidence(identity.email, payload.idDocumentKey!, payload.selfieKey!)) return Response.json({ error: "Upload a valid identity document and live selfie from this signed-in account." }, { status: 400 });

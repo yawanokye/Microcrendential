@@ -1,5 +1,6 @@
 import { getRawDb } from "@/db/raw";
 import { requireActiveProfile } from "@/lib/accounts";
+import { learningAccess } from "@/lib/course-access";
 
 type Activity = {
   id?: string;
@@ -20,13 +21,15 @@ export async function GET(request: Request) {
   const account = await requireActiveProfile(["learner"]); if (account.error || !account.profile) return account.error;
   const courseCode = new URL(request.url).searchParams.get("courseCode")?.trim() ?? "";
   const db = getRawDb();
-  const course = await db.prepare("SELECT activities_json FROM course_drafts WHERE code=? AND status='active' LIMIT 1").bind(courseCode).first<{activities_json:string}>();
+  const access = await learningAccess(account.profile,courseCode);
+  if (access.error) return access.error;
+  const course = access.course;
   if (!course) return Response.json({ error: "Active course not found." }, { status: 404 });
   const statuses: Record<string, ActivityStatus> = {};
   for (const [index, activity] of parseActivities(course.activities_json).entries()) {
     const id = String(activity.id || `activity-${index+1}`);
     if (activity.kind === "virtual_lab" && activity.practicalId) {
-      const row = await db.prepare("SELECT status,mark,feedback,assessed_at FROM virtual_lab_submissions WHERE learner_email=? AND practical_id=? ORDER BY id DESC LIMIT 1").bind(account.profile.email,activity.practicalId).first<{status:string;mark:number|null;feedback:string;assessed_at:string|null}>();
+      const row = await db.prepare("SELECT status,mark,feedback,assessed_at FROM virtual_lab_submissions WHERE learner_email=? AND practical_id=? AND course_code=? ORDER BY id DESC LIMIT 1").bind(account.profile.email,activity.practicalId,courseCode).first<{status:string;mark:number|null;feedback:string;assessed_at:string|null}>();
       const maximum=Math.max(1,Number(activity.maxMark)||100),threshold=Math.min(100,Math.max(1,Number(activity.passMark)||60));
       const percentage=row?.mark===null||row?.mark===undefined?null:(Number(row.mark)/maximum)*100;
       statuses[id] = { passed:Boolean(row&&row.status==="assessed"&&percentage!==null&&percentage>=threshold&&row.feedback?.trim()), status:row?.status ?? "not_started", mark:row?.mark ?? null, feedback:row?.feedback ?? "", assessedAt:row?.assessed_at ?? null, maximum, passMark:threshold };

@@ -1,7 +1,9 @@
 import { Buffer } from "node:buffer";
 import { getRawDb } from "@/db/raw";
 import { requireActiveProfile } from "@/lib/accounts";
-import { gradeActivityEvidenceWithAi } from "@/lib/assessment-ai";
+import { after } from "next/server";
+import { queueEvidence, processEvidenceJobs } from "@/lib/evidence-workflow";
+import { learningAccess, recordEngagement } from "@/lib/course-access";
 import { issueCertificateIfComplete } from "@/lib/course-completion";
 import { extractReadableContent } from "@/lib/document-content";
 import { rejectCrossSiteMutation } from "@/lib/request-security";
@@ -40,10 +42,11 @@ export async function POST(request: Request) {
   const evidence = form.get("evidence"); const hasFile = evidence instanceof File && evidence.size > 0;
   if (!courseCode || !activityId) return Response.json({ error: "Course and learning activity are required." }, { status: 400 });
   const db = getRawDb();
-  const course = await db.prepare(`SELECT c.materials_json,c.activities_json FROM course_drafts c JOIN enrollments e ON e.course_code=c.code AND e.user_email=? AND e.status IN ('active','completed') WHERE c.code=? AND c.status='active' LIMIT 1`).bind(account.profile.email,courseCode).first<{materials_json:string;activities_json:string}>();
+  const access=await learningAccess(account.profile,courseCode);if(access.error)return access.error;const course=access.course;
   if (!course) return Response.json({ error: "This learning activity is unavailable or you are not enrolled." }, { status: 403 });
   const activity = parseActivities(course.materials_json, course.activities_json).find((item) => String(item.id ?? "") === activityId);
   if (!activity || !activity.materialId) return Response.json({ error: "The structured learning activity was not found." }, { status: 404 });
+  if (activity.dueAt && Date.parse(activity.dueAt) < Date.now()) return Response.json({ error: "The deadline for this learning activity has passed. Contact the teaching team." }, { status: 409 });
   const responseType = activity.responseType ?? "long_text";
   if (["short_text","long_text"].includes(responseType) && !responseText) return Response.json({ error: "Enter your response before submitting the activity." }, { status: 400 });
   if (responseType === "link") {
@@ -55,15 +58,12 @@ export async function POST(request: Request) {
   if (hasFile && evidence.type.startsWith("image/") && evidence.size > 8 * 1024 * 1024) return Response.json({ error: "Images used for automated visual grading must be 8 MB or smaller." }, { status: 413 });
   if (responseType === "image" && hasFile && !evidence.type.startsWith("image/")) return Response.json({ error: "This activity requires an image, drawing or chart file." }, { status: 400 });
 
-  const alreadyPassed = await db.prepare("SELECT id,mark,feedback,assessed_at FROM material_activity_submissions WHERE user_email=? AND course_code=? AND activity_id=? AND passed=1 LIMIT 1").bind(account.profile.email,courseCode,activityId).first<{id:number;mark:number;feedback:string;assessed_at:string}>();
-  if (alreadyPassed) return Response.json({ error: "You have already passed this required learning activity. It remains available for review but cannot generate a second completion.", alreadyPassed:true, mark:alreadyPassed.mark, feedback:alreadyPassed.feedback }, { status: 409 });
-  const previous = await db.prepare("SELECT COUNT(*) count FROM material_activity_submissions WHERE user_email=? AND course_code=? AND activity_id=?").bind(account.profile.email,courseCode,activityId).first<{count:number}>();
-  const attemptNumber = Number(previous?.count ?? 0) + 1; const attemptsAllowed = Math.min(20, Math.max(1, Number(activity.attemptsAllowed) || 1));
-  if (attemptNumber > attemptsAllowed) return Response.json({ error: "You have used all permitted attempts for this learning activity." }, { status: 409 });
+  const attemptsAllowed = Math.min(20, Math.max(1, Number(activity.attemptsAllowed) || 1));
 
   const maxMark = Math.max(1, Math.floor(Number(activity.maxMark) || 100)); const passMark = Math.min(100, Math.max(1, Math.floor(Number(activity.passMark) || 60)));
   const gradingMode = activity.gradingMode ?? "ai_auto";
-  let mark = 0, passed = false, feedback = "", criteria: unknown[] = [], model: string | null = null, imageDataUrl: string | undefined, extractedEvidence = "";
+  if (gradingMode !== "rule" && !activity.rubric?.trim()) return Response.json({ error: "The approved rubric is missing." }, { status: 409 });
+  let mark = 0, passed = false, feedback = "", imageDataUrl: string | undefined, extractedEvidence = ""; const criteria:unknown[]=[];const model:string|null=null;
   let evidenceKey: string | null = null, evidenceFileName: string | null = null, evidenceMimeType: string | null = null;
 
   if (hasFile) {
@@ -71,29 +71,40 @@ export async function POST(request: Request) {
     if (evidence.type.startsWith("image/")) imageDataUrl = `data:${evidence.type};base64,${buffer.toString("base64")}`;
     else {
       try { extractedEvidence = extractReadableContent(buffer, evidence.name, evidence.type).text.slice(0, 80_000); } catch { extractedEvidence = ""; }
-      if (!extractedEvidence && gradingMode !== "rule") return Response.json({ error: "The uploaded evidence could not be converted into readable text for automated grading. Upload a readable PDF, DOCX, text file or image." }, { status: 400 });
+      if (!extractedEvidence && !["rule", "facilitator"].includes(gradingMode)) return Response.json({ error: "The uploaded evidence could not be converted into readable text for automated grading. Upload a readable PDF, DOCX, text file or image." }, { status: 400 });
     }
   }
 
+  if (hasFile) evidenceKey = await putStoredFile(`learning-activity-evidence/${courseCode}/${activityId}`, evidence, { contentType:evidence.type || "application/octet-stream", originalName:evidence.name, ownerEmail:account.profile.email, evidenceKind:"learning-activity" });
+  function saveAttempt(assessed: boolean): { error: string } | { id: number; attemptNumber: number } {
+    return db.transaction(native => {
+      const previous = native.prepare("SELECT COUNT(*) count, MAX(passed) passed, MAX(CASE WHEN status IN ('submitted','awaiting_marking') THEN 1 ELSE 0 END) pending FROM material_activity_submissions WHERE user_email=? AND course_code=? AND activity_id=?").get(account.profile!.email, courseCode, activityId) as { count: number; passed: number; pending: number };
+      if (previous.passed) return { error: "You have already passed this learning activity. Your evidence remains available for review." };
+      if (previous.pending) return { error: "Your previous evidence is saved and awaiting feedback. Wait for its decision before using another attempt." };
+      const attemptNumber = previous.count + 1;
+      if (attemptNumber > attemptsAllowed) return { error: "You have used all permitted attempts for this learning activity." };
+      const result = native.prepare("INSERT INTO material_activity_submissions(user_email,course_code,material_id,activity_id,attempt_number,response_type,response_text,evidence_key,evidence_file_name,evidence_mime_type,status,mark,max_mark,pass_mark,passed,feedback,criteria_json,grading_mode,model,assessed_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,CASE WHEN ?=1 THEN CURRENT_TIMESTAMP ELSE NULL END)").run(account.profile!.email, courseCode, activity!.materialId!, activityId, attemptNumber, responseType, responseText, evidenceKey, evidenceFileName, evidenceMimeType, assessed ? "assessed" : "submitted", assessed ? mark : null, maxMark, passMark, assessed && passed ? 1 : 0, assessed ? feedback : "Evidence saved; feedback pending.", JSON.stringify(criteria), gradingMode, model, assessed ? 1 : 0);
+      return { id: Number(result.lastInsertRowid), attemptNumber };
+    });
+  }
+  if (gradingMode !== "rule") {
+    const result = saveAttempt(false); if ("error" in result) return Response.json({ error: result.error }, { status: 409 });
+    if(gradingMode!=="facilitator") {await queueEvidence("inline",result.id,courseCode,account.profile.email,{id:activityId,title:activity.title||"Learning activity",instructions:activity.instructions||"Complete the activity",rubric:activity.rubric!,maxMark,gradingMode:gradingMode as "ai_auto"|"ai_luna"|"ai_terra",evidence:[responseText,extractedEvidence].filter(Boolean).join("\n\n"),imageDataUrl},passMark);after(()=>processEvidenceJobs().then(()=>{}));}
+    await recordEngagement(account.profile.email,courseCode,"evidence");
+    return Response.json({submission:{id:result.id,activityId,materialId:activity.materialId,attemptNumber:result.attemptNumber,status:"submitted",passed:false,feedback:"Your evidence is saved. Feedback will appear after grading."}},{status:202});
+  }
   if (gradingMode === "rule") {
     if (!["short_text","long_text","link"].includes(responseType)) return Response.json({ error: "Rule-based grading is available for text or link responses. Choose AI grading for image or document evidence." }, { status: 409 });
     const accepted = String(activity.correctAnswer ?? "").split(/\n|\|\|/).map(normalized).filter(Boolean);
     const correct = accepted.includes(normalized(responseText));
     mark = correct ? maxMark : 0; passed = (mark / maxMark) * 100 >= passMark;
     feedback = (correct ? activity.feedbackCorrect : activity.feedbackIncorrect)?.trim() || (correct ? "Correct. You have met the approved answer rule." : "The response does not yet meet the approved answer rule. Review the lesson and try again if another attempt is available.");
-  } else {
-    if (!activity.rubric?.trim()) return Response.json({ error: "This activity has no approved rubric. Ask the facilitator to complete its grading configuration." }, { status: 409 });
-    const combinedEvidence = [responseText && `Learner response:\n${responseText}`, extractedEvidence && `Extracted uploaded evidence:\n${extractedEvidence}`].filter(Boolean).join("\n\n") || "The learner submitted visual evidence in the attached image.";
-    let grade;
-    try { grade = await gradeActivityEvidenceWithAi({ id:activityId, title:activity.title || "Learning activity", instructions:activity.instructions || "Complete the activity.", rubric:activity.rubric, maxMark, gradingMode:gradingMode as "ai_auto"|"ai_luna"|"ai_terra", evidence:combinedEvidence, imageDataUrl }); }
-    catch(error){ return Response.json({ error:error instanceof Error?error.message:"Automated learning-activity grading could not be completed." }, { status:503 }); }
-    mark = Math.min(maxMark, Math.max(0, Math.floor(grade.earned))); passed = (mark / maxMark) * 100 >= passMark; model = grade.model; criteria = grade.criteria;
-    feedback = [grade.feedback, grade.learnerAdvice || activity.learnerAdvice].filter(Boolean).join("\n\n").trim();
   }
   if (!feedback) return Response.json({ error: "The activity cannot be completed without recorded feedback." }, { status: 503 });
-  if (hasFile) evidenceKey = await putStoredFile(`learning-activity-evidence/${courseCode}/${activityId}`, evidence, { contentType:evidence.type || "application/octet-stream", originalName:evidence.name, ownerEmail:account.profile.email, evidenceKind:"learning-activity" });
 
-  const result = await db.prepare(`INSERT INTO material_activity_submissions(user_email,course_code,material_id,activity_id,attempt_number,response_type,response_text,evidence_key,evidence_file_name,evidence_mime_type,status,mark,max_mark,pass_mark,passed,feedback,criteria_json,grading_mode,model,assessed_at) VALUES(?,?,?,?,?,?,?,?,?,?,'assessed',?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP)`).bind(account.profile.email,courseCode,activity.materialId,activityId,attemptNumber,responseType,responseText,evidenceKey,evidenceFileName,evidenceMimeType,mark,maxMark,passMark,passed?1:0,feedback,JSON.stringify(criteria),gradingMode,model).run();
+
+  const result = saveAttempt(true); if ("error" in result) return Response.json({ error: result.error }, { status: 409 });
+  await recordEngagement(account.profile.email,courseCode,"evidence");
   const completion = passed ? await issueCertificateIfComplete(account.profile.email,courseCode) : null;
-  return Response.json({ submission:{ id:result.meta.last_row_id, activityId, materialId:activity.materialId, attemptNumber, status:"assessed", mark, maxMark, passMark, passed, feedback, criteria, model }, completion:completion?.evaluation ?? null, certificate:completion?.certificate ?? null }, { status:201 });
+  return Response.json({ submission:{ id:result.id, activityId, materialId:activity.materialId, attemptNumber:result.attemptNumber, status:"assessed", mark, maxMark, passMark, passed, feedback, criteria, model }, completion:completion?.evaluation ?? null, certificate:completion?.certificate ?? null }, { status:201 });
 }

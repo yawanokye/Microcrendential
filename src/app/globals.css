@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "../styles/vendor/shadcn-tailwind-4.13.0.css";
+@import "../styles/delivery.css";
 
 :root { --navy:#003b5c; --navy-deep:#062f49; --gold:#f2b233; --teal:#128b83; --ink:#182832; --muted:#687982; --line:#dbe4e8; --wash:#f3f7f8; --white:#fff; --radius:14px; --primary:#003b5c; --primary-foreground:#fff; --background:#fff; --foreground:#182832; --muted-foreground:#687982; --border:#dbe4e8; --ring:#128b83; }
 * { box-sizing:border-box; }

@@ -1,3 +1,6 @@
+import { notifyTeachers } from "@/lib/delivery-notifications";
+import { coursePermission, enrolledCourse } from "@/lib/course-access";
+import { learnerCourseRecord } from "@/lib/delivery-reports";
 import { getRawDb } from "@/db/raw";
 import { requireActiveProfile } from "@/lib/accounts";
 import { evaluateCourseQuality, normalizeCourseDesign, type CourseMaterialRecord } from "@/lib/course-design";
@@ -216,17 +219,27 @@ function validateForReview(course: ReturnType<typeof normalizedPayload>) {
   return "";
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   const account = await requireActiveProfile();
   if (account.error || !account.profile) return account.error;
   const select = "SELECT c.*, u.full_name AS facilitator_name FROM course_drafts c LEFT JOIN users u ON u.email = c.created_by_email";
+  const params = new URL(request.url).searchParams;
+  const code = (params.get("code") || "").trim().toUpperCase().slice(0, 80);
+  const offset = Math.max(0, Math.floor(Number(params.get("offset")) || 0));
+  const limit = Math.min(250, Math.max(1, Math.floor(Number(params.get("limit")) || 100)));
+  const filter = code ? " AND c.code = ?" : "";
+  const codeValues = code ? [code] : [];
   const db = getRawDb(); let rows;
-  if (account.profile.role === "learner") rows = await db.prepare(`${select} WHERE c.status = 'active' ORDER BY c.activated_at DESC, c.created_at DESC LIMIT 100`).all<CourseRow>();
-  else if (account.profile.role === "facilitator") rows = await db.prepare(`${select} WHERE c.created_by_email = ? OR c.status = 'active' ORDER BY c.updated_at DESC, c.created_at DESC LIMIT 150`).bind(account.profile.email).all<CourseRow>();
-  else rows = await db.prepare(`${select} ORDER BY CASE c.status WHEN 'pending_review' THEN 0 WHEN 'active' THEN 1 WHEN 'draft' THEN 2 ELSE 3 END, c.updated_at DESC, c.created_at DESC LIMIT 250`).all<CourseRow>();
+  if (account.profile.role === "learner") rows = await db.prepare(`${select} WHERE c.status = 'active'${filter} ORDER BY c.activated_at DESC, c.created_at DESC, c.id DESC LIMIT ? OFFSET ?`).bind(...codeValues, limit + 1, offset).all<CourseRow>();
+  else if (account.profile.role === "facilitator") rows = await db.prepare(`${select} WHERE (c.created_by_email = ? OR c.status = 'active' OR EXISTS (SELECT 1 FROM course_team t WHERE t.course_code=c.code AND t.user_email=?))${filter} ORDER BY c.updated_at DESC, c.created_at DESC, c.id DESC LIMIT ? OFFSET ?`).bind(account.profile.email, account.profile.email, ...codeValues, limit + 1, offset).all<CourseRow>();
+  else rows = await db.prepare(`${select} WHERE 1=1${filter} ORDER BY CASE c.status WHEN 'pending_review' THEN 0 WHEN 'active' THEN 1 WHEN 'draft' THEN 2 ELSE 3 END, c.updated_at DESC, c.created_at DESC, c.id DESC LIMIT ? OFFSET ?`).bind(...codeValues, limit + 1, offset).all<CourseRow>();
+  const nextOffset = rows.results.length > limit ? offset + limit : null;
+  rows.results = rows.results.slice(0, limit);
+  if(account.profile.role==="learner") { for(const row of rows.results) {const enrolled=await enrolledCourse(account.profile.email,row.code);if(enrolled)Object.assign(row,enrolled);} }
   const presented = attachBroaderCredentialLinks(rows.results.map(present));
-  if(account.profile.role==="learner"){const enrolledRows=await db.prepare("SELECT course_code FROM enrollments WHERE user_email=? AND status IN ('active','completed')").bind(account.profile.email).all<{course_code:string}>();const enrolled=new Set(enrolledRows.results.map(r=>r.course_code));const learnerCourses=presented.filter(course=>course.design.credentialStructure!=="broader");return Response.json({courses:learnerCourses.map(course=>{const safe=learnerVisibleCourse(course);return enrolled.has(course.code)?{...safe,enrolled:true,assessmentConfig:learnerSafeAssessmentConfig(course.assessmentConfig as AssessmentConfigRecord,course.questionLimit)}:catalogueOnly(safe);})});}
-  return Response.json({ courses: presented });
+  if(account.profile.role==="learner") { const courses=[];for(const course of presented.filter(c=>c.design.credentialStructure!=="broader")){const enrolled=await enrolledCourse(account.profile.email,course.code);const safe=learnerVisibleCourse(course);if(enrolled){const record=await learnerCourseRecord(account.profile.email,course.code);const design=course.design;if(design.delivery.identityRequired==="before_learning"&&account.profile.identity_status!=="verified"){courses.push({...catalogueOnly(safe),enrolled:true,identityRequired:true});}else courses.push({...safe,enrolled:true,progress:record?.progress??0,resumeUrl:record?.resumeUrl,lastActivityAt:record?.lastActivityAt,assessmentConfig:learnerSafeAssessmentConfig(course.assessmentConfig as AssessmentConfigRecord,course.questionLimit)});}else courses.push(catalogueOnly(safe));}return Response.json({courses,nextOffset});}
+  for(const course of presented)Object.assign(course,{canEdit:await coursePermission(account.profile,course.code,"teach")});
+  return Response.json({ courses: presented, nextOffset });
 }
 
 export async function POST(request: Request) {
@@ -255,7 +268,7 @@ export async function PUT(request: Request) {
   const db = getRawDb();
   const existing = await db.prepare("SELECT created_by_email, status, version_number FROM course_drafts WHERE id = ? LIMIT 1").bind(id).first<{ created_by_email: string; status: string; version_number: number }>();
   if (!existing) return Response.json({ error: "Course draft was not found." }, { status: 404 });
-  if (account.profile.role !== "admin" && existing.created_by_email !== account.profile.email) return Response.json({ error: "You can edit only your own course drafts." }, { status: 403 });
+  if (!await coursePermission(account.profile, (await db.prepare("SELECT code FROM course_drafts WHERE id=?").bind(id).first<{code:string}>())?.code||"", "teach")) return Response.json({ error: "You can edit only your own course drafts." }, { status: 403 });
   if (existing.status === "active") return Response.json({ error: "An active course is locked. Create a new version through the quality-governance process." }, { status: 409 });
   if (existing.version_number !== expectedVersion) return Response.json({ error: "This draft changed in another session. Reload the latest version before saving." }, { status: 409 });
   const course = normalizedPayload(payload);
@@ -334,5 +347,6 @@ export async function PATCH(request: Request) {
       }
     }
   }
+  await notifyTeachers(course.code,`course-decision-${payload.id}-${Date.now()}`,"Course governance decision",`The course status is ${payload.status}. Open the course studio to review the recorded decision.`);
   return Response.json({ updated: true, status: payload.status });
 }
