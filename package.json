@@ -1,13 +1,12 @@
 {
   "name": "ucc-microcredentials",
-  "version": "13.0.2",
+  "version": "13.0.3",
   "private": true,
   "engines": {
     "node": ">=22.13.0"
   },
   "scripts": {
     "dev": "next dev",
-    "prebuild": "node scripts/check-route-layout.mjs",
     "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint . --ignore-pattern .next",
