@@ -1,6 +1,7 @@
 import { mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { DatabaseSync, type StatementSync } from "node:sqlite";
+import { migrateDelivery } from "./delivery-schema";
 
 type SqlValue = string | number | bigint | null | Uint8Array;
 type RunMeta = { changes: number; last_row_id: number | bigint };
@@ -17,11 +18,17 @@ class RenderDatabase {
   constructor(private readonly database: DatabaseSync) {}
   prepare(sql: string) { return new BoundStatement(this.database.prepare(sql)); }
   exec(sql: string) { this.database.exec(sql); }
+  transaction<T>(operation: (database: DatabaseSync) => T): T {
+    this.database.exec("BEGIN IMMEDIATE");
+    try { const result = operation(this.database); this.database.exec("COMMIT"); return result; }
+    catch (error) { this.database.exec("ROLLBACK"); throw error; }
+  }
 }
 
 const schema = `
 PRAGMA journal_mode = WAL;
 PRAGMA foreign_keys = ON;
+PRAGMA busy_timeout = 5000;
 CREATE TABLE IF NOT EXISTS auth_accounts (
   email TEXT PRIMARY KEY NOT NULL,
   full_name TEXT NOT NULL,
@@ -566,6 +573,7 @@ export function getRawDb() {
   }
   database.exec("UPDATE course_drafts SET updated_at = COALESCE(updated_at, created_at, CURRENT_TIMESTAMP) WHERE updated_at IS NULL");
   database.exec("UPDATE users SET student_number = 'UCC-MC-' || strftime('%Y', created_at) || '-' || printf('%06d', id) WHERE role = 'learner' AND (student_number IS NULL OR student_number = '')");
+  migrateDelivery(database);
   globalForDatabase.__uccRawDb = new RenderDatabase(database);
   return globalForDatabase.__uccRawDb;
 }

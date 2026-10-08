@@ -1,5 +1,6 @@
 import { validateAssessmentForPublication, type AssessmentConfigRecord } from "@/lib/assessment-policy";
 import { defaultCertificateConfiguration, normalizeCertificateConfiguration, validateCertificateConfiguration, type CertificateConfiguration } from "@/lib/certificate-policy";
+import { assessmentRequired, defaultDeliveryPolicy, normalizeDeliveryPolicy, type DeliveryPolicy } from "./delivery-policy";
 
 export type LearningOutcome = {
   id: string;
@@ -29,6 +30,7 @@ export type CourseDesign = {
   certificateFeeGhs: number;
   creditValue: number;
   certificate: CertificateConfiguration;
+  delivery: DeliveryPolicy;
   programmeInitiationSource: ProgrammeInitiationSource;
   originatingUnit: string;
   programmeHome: string;
@@ -90,6 +92,7 @@ export const defaultCourseDesign = (): CourseDesign => ({
   certificateFeeGhs: 0,
   creditValue: 0,
   certificate: defaultCertificateConfiguration(),
+  delivery: defaultDeliveryPolicy(),
   programmeInitiationSource: "academic_unit",
   originatingUnit: "",
   programmeHome: "",
@@ -161,6 +164,7 @@ export function normalizeCourseDesign(value: unknown): CourseDesign {
     certificateFeeGhs,
     creditValue,
     certificate: normalizeCertificateConfiguration(input.certificate),
+    delivery: normalizeDeliveryPolicy(input.delivery),
     programmeInitiationSource: initiationSources.has(input.programmeInitiationSource as ProgrammeInitiationSource) ? input.programmeInitiationSource as ProgrammeInitiationSource : fallback.programmeInitiationSource,
     originatingUnit: String(input.originatingUnit || "").trim().slice(0, 300),
     programmeHome: String(input.programmeHome || "").trim().slice(0, 300),
@@ -204,6 +208,7 @@ export function evaluateCourseQuality(input: {
   const sectionIds = new Set(design.sections.map((section) => section.id));
   const mappedOutcomes = new Set(materials.flatMap((material) => material.outcomeIds ?? []));
   const isBroaderCredential = design.credentialStructure === "broader";
+  const needsAssessment = assessmentRequired(design.certificate.awardType);
   const certificateValidation = validateCertificateConfiguration(design.certificate);
   const componentCodes = new Set(design.componentCredentialCodes);
   const mappedBroaderOutcomes = new Set(design.componentOutcomeMappings.filter((mapping) => componentCodes.has(mapping.componentCourseCode) && mapping.componentOutcomeIds.length).map((mapping) => mapping.broaderOutcomeId));
@@ -219,7 +224,7 @@ export function evaluateCourseQuality(input: {
     { id: "structure", label: isBroaderCredential ? "Component curriculum consolidated" : "Structured curriculum", passed: isBroaderCredential ? design.componentCredentialCodes.length >= 2 : design.sections.length >= 1 && materials.length >= 2 && materials.every((material) => material.sectionId && sectionIds.has(material.sectionId)), detail: isBroaderCredential ? "The broader credential reuses the approved curriculum of its selected component credentials; do not duplicate their learning blocks." : "Add at least two learning blocks and place every block in a section." },
     { id: "alignment", label: isBroaderCredential ? "Broader outcomes mapped to components" : "Outcome alignment", passed: isBroaderCredential ? design.outcomes.length > 0 && design.outcomes.every((outcome) => mappedBroaderOutcomes.has(outcome.id)) : design.outcomes.length > 0 && design.outcomes.every((outcome) => mappedOutcomes.has(outcome.id)), detail: isBroaderCredential ? "Map every broader-credential outcome to evidence in one or more selected component microcredentials." : "Map at least one learning block to every course outcome." },
     { id: "accessible", label: "Accessible learning content", passed: Boolean(design.accessibilityStatement) && (isBroaderCredential || materials.every((material) => material.kind === "Watch" ? Boolean(material.transcriptPublished && material.transcript) : Boolean(material.accessibilityChecked))), detail: isBroaderCredential ? "Accessibility remains governed by the already-approved component credentials." : "Confirm accessibility for each block and provide reviewed transcripts for published video or audio." },
-    { id: "assessment", label: "Assessment evidence", passed: isBroaderCredential && questionCount === 0 ? true : assessmentConfig ? validateAssessmentForPublication(assessmentConfig, questionCount || 100).valid : questionCount >= 1, detail: isBroaderCredential && questionCount === 0 ? "Assessment evidence is inherited from the approved component credentials. Add a separate capstone only when the broader outcomes require additional evidence." : assessmentConfig ? (validateAssessmentForPublication(assessmentConfig, questionCount || 100).issues[0] ?? "Author at least one scored assessment question.") : "Author at least one scored assessment question." },
+    { id: "assessment", label: "Award evidence", passed: !needsAssessment || (isBroaderCredential && questionCount === 0) ? true : assessmentConfig ? validateAssessmentForPublication(assessmentConfig, questionCount || 100).valid : questionCount >= 1, detail: !needsAssessment ? "Participation and attendance awards use recorded learning and attendance, without requiring a final assessment pass." : isBroaderCredential && questionCount === 0 ? "Assessment evidence is inherited from approved components." : assessmentConfig ? (validateAssessmentForPublication(assessmentConfig, questionCount || 100).issues[0] ?? "Author at least one scored assessment question.") : "Author at least one scored assessment question." },
     { id: "activities", label: "Authentic activity settings", passed: activities.every((activity) => { if (!activity.required) return true; const mode = String(activity.gradingMode || "facilitator"); const markingEvidence = mode === "rule" ? Boolean(activity.correctAnswer?.trim()) : Boolean(activity.rubric?.trim()); return Boolean(activity.title?.trim() && activity.instructions?.trim() && markingEvidence && Number(activity.passMark) > 0 && Number(activity.attemptsAllowed) > 0 && activity.sectionId && sectionIds.has(activity.sectionId) && ["facilitator", "rule", "ai_auto", "ai_luna", "ai_terra"].includes(mode)); }), detail: "Required activities need a course section, instructions, pass mark, attempt limit and a valid rule answer or marking rubric." },
   ];
   const passed = checks.filter((check) => check.passed).length;

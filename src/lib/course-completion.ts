@@ -5,6 +5,8 @@ import { ensureStructuredLearningActivities } from "@/lib/structured-learning-ac
 import type { CourseMaterialRecord } from "@/lib/course-design";
 import { certificateIssuerName, isCpdAward, requiresUccSignatory, type CertificateConfiguration } from "@/lib/certificate-policy";
 import { officialCredentialsEnabled } from "@/lib/platform-mode";
+import { enrolledCourse, parseRecord } from "./course-access";
+import { assessmentRequired } from "./delivery-policy";
 
 type CourseActivity = {
   id?: string;
@@ -19,7 +21,7 @@ type CourseActivity = {
 
 export type CompletionRequirement = {
   id: string;
-  type: "identity" | "assessment" | "content" | "learning_activity" | "virtual_lab" | "colab";
+  type: "identity" | "assessment" | "content" | "learning_activity" | "virtual_lab" | "colab" | "attendance";
   label: string;
   complete: boolean;
   evidence?: string;
@@ -71,9 +73,9 @@ const parseActivities = (materialsJson: string, activitiesJson: string) => ensur
 
 export async function evaluateCourseCompletion(userEmail: string, courseCode: string): Promise<CompletionEvaluation | null> {
   const db = getRawDb();
-  const course = await db.prepare("SELECT code, title, materials_json, activities_json, design_json, certificate_enabled, certificate_preapproved, approval_reference, approval_authority, created_by_email FROM course_drafts WHERE code = ? AND status = 'active' LIMIT 1")
-    .bind(courseCode).first<{ code: string; title: string; materials_json:string; activities_json: string; design_json: string; certificate_enabled: number; certificate_preapproved:number; approval_reference:string|null; approval_authority:string|null; created_by_email:string }>();
+  const course = await enrolledCourse(userEmail, courseCode);
   if (!course) return null;
+  const design = normalizeCourseDesign(parseRecord(course.design_json, {}));
 
   const user = await db.prepare("SELECT full_name, status, identity_status FROM users WHERE email = ? AND role = 'learner' LIMIT 1")
     .bind(userEmail).first<{ full_name: string; status: string; identity_status: string }>();
@@ -81,21 +83,26 @@ export async function evaluateCourseCompletion(userEmail: string, courseCode: st
     .bind(userEmail, course.code).first<{ score: number; passed: number; completed_at: string }>();
 
   const requirements: CompletionRequirement[] = [
-    {
+    ...(assessmentRequired(design.certificate.awardType) ? [{
       id: "verified-identity",
-      type: "identity",
+      type: "identity" as const,
       label: "Verified learner identity",
       complete: user?.status === "active" && user.identity_status === "verified",
       evidence: user?.identity_status ?? "not_submitted",
     },
     {
       id: "course-assessment",
-      type: "assessment",
+      type: "assessment" as const,
       label: "Course assessment passed",
       complete: Boolean(assessment?.passed),
       evidence: assessment ? `${assessment.score}% · ${assessment.completed_at}` : "No passing attempt recorded",
-    },
+    }] : []),
   ];
+  if (!assessmentRequired(design.certificate.awardType) && design.delivery.attendancePercent > 0) {
+    const attendance = await db.prepare(`SELECT COUNT(*) total,COALESCE(SUM(CASE WHEN a.attended=1 AND datetime(s.ends_at)<=datetime('now') THEN 1 ELSE 0 END),0) attended FROM delivery_sessions s LEFT JOIN session_attendance a ON a.session_id=s.id AND a.user_email=? WHERE s.course_code=? AND s.attendance_required=1 AND s.cancelled=0`).bind(userEmail,courseCode).first<{total:number;attended:number}>();
+    const total=attendance?.total??0,attended=attendance?.attended??0,percent=total?100*attended/total:0;
+    requirements.push({id:"course-attendance",type:"attendance",label:`Attendance at least ${design.delivery.attendancePercent}%`,complete:total>0 && percent>=design.delivery.attendancePercent,evidence:`${attended}/${total} required sessions recorded by the teaching team`});
+  }
 
   let materials:{id?:string;title?:string;required?:boolean}[]=[];try{materials=JSON.parse(course.materials_json||"[]");}catch{}
   for(const [index,material] of materials.map((item,index)=>({...item,resolvedId:String(item.id??`material-${index+1}`)})).filter(item=>item.required!==false).entries()){
@@ -103,11 +110,11 @@ export async function evaluateCourseCompletion(userEmail: string, courseCode: st
     requirements.push({id:`content-${material.resolvedId}`,type:"content",label:material.title?.trim()||`Required lesson ${index+1}`,complete:Boolean(progress?.completed),evidence:progress?.completed?`Completed ${progress.completed_at??"during this enrolment"}`:"Open the lesson and select Continue"});
   }
 
-  for (const [index, activity] of parseActivities(course.materials_json, course.activities_json).filter((item) => item.required !== false).entries()) {
+  for (const [index, activity] of parseActivities(course.materials_json, course.activities_json).filter((item) => item.required !== false || design.delivery.requiredPracticalIds.includes(String(item.id))).entries()) {
     if (activity.kind === "virtual_lab") {
       const practicalId = String(activity.practicalId ?? "").trim();
-      const submission = practicalId ? await db.prepare("SELECT id, status, mark, feedback, assessed_at FROM virtual_lab_submissions WHERE learner_email = ? AND practical_id = ? ORDER BY id DESC LIMIT 1")
-        .bind(userEmail, practicalId).first<{ id: number; status:string; mark: number | null; feedback:string; assessed_at: string | null }>() : null;
+      const submission = practicalId ? await db.prepare("SELECT id, status, mark, feedback, assessed_at FROM virtual_lab_submissions WHERE learner_email = ? AND practical_id = ? AND course_code=? ORDER BY id DESC LIMIT 1")
+        .bind(userEmail, practicalId,courseCode).first<{ id: number; status:string; mark: number | null; feedback:string; assessed_at: string | null }>() : null;
       const maximum=Math.max(1,Number(activity.maxMark)||100),threshold=Math.min(100,Math.max(1,Number(activity.passMark)||60));
       const percentage=submission?.mark===null||submission?.mark===undefined?null:(Number(submission.mark)/maximum)*100;
       const activityPassed=Boolean(submission&&submission.status==="assessed"&&percentage!==null&&percentage>=threshold&&submission.feedback?.trim());
@@ -147,9 +154,6 @@ export async function evaluateCourseCompletion(userEmail: string, courseCode: st
     }
   }
 
-  let rawDesign: unknown = {};
-  try { rawDesign = JSON.parse(course.design_json || "{}"); } catch { rawDesign = {}; }
-  const design = normalizeCourseDesign(rawDesign);
   const paidCertificate = design.certificateFeeGhs > 0 ? await db.prepare("SELECT id FROM payment_orders WHERE user_email = ? AND course_code = ? AND purpose = 'certificate' AND status = 'paid' LIMIT 1")
     .bind(userEmail, course.code).first() : null;
   return {
