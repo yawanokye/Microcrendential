@@ -1,5 +1,7 @@
 # UCC Growth+ Learning Platform - GitHub/Render Edition
 
+Current release: **v13.2.0**. See [Live AI and LTI setup](LIVE-AI-LTI-v13.2.0.md) and [current validation](VALIDATION-LIVE-AI-LTI-v13.2.0.md) for provider diagnostics, connected H5P activities, saved section generation and source page references.
+
 This package contains dedicated learner, facilitator and system-administration portals, a public learner registration journey, a commercial outcome-led Course Studio, governed identity and assessment workflows, verifiable certificates and institution-level learning analytics. Version 13 adds saved learner work, permanent lesson routes, durable grading, course teams, intakes and cohorts, working discussions and schedules, threaded support, PDF receipts, refund tracking and UCC-to-Anovlad usage reconciliation. Existing email, pilot security and Render storage controls are retained. See [commercial release notes](RELEASE-NOTES-UCC-GROWTHPLUS-v13.0.0.md), [setup and acceptance](COMMERCIAL-DELIVERY-RUNBOOK.md) and [validation](VALIDATION-2026-10-07-v13.0.0.md).
 
 Each role has a separate operational experience:

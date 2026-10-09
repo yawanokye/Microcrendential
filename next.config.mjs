@@ -19,6 +19,8 @@ const contentSecurityPolicy = [
 
 const nextConfig = {
   output: "standalone",
+  serverExternalPackages: ["pdfjs-dist"],
+  outputFileTracingIncludes: { "/api/course-ai/design": ["./node_modules/pdfjs-dist/legacy/build/*.mjs", "./node_modules/@napi-rs/canvas*/**/*"] },
   poweredByHeader: false,
   // Keep saved course/lesson links without bracketed upload folder names.
   async rewrites() { return [{
@@ -35,8 +37,11 @@ const nextConfig = {
     { key: "Cross-Origin-Opener-Policy", value: "same-origin-allow-popups" },
     { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
     { key: "X-Permitted-Cross-Domain-Policies", value: "none" },
-    { key: "Content-Security-Policy", value: contentSecurityPolicy },
-  ] }]; },
+  ] }, {
+    // LTI authorization supplies a nonce policy and its validated tool form target.
+    source: "/((?!api/lti/authorize$).*)",
+    headers: [{ key: "Content-Security-Policy", value: contentSecurityPolicy }],
+  }]; },
 };
 
 export default nextConfig;

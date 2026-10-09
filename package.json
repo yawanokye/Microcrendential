@@ -1,6 +1,6 @@
 {
   "name": "ucc-microcredentials",
-  "version": "13.0.3",
+  "version": "13.2.0",
   "private": true,
   "engines": {
     "node": ">=22.13.0"
@@ -17,7 +17,11 @@
     "retention:enforce": "node scripts/enforce-identity-retention.mjs",
     "pilot:check": "npm run lint && npm test && npm run typecheck && npm run build",
     "test:api": "node scripts/test-commercial-api.mjs",
-    "test:browser": "node scripts/test-commercial-browser.mjs"
+    "test:browser": "node scripts/test-commercial-browser.mjs",
+    "test:studio:api": "node scripts/test-facilitator-studio-api.mjs",
+    "test:studio:browser": "node scripts/test-facilitator-studio-browser.mjs",
+    "ai:verify:live": "node --import tsx scripts/verify-live-ai.ts",
+    "test:integrations": "node scripts/test-live-ai-lti.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
@@ -31,11 +35,13 @@
     "drizzle-orm": "0.45.2",
     "embla-carousel-react": "^8.6.0",
     "input-otp": "^1.4.2",
+    "jose": "^6.2.12",
     "lucide-react": "^1.31.0",
     "next": "16.3.8",
     "next-themes": "^0.4.6",
     "nodemailer": "^10.0.10",
     "pdf-lib": "1.17.1",
+    "pdfjs-dist": "^6.4.299",
     "radix-ui": "^1.6.7",
     "react": "19.2.6",
     "react-day-picker": "^10.0.1",
