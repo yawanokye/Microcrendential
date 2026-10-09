@@ -69,3 +69,10 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 .permanent-learning-page .inline-lesson-content .commercial-content-body { overflow:visible; max-height:none; }
 .permanent-learning-page .inline-lesson-content .readable-course-document { overflow:visible; max-height:none; }
 @media(max-width:700px) { .permanent-learning-page .inline-lesson-content { padding:12px; } .permanent-learning-page .video-transcript-layout { display:block; } }
+
+/* A permanent lesson occupies its course column, rather than a dialog viewport. */
+.permanent-learning-page .published-course { min-width:0; max-width:100%; grid-template-columns:minmax(0,1fr); }
+.permanent-learning-page .published-course > * { min-width:0; max-width:100%; }
+.permanent-learning-page .inline-lesson-content { width:100%!important; max-width:100%!important; max-height:none!important; overflow:visible!important; padding:24px!important; }
+.permanent-learning-page .commercial-content-body,.permanent-learning-page .learner-inline-activity { min-width:0; overflow-wrap:anywhere; }
+@media(max-width:700px) { .permanent-learning-page .inline-lesson-content { padding:12px!important; } }
