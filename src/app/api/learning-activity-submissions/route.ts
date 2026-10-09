@@ -1,3 +1,4 @@
+import { gradeInteractive } from "@/lib/interactive-activities";
 import { Buffer } from "node:buffer";
 import { getRawDb } from "@/db/raw";
 import { requireActiveProfile } from "@/lib/accounts";
@@ -46,6 +47,7 @@ export async function POST(request: Request) {
   if (!course) return Response.json({ error: "This learning activity is unavailable or you are not enrolled." }, { status: 403 });
   const activity = parseActivities(course.materials_json, course.activities_json).find((item) => String(item.id ?? "") === activityId);
   if (!activity || !activity.materialId) return Response.json({ error: "The structured learning activity was not found." }, { status: 404 });
+  if (activity.lti) return Response.json({error:"Complete this activity in the registered learning tool. Results must arrive through its authenticated grade service."},{status:409});
   if (activity.dueAt && Date.parse(activity.dueAt) < Date.now()) return Response.json({ error: "The deadline for this learning activity has passed. Contact the teaching team." }, { status: 409 });
   const responseType = activity.responseType ?? "long_text";
   if (["short_text","long_text"].includes(responseType) && !responseText) return Response.json({ error: "Enter your response before submitting the activity." }, { status: 400 });
@@ -63,7 +65,7 @@ export async function POST(request: Request) {
   const maxMark = Math.max(1, Math.floor(Number(activity.maxMark) || 100)); const passMark = Math.min(100, Math.max(1, Math.floor(Number(activity.passMark) || 60)));
   const gradingMode = activity.gradingMode ?? "ai_auto";
   if (gradingMode !== "rule" && !activity.rubric?.trim()) return Response.json({ error: "The approved rubric is missing." }, { status: 409 });
-  let mark = 0, passed = false, feedback = "", imageDataUrl: string | undefined, extractedEvidence = ""; const criteria:unknown[]=[];const model:string|null=null;
+  let mark = 0, passed = false, feedback = "", imageDataUrl: string | undefined, extractedEvidence = ""; let criteria:unknown[]=[];const model:string|null=null;
   let evidenceKey: string | null = null, evidenceFileName: string | null = null, evidenceMimeType: string | null = null;
 
   if (hasFile) {
@@ -93,7 +95,10 @@ export async function POST(request: Request) {
     await recordEngagement(account.profile.email,courseCode,"evidence");
     return Response.json({submission:{id:result.id,activityId,materialId:activity.materialId,attemptNumber:result.attemptNumber,status:"submitted",passed:false,feedback:"Your evidence is saved. Feedback will appear after grading."}},{status:202});
   }
-  if (gradingMode === "rule") {
+  if (activity.interactive) {
+    try { const graded = gradeInteractive(activity.interactive, JSON.parse(responseText), maxMark); mark = graded.mark; feedback = graded.feedback; criteria = graded.criteria; passed = mark / maxMark * 100 >= passMark; }
+    catch (error) { return Response.json({ error: error instanceof Error ? error.message : "Invalid interactive response." }, { status: 400 }); }
+  } else if (gradingMode === "rule") {
     if (!["short_text","long_text","link"].includes(responseType)) return Response.json({ error: "Rule-based grading is available for text or link responses. Choose AI grading for image or document evidence." }, { status: 409 });
     const accepted = String(activity.correctAnswer ?? "").split(/\n|\|\|/).map(normalized).filter(Boolean);
     const correct = accepted.includes(normalized(responseText));

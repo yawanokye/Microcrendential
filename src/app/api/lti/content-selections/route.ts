@@ -1,0 +1,4 @@
+import { requireActiveProfile } from "@/lib/accounts";
+import { getRawDb } from "@/db/raw";
+import { ensureLtiTables } from "@/lib/lti-platform";
+export async function GET(request: Request) { const account = await requireActiveProfile(["facilitator", "admin"]); if (account.error || !account.profile) return account.error; ensureLtiTables(); const row = await getRawDb().prepare("SELECT result_json,expires_at FROM lti_content_selections WHERE id=? AND owner_email=?").bind(new URL(request.url).searchParams.get("id"), account.profile.email).first<{ result_json: string | null; expires_at: number }>(); if (!row) return Response.json({ error: "Content selection not found." }, { status: 404 }); return Response.json({ result: row.result_json ? JSON.parse(row.result_json) : null, expired: row.expires_at < Date.now() / 1000 }, { headers: { "cache-control": "no-store" } }); }

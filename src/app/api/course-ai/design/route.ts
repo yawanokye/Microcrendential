@@ -1,6 +1,8 @@
+import { after } from "next/server";
+import { queueCourseAi, processCourseAiJob, recoverStaleAiJobs } from "@/lib/course-ai-jobs";
 import { requireActiveProfile } from "@/lib/accounts";
-import { courseAiStatus, generateCourseAiProposal, type CourseAiMode, type CourseAiProvider } from "@/lib/course-ai";
-import { extractReadableContent } from "@/lib/document-content";
+import { courseAiStatus, type CourseAiMode, type CourseAiProvider } from "@/lib/course-ai";
+import { extractCourseSource, transcriptSpans, type SourceSpan } from "@/lib/course-source";
 import { extractScannedDocumentWithAi } from "@/lib/ai-document-extraction";
 import { validatePublicHttpUrl } from "@/lib/public-url";
 import { putStoredFile } from "@/lib/render-storage";
@@ -25,12 +27,13 @@ export async function POST(request: Request) {
   try {
     const form = await request.formData();
     const requestedMode = field(form, "mode", 20) as CourseAiMode;
-    const mode: CourseAiMode = ["idea", "manual", "media", "improve"].includes(requestedMode) ? requestedMode : "idea";
+    const mode: CourseAiMode = ["idea", "manual", "media", "improve", "lesson"].includes(requestedMode) ? requestedMode : "idea";
     const requestedProvider = field(form, "provider", 20) as CourseAiProvider;
     const provider: CourseAiProvider = ["auto", "openai", "vertex"].includes(requestedProvider) ? requestedProvider : "auto";
-    const sectionCount = Math.min(12, Math.max(2, Number(field(form, "sectionCount", 3)) || 6));
+    const sectionCount = Math.min(12, Math.max(mode === "lesson" ? 1 : 2, Number(field(form, "sectionCount", 3)) || 6));
     const preferredTitle = field(form, "preferredTitle", 240); const preferredDiscipline = field(form, "preferredDiscipline", 160);
-    let sourceText = field(form, "sourceText", 100_000); let sourceFile: { key: string; name: string; mimeType: string } | undefined;
+    let sourceText = field(form, "sourceText", 600_000); let sourceTotalCharacters = String(form.get("sourceText") || "").length; let sourceFile: { key: string; name: string; mimeType: string } | undefined;
+    let sourceSpans: SourceSpan[] = [], sourceNote = "";
     let media: { mimeType: string; dataBase64?: string; publicUrl?: string; name?: string } | undefined;
     const file = form.get("file");
 
@@ -40,9 +43,9 @@ export async function POST(request: Request) {
       const extension = file.name.toLowerCase().split(".").pop() || "";
       if (!manualExtensions.has(extension)) return Response.json({ error: "Use PDF, PPT/PPTX, DOCX, TXT, Markdown, HTML or RTF." }, { status: 415 });
       const body = Buffer.from(await file.arrayBuffer()); const mimeType = extension === "pdf" ? "application/pdf" : extension === "pptx" ? "application/vnd.openxmlformats-officedocument.presentationml.presentation" : extension === "ppt" ? "application/vnd.ms-powerpoint" : file.type || "application/octet-stream";
-      let extracted = extractReadableContent(body, file.name, mimeType);
-      if (extracted.wordCount < 35 || extracted.text.length < 200) extracted = await extractScannedDocumentWithAi(body, file.name, mimeType);
-      sourceText = extracted.text.slice(0, 100_000);
+      let extracted = await extractCourseSource(body, file.name, mimeType);
+      if (extracted.wordCount < 35 || extracted.text.length < 200) { const scanned = await extractScannedDocumentWithAi(body, file.name, mimeType); extracted = { ...scanned, spans: [], totalPages: undefined, extractionLimited: false }; }
+      sourceTotalCharacters = extracted.text.length; sourceText = extracted.text.slice(0, 600_000); sourceSpans = extracted.spans; sourceNote = extracted.note || "";
       const stored = new File([body], file.name, { type: mimeType }); const key = await putStoredFile("course-materials", stored, { contentType: mimeType, originalName: file.name, ownerEmail: account.profile.email, evidenceKind: "course-material" });
       sourceFile = { key, name: file.name, mimeType };
     } else if (mode === "media") {
@@ -65,13 +68,18 @@ export async function POST(request: Request) {
       return Response.json({ error: mode === "improve" ? "The current draft is too small to improve." : "Describe the course idea in at least 30 characters." }, { status: 400 });
     }
 
-    const proposal = await generateCourseAiProposal({ mode, provider, sourceText, sectionCount, preferredTitle, preferredDiscipline, sourceFile, media });
-    await recordAudit(account.profile.email, "course.ai_proposal_generated", { provider: proposal.provider, model: proposal.model, mode, sections: proposal.draft.design.sections.length, questions: proposal.draft.assessmentConfig.questions.length });
-    return Response.json({ proposal }, { status: 201 });
+    if (mode === "media") { const transcript = field(form, "transcript", 600_000); if (transcript) { sourceText = transcript; sourceTotalCharacters = transcript.length; sourceSpans = transcriptSpans(transcript); sourceNote = "Timestamp references come only from the supplied reviewed transcript. Media claims still require facilitator verification."; } }
+    let brief: { audience: string; level: string; durationHours: number; goals: string; deliveryMode: string; awardType: string } | undefined;
+    try { const b = JSON.parse(field(form,"brief",8000) || "{}"); brief = { audience:String(b.audience||"").slice(0,2000),level:String(b.level||"applied").slice(0,80),durationHours:Math.min(500,Math.max(1,Number(b.durationHours)||24)),goals:String(b.goals||"").slice(0,3000),deliveryMode:String(b.deliveryMode||"asynchronous").slice(0,80),awardType:String(b.awardType||"").slice(0,120) }; } catch { return Response.json({error:"The course brief is invalid."},{status:400}); }
+    await recoverStaleAiJobs();
+    const id = queueCourseAi(account.profile.email,{ mode,provider,sourceText,sourceTotalCharacters,sourceSpans,sourceNote,sectionCount,preferredTitle,preferredDiscipline,sourceFile,media,targetMaterialId:field(form,"targetMaterialId",80),targetCourseCode:field(form,"targetCourseCode",80),stage:field(form,"stage",20)==="outline"?"outline":"lessons",brief,action:field(form,"action",1000),approvedOutline:field(form,"approvedOutline",24000) });
+    after(()=>processCourseAiJob(id));
+    await recordAudit(account.profile.email,"course.ai_request_queued",{id,mode,sectionCount});
+    return Response.json({job:{id,status:"queued"}},{status:202});
   } catch (error) {
     const message = error instanceof Error ? error.message : "The AI course proposal could not be generated.";
     const timeout = /timeout|aborted/i.test(message);
     const timeoutSeconds = courseAiStatus().timeoutSeconds;
-    return Response.json({ error: timeout ? `The AI provider did not finish within ${timeoutSeconds} seconds. Your draft was not changed. Retry with fewer sections, choose another provider, or continue with manual design.` : message }, { status: timeout ? 504 : 502 });
+    return Response.json({ error: timeout ? `The AI provider did not finish within ${timeoutSeconds} seconds. Your draft was not changed. Retry with fewer sections, choose another provider, or continue with manual design.` : message }, { status: /limit|already in progress/i.test(message) ? 429 : timeout ? 504 : 502 });
   }
 }

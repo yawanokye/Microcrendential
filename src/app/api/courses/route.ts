@@ -8,6 +8,8 @@ import { plainTextFromHtml, sanitizeReadableHtml } from "@/lib/document-content"
 import { learnerSafeAssessmentConfig, type AssessmentConfigRecord } from "@/lib/assessment-policy";
 import { rejectCrossSiteMutation } from "@/lib/request-security";
 import { recordAudit } from "@/lib/audit";
+import { getLtiTool, validateToolTarget } from "@/lib/lti-platform";
+import { learnerInteractive } from "@/lib/interactive-activities";
 import { ensureStructuredLearningActivities } from "@/lib/structured-learning-activities";
 
 type CourseRow = {
@@ -54,7 +56,7 @@ function normalizeMaterials(value: unknown): CourseMaterialRecord[] {
       transcriptSource: String(item.transcriptSource || "").slice(0, 240) || undefined, transcriptPublished: Boolean(item.transcriptPublished),
       displayMode: item.displayMode === "new_tab" ? "new_tab" : "in_frame",
       linkedVideoUrl: normalizeUrl(item.linkedVideoUrl), linkedVideoDisplay: item.linkedVideoDisplay === "new_tab" ? "new_tab" : "in_frame",
-      required: item.required !== false,
+      required: item.required !== false, developmentPending: Boolean(item.developmentPending), alignmentReason: String(item.alignmentReason || "").slice(0, 1200) || undefined, alignmentConfirmed: item.alignmentConfirmed === false ? false : item.alignmentConfirmed === true ? true : undefined, sourceExcerpt: String(item.sourceExcerpt || "").slice(0, 2000) || undefined, sourceReferences: Array.isArray(item.sourceReferences) ? item.sourceReferences.slice(0, 5).map(r => ({ label: String(r.label || "").slice(0, 240), page: Number.isInteger(r.page) && Number(r.page)>0 ? r.page : undefined, timestampSeconds: Number.isFinite(r.timestampSeconds) && Number(r.timestampSeconds)>=0 ? r.timestampSeconds : undefined })) : undefined,
     };
   });
 }
@@ -88,6 +90,8 @@ function learnerVisibleCourse(course: PresentedCourse) {
   } = course;
 
   const activities = internalActivities.map((activity) => ({
+    interactive: activity.interactive ? learnerInteractive(activity.interactive) : undefined,
+    lti: activity.lti,
     id: activity.id,
     kind: activity.kind,
     title: activity.title,
@@ -210,6 +214,14 @@ function normalizedPayload(payload: Record<string, unknown>) {
   return { title, code, discipline, description, design, materials, activities, assessmentModes, assessmentConfig, questionLimit, quality };
 }
 
+async function validateExternalActivities(materials: CourseMaterialRecord[], activities: unknown[]) {
+  for (const activity of ensureStructuredLearningActivities(materials,activities).filter(a=>a.lti)) {
+    try { const tool = await getLtiTool(activity.lti!.toolId); validateToolTarget(tool,activity.lti!.launchUrl); }
+    catch (e) { return Response.json({error:e instanceof Error?e.message:"Invalid external activity."},{status:400}); }
+  }
+  return null;
+}
+
 function validateForReview(course: ReturnType<typeof normalizedPayload>) {
   if (!course.title || !course.code || !course.discipline) return "Course title, code and discipline are required.";
   if (!course.quality.ready) {
@@ -238,8 +250,13 @@ export async function GET(request: Request) {
   if(account.profile.role==="learner") { for(const row of rows.results) {const enrolled=await enrolledCourse(account.profile.email,row.code);if(enrolled)Object.assign(row,enrolled);} }
   const presented = attachBroaderCredentialLinks(rows.results.map(present));
   if(account.profile.role==="learner") { const courses=[];for(const course of presented.filter(c=>c.design.credentialStructure!=="broader")){const enrolled=await enrolledCourse(account.profile.email,course.code);const safe=learnerVisibleCourse(course);if(enrolled){const record=await learnerCourseRecord(account.profile.email,course.code);const design=course.design;if(design.delivery.identityRequired==="before_learning"&&account.profile.identity_status!=="verified"){courses.push({...catalogueOnly(safe),enrolled:true,identityRequired:true});}else courses.push({...safe,enrolled:true,progress:record?.progress??0,resumeUrl:record?.resumeUrl,lastActivityAt:record?.lastActivityAt,assessmentConfig:learnerSafeAssessmentConfig(course.assessmentConfig as AssessmentConfigRecord,course.questionLimit)});}else courses.push(catalogueOnly(safe));}return Response.json({courses,nextOffset});}
-  for(const course of presented)Object.assign(course,{canEdit:await coursePermission(account.profile,course.code,"teach")});
-  return Response.json({ courses: presented, nextOffset });
+  const staffCourses=[];
+  for(const course of presented) {
+    const canView=await coursePermission(account.profile,course.code,"view");
+    const canEdit=await coursePermission(account.profile,course.code,"teach");
+    staffCourses.push(canView?{...course,canEdit}:{...catalogueOnly(learnerVisibleCourse(course)),canEdit:false});
+  }
+  return Response.json({ courses: staffCourses, nextOffset });
 }
 
 export async function POST(request: Request) {
@@ -247,6 +264,7 @@ export async function POST(request: Request) {
   const account = await requireActiveProfile(["facilitator", "admin"]);
   if (account.error || !account.profile) return account.error;
   const payload = await request.json() as Record<string, unknown>; const course = normalizedPayload(payload);
+  const externalError = await validateExternalActivities(course.materials,course.activities); if(externalError)return externalError;
   if (!course.title || !course.code || !course.discipline) return Response.json({ error: "Course title, code and discipline are required." }, { status: 400 });
   const submissionMode = payload.submissionMode === "review" ? "review" : "draft";
   if (submissionMode === "review") { const error = validateForReview(course); if (error) return Response.json({ error, quality: course.quality }, { status: 400 }); const componentError = await validateBroaderComponentsForReview(course.design, course.code); if (componentError) return Response.json({ error: componentError, quality: course.quality }, { status: 400 }); }
@@ -272,6 +290,7 @@ export async function PUT(request: Request) {
   if (existing.status === "active") return Response.json({ error: "An active course is locked. Create a new version through the quality-governance process." }, { status: 409 });
   if (existing.version_number !== expectedVersion) return Response.json({ error: "This draft changed in another session. Reload the latest version before saving." }, { status: 409 });
   const course = normalizedPayload(payload);
+  const externalError = await validateExternalActivities(course.materials,course.activities); if(externalError)return externalError;
   if (!course.title || !course.code || !course.discipline) return Response.json({ error: "Course title, code and discipline are required." }, { status: 400 });
   const duplicate = await db.prepare("SELECT id FROM course_drafts WHERE code = ? AND id <> ? LIMIT 1").bind(course.code, id).first();
   if (duplicate) return Response.json({ error: "That course code belongs to another course." }, { status: 409 });
@@ -308,6 +327,7 @@ export async function PATCH(request: Request) {
     const design = normalizeCourseDesign(parseJson(course.design_json, {})); const materials = normalizeMaterials(parseJson(course.materials_json, []));
     const assessment = parseJson<AssessmentConfigRecord>(course.assessment_config_json, {});
     const activities=parseJson<Parameters<typeof evaluateCourseQuality>[0]["activities"]>(course.activities_json,[]);
+    const externalError = await validateExternalActivities(materials,activities || []); if(externalError)return externalError;
     const quality = evaluateCourseQuality({ title: course.title, description: course.description, design, materials, questionCount: assessment.questions?.length ?? 0, assessmentConfig:assessment,activities });
     if (course.status !== "pending_review") return Response.json({ error: "Only a submitted course can be activated from a recorded committee decision.", quality }, { status: 409 });
     if(!quality.ready)return Response.json({error:"Activation is blocked until every publish-readiness check passes.",quality},{status:409});

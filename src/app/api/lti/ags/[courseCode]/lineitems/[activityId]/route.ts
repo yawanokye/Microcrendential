@@ -1,0 +1,3 @@
+import { ltiActivitiesForTool, ltiErrorResponse, ltiLineitem, requireLtiService, LtiError } from "@/lib/lti-platform";
+import { ltiScopes } from "@/lib/lti-types";
+export async function GET(request: Request, { params }: { params: Promise<{ courseCode: string; activityId: string }> }) { try { const tool = await requireLtiService(request, ltiScopes.lineitems), { courseCode, activityId } = await params, activity = (await ltiActivitiesForTool(tool.id, courseCode)).find(a => a.id === activityId); if (!activity) throw new LtiError("Line item not found.", 404); return Response.json(ltiLineitem(courseCode, activity), { headers: { "content-type": "application/vnd.ims.lis.v2.lineitem+json", "cache-control": "no-store" } }); } catch (e) { return ltiErrorResponse(e); } }
