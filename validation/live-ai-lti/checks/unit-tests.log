@@ -1,0 +1,567 @@
+(node:34) [UNDICI-EHPA] Warning: EnvHttpProxyAgent is experimental, expect them to change at any time.
+(Use `node --trace-warnings ...` to show where the warning was created)
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> ucc-microcredentials@13.2.0 test
+> node --import tsx --test tests/*.test.ts
+
+(node:47) [UNDICI-EHPA] Warning: EnvHttpProxyAgent is experimental, expect them to change at any time.
+(Use `node --trace-warnings ...` to show where the warning was created)
+TAP version 13
+# (node:54) [UNDICI-EHPA] Warning: EnvHttpProxyAgent is experimental, expect them to change at any time.
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: AI course output is normalized to platform editorial limits
+ok 1 - AI course output is normalized to platform editorial limits
+  ---
+  duration_ms: 2.853776
+  type: 'test'
+  ...
+# Subtest: Vertex media accepts only supported YouTube and Cloud Storage sources
+ok 2 - Vertex media accepts only supported YouTube and Cloud Storage sources
+  ---
+  duration_ms: 0.181944
+  type: 'test'
+  ...
+# Subtest: Vertex media rejects arbitrary and insecure URLs
+ok 3 - Vertex media rejects arbitrary and insecure URLs
+  ---
+  duration_ms: 0.453755
+  type: 'test'
+  ...
+# Subtest: AI status is safe for the browser and always requires human approval
+ok 4 - AI status is safe for the browser and always requires human approval
+  ---
+  duration_ms: 1.027991
+  type: 'test'
+  ...
+# Subtest: AI Studio accepts the canonical base64 Vertex credential variable
+ok 5 - AI Studio accepts the canonical base64 Vertex credential variable
+  ---
+  duration_ms: 0.173001
+  type: 'test'
+  ...
+# (node:55) [UNDICI-EHPA] Warning: EnvHttpProxyAgent is experimental, expect them to change at any time.
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: PDF source support identifies actual pages and timestamp references require supplied transcript times
+ok 6 - PDF source support identifies actual pages and timestamp references require supplied transcript times
+  ---
+  duration_ms: 1447.074706
+  type: 'test'
+  ...
+# Subtest: Section selection includes relevant late manual content and reports its original location
+ok 7 - Section selection includes relevant late manual content and reports its original location
+  ---
+  duration_ms: 4.351546
+  type: 'test'
+  ...
+# Subtest: Live verification separates a valid provider response from invalid keys and ungrounded content
+ok 8 - Live verification separates a valid provider response from invalid keys and ungrounded content
+  ---
+  duration_ms: 2.822879
+  type: 'test'
+  ...
+# Subtest: An unconfigured live diagnostic makes no provider request and never reports success
+ok 9 - An unconfigured live diagnostic makes no provider request and never reports success
+  ---
+  duration_ms: 0.427955
+  type: 'test'
+  ...
+# (node:56) [UNDICI-EHPA] Warning: EnvHttpProxyAgent is experimental, expect them to change at any time.
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: learner payload never contains answer keys or marking rubrics
+ok 10 - learner payload never contains answer keys or marking rubrics
+  ---
+  duration_ms: 0.940219
+  type: 'test'
+  ...
+# Subtest: rule questions are scored locally and rubric questions are queued for AI grading
+ok 11 - rule questions are scored locally and rubric questions are queued for AI grading
+  ---
+  duration_ms: 0.39735
+  type: 'test'
+  ...
+# Subtest: facilitator pass marks are applied exactly without rounding a failing mark up
+ok 12 - facilitator pass marks are applied exactly without rounding a failing mark up
+  ---
+  duration_ms: 0.144167
+  type: 'test'
+  ...
+# Subtest: attempt parsing is bounded
+ok 13 - attempt parsing is bounded
+  ---
+  duration_ms: 0.244248
+  type: 'test'
+  ...
+# Subtest: publication requires a rubric for AI-marked evidence
+ok 14 - publication requires a rubric for AI-marked evidence
+  ---
+  duration_ms: 0.310879
+  type: 'test'
+  ...
+# (node:62) [UNDICI-EHPA] Warning: EnvHttpProxyAgent is experimental, expect them to change at any time.
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: course code becomes a safe PDF filename
+ok 15 - course code becomes a safe PDF filename
+  ---
+  duration_ms: 0.74222
+  type: 'test'
+  ...
+# Subtest: joint issuance requires partner identity, logo and authorised signatory
+ok 16 - joint issuance requires partner identity, logo and authorised signatory
+  ---
+  duration_ms: 0.340604
+  type: 'test'
+  ...
+# Subtest: CPD points require traceable approval
+ok 17 - CPD points require traceable approval
+  ---
+  duration_ms: 0.124768
+  type: 'test'
+  ...
+# Subtest: issued certificate snapshots reconstruct partnership wording
+ok 18 - issued certificate snapshots reconstruct partnership wording
+  ---
+  duration_ms: 0.305991
+  type: 'test'
+  ...
+# Subtest: downloaded certificates are generated as readable landscape PDFs
+ok 19 - downloaded certificates are generated as readable landscape PDFs
+  ---
+  duration_ms: 264.654557
+  type: 'test'
+  ...
+# (node:63) [UNDICI-EHPA] Warning: EnvHttpProxyAgent is experimental, expect them to change at any time.
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# (node:63) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# Subtest: correcting a passing grade downward removes the aggregate pass
+ok 20 - correcting a passing grade downward removes the aggregate pass
+  ---
+  duration_ms: 3.087769
+  type: 'test'
+  ...
+# Subtest: a separate valid passing attempt remains authoritative after another attempt is corrected
+ok 21 - a separate valid passing attempt remains authoritative after another attempt is corrected
+  ---
+  duration_ms: 0.92735
+  type: 'test'
+  ...
+# Subtest: saved enrolment pins the approved syllabus across later amendments
+ok 22 - saved enrolment pins the approved syllabus across later amendments
+  ---
+  duration_ms: 0.853778
+  type: 'test'
+  ...
+# Subtest: course team permissions distinguish teaching, marking, moderation and management
+ok 23 - course team permissions distinguish teaching, marking, moderation and management
+  ---
+  duration_ms: 0.832286
+  type: 'test'
+  ...
+# Subtest: attendance awards require attendance rather than an assessment pass
+ok 24 - attendance awards require attendance rather than an assessment pass
+  ---
+  duration_ms: 6.03748
+  type: 'test'
+  ...
+# Subtest: future attendance cannot satisfy a participation award
+ok 25 - future attendance cannot satisfy a participation award
+  ---
+  duration_ms: 0.862862
+  type: 'test'
+  ...
+# Subtest: a certificate becomes under review when corrected evidence no longer satisfies the award
+ok 26 - a certificate becomes under review when corrected evidence no longer satisfies the award
+  ---
+  duration_ms: 1.453593
+  type: 'test'
+  ...
+# Subtest: a saved grading job finishes independently of the original request
+ok 27 - a saved grading job finishes independently of the original request
+  ---
+  duration_ms: 1.922811
+  type: 'test'
+  ...
+# Subtest: assisted grading records a draft score without publishing a pass
+ok 28 - assisted grading records a draft score without publishing a pass
+  ---
+  duration_ms: 1.169114
+  type: 'test'
+  ...
+# Subtest: learning progress and resume records use the same saved lesson data
+ok 29 - learning progress and resume records use the same saved lesson data
+  ---
+  duration_ms: 2.201392
+  type: 'test'
+  ...
+# Subtest: billable usage excludes staff and test learners and deduplicates users across courses
+ok 30 - billable usage excludes staff and test learners and deduplicates users across courses
+  ---
+  duration_ms: 0.772116
+  type: 'test'
+  ...
+# Subtest: notification deduplication preserves read state and avoids repeat messages
+ok 31 - notification deduplication preserves read state and avoids repeat messages
+  ---
+  duration_ms: 0.29156
+  type: 'test'
+  ...
+# Subtest: intake capacity and closure are enforced atomically
+ok 32 - intake capacity and closure are enforced atomically
+  ---
+  duration_ms: 0.439904
+  type: 'test'
+  ...
+# Subtest: failed transactions roll back all writes
+ok 33 - failed transactions roll back all writes
+  ---
+  duration_ms: 0.309727
+  type: 'test'
+  ...
+# Subtest: delivery policy validates dates and bounds without requiring institutional emails
+ok 34 - delivery policy validates dates and bounds without requiring institutional emails
+  ---
+  duration_ms: 0.103115
+  type: 'test'
+  ...
+# (node:65) [UNDICI-EHPA] Warning: EnvHttpProxyAgent is experimental, expect them to change at any time.
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# (node:65) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# Subtest: Saved AI request executes once despite overlapping recovery calls and persists its proposal
+ok 35 - Saved AI request executes once despite overlapping recovery calls and persists its proposal
+  ---
+  duration_ms: 29.913589
+  type: 'test'
+  ...
+# Subtest: Daily usage limits are enforced atomically and stale requests require explicit retry
+ok 36 - Daily usage limits are enforced atomically and stale requests require explicit retry
+  ---
+  duration_ms: 1.367934
+  type: 'test'
+  ...
+# (node:66) [UNDICI-EHPA] Warning: EnvHttpProxyAgent is experimental, expect them to change at any time.
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# (node:66) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# Subtest: Saved section generation survives a provider failure and resumes only unfinished work with distinct IDs
+ok 37 - Saved section generation survives a provider failure and resumes only unfinished work with distinct IDs
+  ---
+  duration_ms: 23.430917
+  type: 'test'
+  ...
+# Subtest: Sectioned requests reserve every planned call before generation starts
+ok 38 - Sectioned requests reserve every planned call before generation starts
+  ---
+  duration_ms: 0.700767
+  type: 'test'
+  ...
+# (node:110) [UNDICI-EHPA] Warning: EnvHttpProxyAgent is experimental, expect them to change at any time.
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: Course Studio AI status reports readiness without exposing credentials
+ok 39 - Course Studio AI status reports readiness without exposing credentials
+  ---
+  duration_ms: 0.817394
+  type: 'test'
+  ...
+# Subtest: Course Studio AI timeout is configurable and safely bounded
+ok 40 - Course Studio AI timeout is configurable and safely bounded
+  ---
+  duration_ms: 0.147733
+  type: 'test'
+  ...
+# Subtest: Course Studio accepts the canonical base64 Vertex credential variable
+ok 41 - Course Studio accepts the canonical base64 Vertex credential variable
+  ---
+  duration_ms: 3.637148
+  type: 'test'
+  ...
+# (node:111) [UNDICI-EHPA] Warning: EnvHttpProxyAgent is experimental, expect them to change at any time.
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: programme initiation source and programme home are normalized as governance metadata
+ok 42 - programme initiation source and programme home are normalized as governance metadata
+  ---
+  duration_ms: 1.104868
+  type: 'test'
+  ...
+# Subtest: publish readiness requires programme source, originating unit and programme home
+ok 43 - publish readiness requires programme source, originating unit and programme home
+  ---
+  duration_ms: 0.527576
+  type: 'test'
+  ...
+# (node:126) [UNDICI-EHPA] Warning: EnvHttpProxyAgent is experimental, expect them to change at any time.
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: readable course HTML preserves safe figures and authorised inline images
+ok 44 - readable course HTML preserves safe figures and authorised inline images
+  ---
+  duration_ms: 2.070134
+  type: 'test'
+  ...
+# Subtest: readable course HTML permits HTTPS images but removes unsafe image sources
+ok 45 - readable course HTML permits HTTPS images but removes unsafe image sources
+  ---
+  duration_ms: 0.707708
+  type: 'test'
+  ...
+# (node:127) [UNDICI-EHPA] Warning: EnvHttpProxyAgent is experimental, expect them to change at any time.
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: Invalid AI answer and unsupported outcome links remain unresolved for facilitator correction
+ok 46 - Invalid AI answer and unsupported outcome links remain unresolved for facilitator correction
+  ---
+  duration_ms: 10.791063
+  type: 'test'
+  ...
+# Subtest: Source support is shown only for an exact verified excerpt
+ok 47 - Source support is shown only for an exact verified excerpt
+  ---
+  duration_ms: 0.710942
+  type: 'test'
+  ...
+# Subtest: Outline and unconfirmed AI content prevent publication
+ok 48 - Outline and unconfirmed AI content prevent publication
+  ---
+  duration_ms: 0.653016
+  type: 'test'
+  ...
+# Subtest: Selective AI improvement preserves course fees, governance, certificate, identity and previous approvals
+ok 49 - Selective AI improvement preserves course fees, governance, certificate, identity and previous approvals
+  ---
+  duration_ms: 1.386242
+  type: 'test'
+  ...
+# Subtest: Knowledge checks and decision scenarios grade against retained keys, ignoring client mark fields
+ok 50 - Knowledge checks and decision scenarios grade against retained keys, ignoring client mark fields
+  ---
+  duration_ms: 0.499334
+  type: 'test'
+  ...
+# Subtest: Matching, sequencing and flashcards use explicit server completion evidence
+ok 51 - Matching, sequencing and flashcards use explicit server completion evidence
+  ---
+  duration_ms: 8.303089
+  type: 'test'
+  ...
+# Subtest: Invalid interactive keys block publication and cannot consume a learner attempt
+ok 52 - Invalid interactive keys block publication and cannot consume a learner attempt
+  ---
+  duration_ms: 0.738554
+  type: 'test'
+  ...
+# Subtest: Learner sequencing data does not expose the correct authoring array order
+ok 53 - Learner sequencing data does not expose the correct authoring array order
+  ---
+  duration_ms: 0.200914
+  type: 'test'
+  ...
+# (node:141) [UNDICI-EHPA] Warning: EnvHttpProxyAgent is experimental, expect them to change at any time.
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# (node:141) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (node:141) [UNDICI-EHPA] Warning: EnvHttpProxyAgent is experimental, expect them to change at any time.
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: LTI signs learner launches, keeps identity private, validates the redirect and consumes each hint once
+ok 54 - LTI signs learner launches, keeps identity private, validates the redirect and consumes each hint once
+  ---
+  duration_ms: 80.677326
+  type: 'test'
+  ...
+# Subtest: Tool assertions require a valid signature, audience and unique jti, and service tokens enforce scope
+ok 55 - Tool assertions require a valid signature, audience and unique jti, and service tokens enforce scope
+  ---
+  duration_ms: 17.413707
+  type: 'test'
+  ...
+# Subtest: Authenticated external scores scale into evidence, deduplicate retries and ignore stale or partial grades
+ok 56 - Authenticated external scores scale into evidence, deduplicate retries and ignore stale or partial grades
+  ---
+  duration_ms: 2.390467
+  type: 'test'
+  ...
+# Subtest: A lower or cleared external result removes its pass and sends an issued credential for review
+ok 57 - A lower or cleared external result removes its pass and sends an issued credential for review
+  ---
+  duration_ms: 1.70984
+  type: 'test'
+  ...
+# Subtest: Instructor previews have no grade service or learner evidence, and deep links require a signed single-use response
+ok 58 - Instructor previews have no grade service or learner evidence, and deep links require a signed single-use response
+  ---
+  duration_ms: 12.172468
+  type: 'test'
+  ...
+# (node:150) [UNDICI-EHPA] Warning: EnvHttpProxyAgent is experimental, expect them to change at any time.
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# (node:150) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# Subtest: pilot password policy requires a long password and stores a salted hash
+ok 59 - pilot password policy requires a long password and stores a salted hash
+  ---
+  duration_ms: 117.767349
+  type: 'test'
+  ...
+# Subtest: identity upload validation checks actual file signatures
+ok 60 - identity upload validation checks actual file signatures
+  ---
+  duration_ms: 1.086019
+  type: 'test'
+  ...
+# Subtest: executable binary signatures are rejected
+ok 61 - executable binary signatures are rejected
+  ---
+  duration_ms: 0.429097
+  type: 'test'
+  ...
+# Subtest: Google Mail can provide transactional authentication email
+ok 62 - Google Mail can provide transactional authentication email
+  ---
+  duration_ms: 0.222606
+  type: 'test'
+  ...
+# Subtest: Google OAuth is configured for Render email delivery
+ok 63 - Google OAuth is configured for Render email delivery
+  ---
+  duration_ms: 0.263928
+  type: 'test'
+  ...
+# Subtest: Resend remains available as an optional compatibility provider
+ok 64 - Resend remains available as an optional compatibility provider
+  ---
+  duration_ms: 0.13909
+  type: 'test'
+  ...
+# Subtest: Resend test-sender rejection is translated into an actionable message
+ok 65 - Resend test-sender rejection is translated into an actionable message
+  ---
+  duration_ms: 0.160582
+  type: 'test'
+  ...
+# Subtest: Render acceptance deployment keeps manual promotion and payments off while enabling the full workflow
+ok 66 - Render acceptance deployment keeps manual promotion and payments off while enabling the full workflow
+  ---
+  duration_ms: 0.345672
+  type: 'test'
+  ...
+# Subtest: platform mode fails safely to Demonstration
+ok 67 - platform mode fails safely to Demonstration
+  ---
+  duration_ms: 0.268025
+  type: 'test'
+  ...
+# Subtest: Render acceptance can exercise full functionality without changing its environment label
+ok 68 - Render acceptance can exercise full functionality without changing its environment label
+  ---
+  duration_ms: 0.366273
+  type: 'test'
+  ...
+# Subtest: pilot activation invalidates sessions and emergency restriction blocks credential issuance
+ok 69 - pilot activation invalidates sessions and emergency restriction blocks credential issuance
+  ---
+  duration_ms: 0.254795
+  type: 'test'
+  ...
+# (node:156) [UNDICI-EHPA] Warning: EnvHttpProxyAgent is experimental, expect them to change at any time.
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# (node:156) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# Subtest: entrypoint orders scoped ownership repair before privilege drop and server launch
+ok 70 - entrypoint orders scoped ownership repair before privilege drop and server launch
+  ---
+  duration_ms: 121.578569
+  type: 'test'
+  ...
+# Subtest: mounted root-owned storage is repaired before the server runs without root
+ok 71 - mounted root-owned storage is repaired before the server runs without root # SKIP Requires CHOWN, SETUID and SETGID capabilities, unavailable in this workspace.
+  ---
+  duration_ms: 0.324911
+  type: 'test'
+  ...
+# Subtest: ownership repair leaves a nested symlink's external target untouched
+ok 72 - ownership repair leaves a nested symlink's external target untouched # SKIP Requires CHOWN, SETUID and SETGID capabilities, unavailable in this workspace.
+  ---
+  duration_ms: 0.082134
+  type: 'test'
+  ...
+# Subtest: storage initialization rejects system roots before making changes
+ok 73 - storage initialization rejects system roots before making changes
+  ---
+  duration_ms: 78.814514
+  type: 'test'
+  ...
+# Subtest: storage initialization rejects a backup directory outside DATA_DIR
+ok 74 - storage initialization rejects a backup directory outside DATA_DIR
+  ---
+  duration_ms: 63.269032
+  type: 'test'
+  ...
+# Subtest: backup succeeds as the unprivileged user after mounted-storage repair
+ok 75 - backup succeeds as the unprivileged user after mounted-storage repair # SKIP Requires CHOWN, SETUID and SETGID capabilities, unavailable in this workspace.
+  ---
+  duration_ms: 0.096215
+  type: 'test'
+  ...
+# Subtest: a backup-directory permission failure is recorded without a misleading success
+ok 76 - a backup-directory permission failure is recorded without a misleading success
+  ---
+  duration_ms: 59.506513
+  type: 'test'
+  ...
+# Subtest: a writable storage directory produces a verified database-and-upload archive
+ok 77 - a writable storage directory produces a verified database-and-upload archive
+  ---
+  duration_ms: 141.863699
+  type: 'test'
+  ...
+# Subtest: retention runs after a completed backup
+ok 78 - retention runs after a completed backup
+  ---
+  duration_ms: 821.037295
+  type: 'test'
+  ...
+# Subtest: retention is skipped after a failed backup
+ok 79 - retention is skipped after a failed backup
+  ---
+  duration_ms: 818.283176
+  type: 'test'
+  ...
+# (node:167) [UNDICI-EHPA] Warning: EnvHttpProxyAgent is experimental, expect them to change at any time.
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: same-origin mutations are accepted
+ok 80 - same-origin mutations are accepted
+  ---
+  duration_ms: 2.360372
+  type: 'test'
+  ...
+# Subtest: cross-origin mutations are rejected
+ok 81 - cross-origin mutations are rejected
+  ---
+  duration_ms: 2.06126
+  type: 'test'
+  ...
+# Subtest: same-site browser requests without Origin remain compatible
+ok 82 - same-site browser requests without Origin remain compatible
+  ---
+  duration_ms: 0.25206
+  type: 'test'
+  ...
+# Subtest: same-origin browser mutations survive an HTTPS reverse proxy
+ok 83 - same-origin browser mutations survive an HTTPS reverse proxy
+  ---
+  duration_ms: 0.203176
+  type: 'test'
+  ...
+# Subtest: proxy origin is accepted when fetch metadata is unavailable
+ok 84 - proxy origin is accepted when fetch metadata is unavailable
+  ---
+  duration_ms: 0.401907
+  type: 'test'
+  ...
+# Subtest: a foreign origin remains blocked behind the proxy
+ok 85 - a foreign origin remains blocked behind the proxy
+  ---
+  duration_ms: 0.39142
+  type: 'test'
+  ...
+1..85
+# tests 85
+# suites 0
+# pass 82
+# fail 0
+# cancelled 0
+# skipped 3
+# todo 0
+# duration_ms 2732.508536

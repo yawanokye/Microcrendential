@@ -1,0 +1,10 @@
+(node:5) [UNDICI-EHPA] Warning: EnvHttpProxyAgent is experimental, expect them to change at any time.
+(Use `node --trace-warnings ...` to show where the warning was created)
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> ucc-microcredentials@13.2.0 test:browser
+> node scripts/test-commercial-browser.mjs
+
+(node:18) [UNDICI-EHPA] Warning: EnvHttpProxyAgent is experimental, expect them to change at any time.
+(Use `node --trace-warnings ...` to show where the warning was created)
+{"passed":14,"checks":["Production liveness returned 200","Learner course response omits answer keys and marking rubrics","Permanent lesson route opens without a nested dialog","Lesson activity draft survives a refresh","Human practical submission saves evidence and shows pending status","Assigned marker can grade evidence; moderator cannot","Completed required activity unlocks the final assessment","Human final marking publishes the approved result","Discussions persist and respect course permissions","Reminder preferences persist","Support ticket history retains the administrator response","Verified payment receipt downloads as PDF","Downward grade correction flags the issued certificate for review","Desktop and phone layouts render without page errors or page overflow"],"artifacts":"/workspace/scratch/37e888a9d799/project/Microcrendential-master/validation/live-ai-lti/regression/browser"}

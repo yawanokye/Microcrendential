@@ -1,0 +1,30 @@
+{
+  "passed": 23,
+  "checks": [
+    "Enrolled learners receive working practice without knowledge-check, match, sequence or scenario answer keys",
+    "Unassigned staff cannot recover native answer keys",
+    "Required practice blocks final assessment until server-confirmed completion",
+    "knowledge_check: server grades and stores a pass with item feedback",
+    "knowledge_check: duplicate pass does not consume another attempt",
+    "matching: server grades and stores a pass with item feedback",
+    "matching: duplicate pass does not consume another attempt",
+    "sequencing: server grades and stores a pass with item feedback",
+    "sequencing: duplicate pass does not consume another attempt",
+    "flashcards: server grades and stores a pass with item feedback",
+    "flashcards: duplicate pass does not consume another attempt",
+    "scenario: server grades and stores a pass with item feedback",
+    "scenario: duplicate pass does not consume another attempt",
+    "All five native activity passes are visible in learner progress",
+    "Native evidence appears in the facilitator gradebook evidence queue",
+    "Completing native practice and lessons unlocks the approved final assessment",
+    "Reusable activity templates persist",
+    "Activity library is private to its facilitator and unavailable to learners",
+    "Activity library rejects invalid answer keys",
+    "Only an administrator can change institutional daily AI limits",
+    "Failed AI request survives the initial connection and can be reviewed after refresh",
+    "Saved AI requests are private to their owner",
+    "Daily AI usage limit is enforced before provider generation"
+  ],
+  "node": "v22.23.3",
+  "liveAi": "Not called. Provider keys were removed from the isolated environment."
+}

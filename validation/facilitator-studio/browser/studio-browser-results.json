@@ -1,0 +1,25 @@
+{
+  "passed": 14,
+  "checks": [
+    "Visual block duplication and Undo restore the previous draft",
+    "Activity fields support choices, correct answers, adding, removing and reordering items",
+    "Facilitator can test working native practice and its feedback before applying",
+    "Reusable activities save to the server and applying practice can be undone",
+    "Structured course brief renders in the facilitator authoring workflow",
+    "Saved outline and full proposal reopen, with invalid answer correction required before applying",
+    "Interactive responses survive a learner-page refresh",
+    "knowledge_check: mobile learner controls submit, receive feedback and record a pass",
+    "matching: mobile learner controls submit, receive feedback and record a pass",
+    "sequencing: mobile learner controls submit, receive feedback and record a pass",
+    "flashcards: mobile learner controls submit, receive feedback and record a pass",
+    "scenario: mobile learner controls submit, receive feedback and record a pass",
+    "Facilitator activity editor fits a phone viewport",
+    "Facilitator and mobile learner screens render without browser page errors"
+  ],
+  "screenshots": [
+    "/workspace/scratch/37e888a9d799/project/Microcrendential-master/validation/facilitator-studio/browser/facilitator-guided-brief.png",
+    "/workspace/scratch/37e888a9d799/project/Microcrendential-master/validation/facilitator-studio/browser/learner-native-mobile.png",
+    "/workspace/scratch/37e888a9d799/project/Microcrendential-master/validation/facilitator-studio/browser/facilitator-lesson-tools.png"
+  ],
+  "liveAi": "Not called. AI provider configuration was removed."
+}

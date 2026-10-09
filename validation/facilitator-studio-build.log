@@ -1,0 +1,149 @@
+(node:5) [UNDICI-EHPA] Warning: EnvHttpProxyAgent is experimental, expect them to change at any time.
+(Use `node --trace-warnings ...` to show where the warning was created)
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> ucc-microcredentials@13.1.0 build
+> next build --webpack
+
+(node:18) [UNDICI-EHPA] Warning: EnvHttpProxyAgent is experimental, expect them to change at any time.
+(Use `node --trace-warnings ...` to show where the warning was created)
+▲ Next.js 16.3.8 (webpack)
+✓ Running next.config.mjs took 50ms
+
+  Creating an optimized production build ...
+(node:40) [UNDICI-EHPA] Warning: EnvHttpProxyAgent is experimental, expect them to change at any time.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:68) [UNDICI-EHPA] Warning: EnvHttpProxyAgent is experimental, expect them to change at any time.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:96) [UNDICI-EHPA] Warning: EnvHttpProxyAgent is experimental, expect them to change at any time.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:96) [UNDICI-EHPA] Warning: EnvHttpProxyAgent is experimental, expect them to change at any time.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✓ Compiled successfully in 10.0s
+  Running TypeScript ...
+  Finished TypeScript in 3.3s ...
+  Collecting page data using 8 workers ...
+(node:149) [UNDICI-EHPA] Warning: EnvHttpProxyAgent is experimental, expect them to change at any time.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:150) [UNDICI-EHPA] Warning: EnvHttpProxyAgent is experimental, expect them to change at any time.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:161) [UNDICI-EHPA] Warning: EnvHttpProxyAgent is experimental, expect them to change at any time.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:162) [UNDICI-EHPA] Warning: EnvHttpProxyAgent is experimental, expect them to change at any time.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:163) [UNDICI-EHPA] Warning: EnvHttpProxyAgent is experimental, expect them to change at any time.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:180) [UNDICI-EHPA] Warning: EnvHttpProxyAgent is experimental, expect them to change at any time.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:169) [UNDICI-EHPA] Warning: EnvHttpProxyAgent is experimental, expect them to change at any time.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:203) [UNDICI-EHPA] Warning: EnvHttpProxyAgent is experimental, expect them to change at any time.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:163) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(node:149) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(node:162) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(node:161) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(node:169) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(node:180) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(node:150) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(node:203) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+  Generating static pages using 8 workers (0/82) ...
+  Generating static pages using 8 workers (20/82) 
+  Generating static pages using 8 workers (40/82) 
+  Generating static pages using 8 workers (61/82) 
+✓ Generating static pages using 8 workers (82/82) in 448ms
+  Finalizing page optimization ...
+  Collecting build traces ...
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ○ /accessibility
+├ ○ /admin-signin
+├ ƒ /api/admin/accounts/reset
+├ ƒ /api/admin/backups
+├ ƒ /api/admin/facilitators
+├ ƒ /api/admin/identity-assignments
+├ ƒ /api/admin/identity-file
+├ ƒ /api/admin/identity-verifications
+├ ƒ /api/admin/pilot-readiness
+├ ƒ /api/analytics/cohorts
+├ ƒ /api/assessments
+├ ƒ /api/auth/facilitator-onboarding
+├ ƒ /api/auth/password-reset
+├ ƒ /api/auth/resend-code
+├ ƒ /api/auth/session
+├ ƒ /api/certificate-branding
+├ ƒ /api/certificate-signatures
+├ ƒ /api/certificates
+├ ƒ /api/certificates/download
+├ ƒ /api/certificates/qr
+├ ƒ /api/colab/assignments
+├ ƒ /api/colab/files
+├ ƒ /api/colab/submissions
+├ ƒ /api/content/ingest
+├ ƒ /api/course-activity-status
+├ ƒ /api/course-ai/activity-library
+├ ƒ /api/course-ai/design
+├ ƒ /api/course-ai/from-idea
+├ ƒ /api/course-ai/jobs
+├ ƒ /api/course-ai/media
+├ ƒ /api/course-ai/status
+├ ƒ /api/course-design/from-manual
+├ ƒ /api/course-import/manual
+├ ƒ /api/course-materials
+├ ƒ /api/course-progress
+├ ƒ /api/course-revisions
+├ ƒ /api/course-templates/illustrative
+├ ƒ /api/courses
+├ ƒ /api/courses/public
+├ ƒ /api/courses/revisions
+├ ƒ /api/courses/unpublish
+├ ƒ /api/credential-pathways
+├ ƒ /api/dashboard/summary
+├ ƒ /api/delivery
+├ ƒ /api/delivery/evidence
+├ ƒ /api/enrollments
+├ ƒ /api/health
+├ ƒ /api/health/live
+├ ƒ /api/identity-register
+├ ƒ /api/identity-uploads
+├ ƒ /api/internal/delivery
+├ ƒ /api/learner/passport
+├ ƒ /api/learning-activity-submissions
+├ ƒ /api/learning-progress
+├ ƒ /api/payments/initialize
+├ ƒ /api/payments/receipt
+├ ƒ /api/payments/verify
+├ ƒ /api/payments/webhook
+├ ƒ /api/platform-mode
+├ ƒ /api/profile
+├ ƒ /api/registration-draft
+├ ƒ /api/render-auth
+├ ƒ /api/resource-search
+├ ƒ /api/support
+├ ƒ /api/uploads
+├ ƒ /api/virtual-labs
+├ ƒ /api/virtual-labs/evidence
+├ ƒ /api/youtube-transcript
+├ ƒ /facilitator-signin
+├ ○ /facilitator-studio
+├ ○ /forgot-password
+├ ○ /fsadmin
+├ ƒ /learn
+├ ○ /privacy
+├ ○ /refund-policy
+├ ○ /robots.txt
+├ ƒ /signin-with-chatgpt
+├ ƒ /signout-with-chatgpt
+├ ○ /sitemap.xml
+├ ○ /student-registration
+├ ○ /student-signin
+├ ○ /support
+├ ○ /terms
+└ ƒ /verify-credential
+
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
