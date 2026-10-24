@@ -1,0 +1,34 @@
+{
+  "errors": 0,
+  "warnings": 42,
+  "filesWithWarnings": [
+    {
+      "file": "src/app/api/colab/submissions/route.ts",
+      "warnings": 3
+    },
+    {
+      "file": "src/app/api/courses/route.ts",
+      "warnings": 6
+    },
+    {
+      "file": "src/app/api/virtual-labs/route.ts",
+      "warnings": 1
+    },
+    {
+      "file": "src/app/student-registration/registration-form.tsx",
+      "warnings": 2
+    },
+    {
+      "file": "src/components/learning-page.tsx",
+      "warnings": 2
+    },
+    {
+      "file": "src/components/platform-home.tsx",
+      "warnings": 27
+    },
+    {
+      "file": "src/components/ui/combobox.tsx",
+      "warnings": 1
+    }
+  ]
+}

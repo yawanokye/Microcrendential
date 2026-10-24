@@ -8,12 +8,13 @@ import {createRequire} from 'node:module';
 import {PDFDocument,StandardFonts} from 'pdf-lib';
 import {exportJWK,SignJWT,createLocalJWKSet,jwtVerify} from 'jose';
 const require=createRequire(import.meta.url);let playwright;try{playwright=require('playwright');}catch{playwright=require(process.env.CODEX_PRIMARY_RUNTIME_NODE_MODULES+'/playwright');}
+const productionProject=resolve(process.env.TEST_PRODUCTION_PROJECT||'.');
 const dir=mkdtempSync(join(tmpdir(),'ucc-browser-test-')),port=Number(process.env.TEST_PORT||3120),origin=`http://127.0.0.1:${port}`,issuer='https://platform.example.test',toolOrigin='https://tool.example.test',secret='isolated-lti-production-test';
 const env={...process.env,DATA_DIR:dir,SQLITE_PATH:join(dir,'test.sqlite'),AUTH_SECRET:secret,NODE_ENV:'production',DEMONSTRATION_FULL_FUNCTIONALITY:'true',NEXT_PUBLIC_APP_URL:origin,LTI_PLATFORM_ISSUER:issuer,AUTO_BACKUP_ENABLED:'false',PORT:String(port),HOSTNAME:'127.0.0.1'};
 for(const key of Object.keys(env))if(/^(OPENAI_|GOOGLE_|RESEND_|GMAIL_|SMTP_)/.test(key)||key==='SUPPORT_EMAIL'||key==='LTI_PLATFORM_PRIVATE_KEY_BASE64')delete env[key];
 execFileSync(process.execPath,['--import','tsx','scripts/seed-native-test.ts'],{env,stdio:'pipe'});
-cpSync('public','.next/standalone/public',{recursive:true});cpSync('.next/static','.next/standalone/.next/static',{recursive:true});
-const server=spawn(process.execPath,['.next/standalone/server.js'],{env,stdio:['ignore','pipe','pipe']});let logs='';server.stdout.on('data',d=>logs+=d);server.stderr.on('data',d=>logs+=d);
+cpSync(join(productionProject,'public'),join(productionProject,'.next/standalone/public'),{recursive:true});cpSync(join(productionProject,'.next/static'),join(productionProject,'.next/standalone/.next/static'),{recursive:true});
+const server=spawn(process.execPath,[join(productionProject,'.next/standalone/server.js')],{env,stdio:['ignore','pipe','pipe']});let logs='';server.stdout.on('data',d=>logs+=d);server.stderr.on('data',d=>logs+=d);
 const cookie=name=>{const body=Buffer.from(JSON.stringify({email:`${name}@example.test`,fullName:`Test ${name}`,expiresAt:Date.now()+3600000,version:3,sessionVersion:1})).toString('base64url');return `${body}.${createHmac('sha256',secret).update(body).digest('base64url')}`;};
 async function api(name,path,body,method='POST'){const response=await fetch(origin+path,{method:body?method:'GET',headers:{cookie:`ucc_render_session=${cookie(name)}`,origin,...(body instanceof FormData?{}:{'content-type':'application/json'})},...(body?{body:body instanceof FormData?body:JSON.stringify(body)}:{})});return {response,data:await response.json()};}
 const claim='https://purl.imsglobal.org/spec/lti/claim/',ags='https://purl.imsglobal.org/spec/lti-ags/claim/',dl='https://purl.imsglobal.org/spec/lti-dl/claim/',scoreScope='https://purl.imsglobal.org/spec/lti-ags/scope/score',resultsScope='https://purl.imsglobal.org/spec/lti-ags/scope/result.readonly';

@@ -8,11 +8,12 @@ import { createRequire } from "node:module";
 const require=createRequire(import.meta.url);
 let playwright;
 try{playwright=require("playwright");}catch{playwright=require(join(process.env.CODEX_PRIMARY_RUNTIME_NODE_MODULES||"","playwright"));}
+const productionProject=resolve(process.env.TEST_PRODUCTION_PROJECT||'.');
 const directory=mkdtempSync(join(tmpdir(),"ucc-browser-test-")),port=Number(process.env.TEST_PORT||3107),origin=`http://127.0.0.1:${port}`,secret="isolated-commercial-browser-test-secret",env={...process.env,DATA_DIR:directory,SQLITE_PATH:join(directory,"test.sqlite"),AUTH_SECRET:secret,NODE_ENV:"production",DEMONSTRATION_FULL_FUNCTIONALITY:"true",NEXT_PUBLIC_APP_URL:origin,EMAIL_PROVIDER:"",AUTO_BACKUP_ENABLED:"false",PORT:String(port),HOSTNAME:"127.0.0.1"};
 for(const key of Object.keys(env))if(/^(RESEND_|GMAIL_|GOOGLE_OAUTH_|SMTP_)/.test(key)||key==="SUPPORT_EMAIL")delete env[key];
 execFileSync(process.execPath,["--import","tsx","scripts/seed-commercial-test.ts"],{env,stdio:["ignore","pipe","pipe"]});
-cpSync("public",".next/standalone/public",{recursive:true});cpSync(".next/static",".next/standalone/.next/static",{recursive:true});
-const server=spawn(process.execPath,[".next/standalone/server.js"],{env,stdio:["ignore","pipe","pipe"]});
+cpSync(join(productionProject,"public"),join(productionProject,".next/standalone/public"),{recursive:true});cpSync(join(productionProject,".next/static"),join(productionProject,".next/standalone/.next/static"),{recursive:true});
+const server=spawn(process.execPath,[join(productionProject,".next/standalone/server.js")],{env,stdio:["ignore","pipe","pipe"]});
 let logs="";server.stdout.on("data",d=>{logs+=d;});server.stderr.on("data",d=>{logs+=d;});
 const cookie=name=>{const body=Buffer.from(JSON.stringify({email:`${name}@example.test`,fullName:`Test ${name}`,expiresAt:Date.now()+3600000,version:3,sessionVersion:1})).toString("base64url");return `${body}.${createHmac("sha256",secret).update(body).digest("base64url")}`;};
 async function api(name,path,body,method="POST") {const response=await fetch(`${origin}${path}`,{method:body?method:"GET",headers:{cookie:`ucc_render_session=${cookie(name)}`,origin,"content-type":"application/json"},...(body?{body:JSON.stringify(body)}:{})});const data=await response.json();return {response,data};}
