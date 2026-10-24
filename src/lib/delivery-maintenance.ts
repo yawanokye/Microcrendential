@@ -1,3 +1,4 @@
+import { cleanupAssuranceEvidence } from "./assessment-assurance";
 import { getRawDb } from "@/db/raw";
 import { notify, deliverNotificationEmails } from "./delivery-notifications";
 import { processGradingJobs } from "./grading-workflow";
@@ -24,5 +25,6 @@ export async function deliveryMaintenance() {
     }
   }
   await deliverNotificationEmails();
-  return {processed};
+  const assuranceEvidenceRemoved=await cleanupAssuranceEvidence();
+  return {processed,assuranceEvidenceRemoved};
 }

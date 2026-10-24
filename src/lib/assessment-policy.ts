@@ -13,6 +13,7 @@ export type AssessmentQuestionRecord = {
   learnerAdvice?: string;
   outcomeIds?: string[];
   pairs?: AssessmentPair[];
+  pairOptions?: string[];
   videoUrl?: string;
   videoMode?: "whole" | "part" | "pause";
   videoStart?: number;
@@ -68,7 +69,7 @@ export function learnerSafeAssessmentConfig(config: AssessmentConfigRecord, limi
       points: Math.max(1, Number(q.points) || 1),
       outcomeIds: q.outcomeIds ?? [],
       pairs: (q.pairs ?? []).map((pair) => ({ left: pair.left, image: pair.image })),
-      pairOptions: [...new Set((q.pairs ?? []).map((pair) => pair.right).filter(Boolean))].reverse(),
+      pairOptions: q.pairOptions || [...new Set((q.pairs ?? []).map((pair) => pair.right).filter(Boolean))].sort(),
       videoUrl: q.videoUrl,
       videoMode: q.videoMode,
       videoStart: q.videoStart,

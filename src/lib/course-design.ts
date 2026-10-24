@@ -1,3 +1,4 @@
+import { defaultAssurancePolicy, normalizeAssurancePolicy, assuranceIssues, type AssurancePolicy } from "./assessment-assurance-policy";
 import { externalActivityIssues, type ExternalActivity } from "./lti-types";
 import { interactiveIssues, type InteractiveActivity } from "./interactive-activities";
 import { validateAssessmentForPublication, type AssessmentConfigRecord } from "@/lib/assessment-policy";
@@ -33,6 +34,7 @@ export type CourseDesign = {
   creditValue: number;
   certificate: CertificateConfiguration;
   delivery: DeliveryPolicy;
+  assurance: AssurancePolicy;
   programmeInitiationSource: ProgrammeInitiationSource;
   originatingUnit: string;
   programmeHome: string;
@@ -100,6 +102,7 @@ export const defaultCourseDesign = (): CourseDesign => ({
   creditValue: 0,
   certificate: defaultCertificateConfiguration(),
   delivery: defaultDeliveryPolicy(),
+  assurance: defaultAssurancePolicy(),
   programmeInitiationSource: "academic_unit",
   originatingUnit: "",
   programmeHome: "",
@@ -172,6 +175,7 @@ export function normalizeCourseDesign(value: unknown): CourseDesign {
     creditValue,
     certificate: normalizeCertificateConfiguration(input.certificate),
     delivery: normalizeDeliveryPolicy(input.delivery),
+    assurance: normalizeAssurancePolicy(input.assurance),
     programmeInitiationSource: initiationSources.has(input.programmeInitiationSource as ProgrammeInitiationSource) ? input.programmeInitiationSource as ProgrammeInitiationSource : fallback.programmeInitiationSource,
     originatingUnit: String(input.originatingUnit || "").trim().slice(0, 300),
     programmeHome: String(input.programmeHome || "").trim().slice(0, 300),
@@ -221,6 +225,7 @@ export function evaluateCourseQuality(input: {
   const mappedBroaderOutcomes = new Set(design.componentOutcomeMappings.filter((mapping) => componentCodes.has(mapping.componentCourseCode) && mapping.componentOutcomeIds.length).map((mapping) => mapping.broaderOutcomeId));
   const legacyStackingValid = !design.broaderCredentialCode && !design.broaderCredentialTitle && design.broaderCredentialRequiredCodes.length === 0 ? true : Boolean(design.broaderCredentialCode && design.broaderCredentialTitle && design.broaderCredentialRequiredCodes.length >= 2);
   const checks: CourseQualityCheck[] = [
+    { id: "assurance", label: "Optional corporate assessment settings", passed: assuranceIssues(design.assurance,design.outcomes.map(o=>o.id)).length===0, detail: assuranceIssues(design.assurance,design.outcomes.map(o=>o.id)).join(" ")||"Optional controls are ready or switched off." },
     { id: "identity", label: "Clear course identity", passed: title.trim().length >= 8 && description.trim().length >= 80, detail: "Use a specific title and a learner-facing description of at least 80 characters." },
     { id: "governance", label: "Programme source and home", passed: Boolean(design.programmeInitiationSource && design.originatingUnit.trim().length >= 2 && design.programmeHome.trim().length >= 2), detail: "Record the programme initiation source, originating unit and programme home. These are governance records and do not create a separate approval pathway." },
     { id: "certificate", label: "Certificate issuance model", passed: certificateValidation.valid, detail: certificateValidation.issues[0] ?? "The award type, issuer relationship, partner evidence and CPD details are complete." },

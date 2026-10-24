@@ -1,3 +1,4 @@
+import { assuranceCompletion } from "./assessment-assurance";
 import { getRawDb } from "@/db/raw";
 import { normalizeCourseDesign } from "@/lib/course-design";
 import { issueBroaderCredentialsIfEligible } from "@/lib/credential-stack";
@@ -21,7 +22,7 @@ type CourseActivity = {
 
 export type CompletionRequirement = {
   id: string;
-  type: "identity" | "assessment" | "content" | "learning_activity" | "virtual_lab" | "colab" | "attendance";
+  type: "identity" | "assessment" | "content" | "learning_activity" | "virtual_lab" | "colab" | "attendance" | "assurance";
   label: string;
   complete: boolean;
   evidence?: string;
@@ -154,6 +155,7 @@ export async function evaluateCourseCompletion(userEmail: string, courseCode: st
     }
   }
 
+  requirements.push(...await assuranceCompletion(userEmail,course.code,design.assurance));
   const paidCertificate = design.certificateFeeGhs > 0 ? await db.prepare("SELECT id FROM payment_orders WHERE user_email = ? AND course_code = ? AND purpose = 'certificate' AND status = 'paid' LIMIT 1")
     .bind(userEmail, course.code).first() : null;
   return {
