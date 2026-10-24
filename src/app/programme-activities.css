@@ -50,9 +50,39 @@
   color: var(--teal);
 }
 
+.practical-skip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 14px;
+  background: #edf9f6;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.practical-skip p,
+.practical-none p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.practical-none h3 {
+  margin: 0;
+  color: var(--navy-deep);
+  font-size: 15px;
+}
+
+.practical-none > svg {
+  color: var(--teal);
+}
+
 .activity-kind-tabs {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
 }
 
