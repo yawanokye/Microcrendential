@@ -1,0 +1,13 @@
+{
+  "inputArchiveSha256": "fc337a0b2ccef232f1dc04363f624d7b5f1a43787780161c709e90a40ddc1d92",
+  "inputFiles": 587,
+  "cleanFilesBeforePatchAndReleaseManifest": 495,
+  "removedOldPaths": 194,
+  "rootComponentFilesRemoved": 79,
+  "documentsAndRecordsArchived": 60,
+  "patchBytes": 3962003,
+  "patchCheck": "passed",
+  "patchApply": "passed",
+  "allPatchedFilesMatchCleanRelease": true,
+  "embeddedBinaryScreenshotData": false
+}

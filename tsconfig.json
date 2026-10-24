@@ -26,10 +26,8 @@
     "next-env.d.ts",
     "src/**/*.ts",
     "src/**/*.tsx",
-    "components/**/*.ts",
-    "components/**/*.tsx",
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts"
   ],
-  "exclude": ["node_modules", "tests"]
+  "exclude": ["node_modules", "tests", "components", "app", "lib"]
 }

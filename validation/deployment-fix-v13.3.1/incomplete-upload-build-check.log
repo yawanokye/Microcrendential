@@ -1,0 +1,12 @@
+▲ Next.js 16.4.3 (webpack)
+(node:6) [UNDICI-EHPA] Warning: EnvHttpProxyAgent is experimental, expect them to change at any time.
+(Use `node --trace-warnings ...` to show where the warning was created)
+⨯ Failed to load next.config.mjs, see more info here https://nextjs.org/docs/messages/next-config-error
+
+> Build error occurred
+Error: Release source check failed:
+- Missing src/components/corporate-assessment-settings.tsx
+- Missing scripts/prepare-production.mjs
+- Missing scripts/start-production.mjs
+Extract the complete release ZIP and upload its src/ and scripts/ folders at the repository root. Keep every subfolder. See DEPLOYMENT-FIX-v13.3.1.md.
+    at configuration (next.config.mjs:83:30)

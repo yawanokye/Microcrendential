@@ -1,0 +1,8 @@
+{
+  "matchedPreviouslyBuiltAndTestedFiles": 349,
+  "allRuntimeSourcesAndBuildConfigurationMatch": true,
+  "actualGithubPatchSourceCheck": "passed",
+  "applicationAcceptanceChecks": 155,
+  "unitPassed": 99,
+  "unitSkipped": 3
+}

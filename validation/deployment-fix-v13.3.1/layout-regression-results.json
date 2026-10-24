@@ -1,0 +1,7 @@
+{
+  "originalThreeMissingImports": "reproduced",
+  "obsoleteRootComponentWithTypeErrors": "ignored by canonical source configuration",
+  "repairedSourceTree": "type check passed",
+  "realErrorInSrc": "still rejected with TS2322",
+  "ignoreBuildErrors": false
+}

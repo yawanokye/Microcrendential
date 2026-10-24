@@ -1,0 +1,44 @@
+{
+  "release": "13.3.1",
+  "date": "2026-10-24",
+  "node": "22.23.4",
+  "next": "16.4.3",
+  "sourceError": "Original three TS2307 errors reproduced and repaired",
+  "canonicalSourceErrors": "Still rejected",
+  "incompleteUpload": "Actual Next source build and Docker RUN node command reject missing file with exact path",
+  "obsoleteRootCopy": "Type check and clean source production build pass with invalid unused root component present",
+  "freshInstall": "passed",
+  "productionBuild": "passed",
+  "acceptanceChecks": {
+    "corporate": 33,
+    "commercial-api": 46,
+    "studio-api": 23,
+    "commercial-browser": 14,
+    "studio-browser": 14,
+    "integrations": 25
+  },
+  "acceptanceTotal": 155,
+  "unitTests": {
+    "total": 102,
+    "passed": 99,
+    "skipped": 3,
+    "failed": 0
+  },
+  "lint": {
+    "errors": 0,
+    "warnings": 42
+  },
+  "npmAudit": {
+    "info": 0,
+    "low": 0,
+    "moderate": 0,
+    "high": 0,
+    "critical": 0,
+    "total": 0
+  },
+  "renderDeployment": "Not performed",
+  "dockerImageBuild": "Not performed, Docker/Podman unavailable",
+  "liveExternalServices": "Mock LTI and synthetic camera input only",
+  "corporateDefaults": "All feature flags remain optional and off",
+  "screenshotsIncluded": false
+}

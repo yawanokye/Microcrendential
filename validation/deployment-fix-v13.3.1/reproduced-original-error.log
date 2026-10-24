@@ -1,0 +1,3 @@
+../../repro-root-components-v13.3.1/components/platform-home.tsx(4,45): error TS2307: Cannot find module '@/components/corporate-assessment-settings' or its corresponding type declarations.
+../../repro-root-components-v13.3.1/components/platform-home.tsx(5,43): error TS2307: Cannot find module '@/components/corporate-assessment-review' or its corresponding type declarations.
+../../repro-root-components-v13.3.1/components/platform-home.tsx(6,73): error TS2307: Cannot find module '@/components/corporate-assessment-learner' or its corresponding type declarations.

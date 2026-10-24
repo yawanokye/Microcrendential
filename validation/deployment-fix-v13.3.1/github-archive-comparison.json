@@ -1,0 +1,13 @@
+{
+  "inputArchive": "Microcrendential-master (12).zip",
+  "inputSha256": "fc337a0b2ccef232f1dc04363f624d7b5f1a43787780161c709e90a40ddc1d92",
+  "confirmedMissingCanonicalComponents": [
+    "src/components/corporate-assessment-settings.tsx",
+    "src/components/corporate-assessment-review.tsx",
+    "src/components/corporate-assessment-learner.tsx"
+  ],
+  "confirmedDuplicateRootComponents": 79,
+  "allRootComponentsMatchRepairedCanonicalCopies": true,
+  "canonicalPlatformHomeWasOlder": true,
+  "functionalPathsRetained": true
+}

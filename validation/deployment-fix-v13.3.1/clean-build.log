@@ -1,0 +1,156 @@
+(node:42) [UNDICI-EHPA] Warning: EnvHttpProxyAgent is experimental, expect them to change at any time.
+(Use `node --trace-warnings ...` to show where the warning was created)
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> ucc-microcredentials@13.3.1 build
+> next build --webpack && node scripts/prepare-production.mjs
+
+(node:55) [UNDICI-EHPA] Warning: EnvHttpProxyAgent is experimental, expect them to change at any time.
+(Use `node --trace-warnings ...` to show where the warning was created)
+▲ Next.js 16.4.3 (webpack)
+✓ Running next.config.mjs took 71ms
+Attention: Next.js now collects completely anonymous telemetry regarding usage.
+This information is used to shape Next.js' roadmap and prioritize features.
+You can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:
+https://nextjs.org/telemetry
+
+- Experiments (use with caution):
+  · cpus: 2
+  ✓ webpackMemoryOptimizations
+
+  Creating an optimized production build ...
+(node:77) [UNDICI-EHPA] Warning: EnvHttpProxyAgent is experimental, expect them to change at any time.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:105) [UNDICI-EHPA] Warning: EnvHttpProxyAgent is experimental, expect them to change at any time.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:133) [UNDICI-EHPA] Warning: EnvHttpProxyAgent is experimental, expect them to change at any time.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:133) [UNDICI-EHPA] Warning: EnvHttpProxyAgent is experimental, expect them to change at any time.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✓ Compiled successfully in 49s
+  Running TypeScript ...
+  Finished TypeScript in 38.8s ...
+  Collecting page data using 2 workers ...
+(node:186) [UNDICI-EHPA] Warning: EnvHttpProxyAgent is experimental, expect them to change at any time.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:187) [UNDICI-EHPA] Warning: EnvHttpProxyAgent is experimental, expect them to change at any time.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:187) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(node:186) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+  Generating static pages using 2 workers (0/92) ...
+  Generating static pages using 2 workers (23/92)
+  Generating static pages using 2 workers (46/92)
+  Generating static pages using 2 workers (69/92)
+✓ Generating static pages using 2 workers (92/92) in 909ms
+  Finalizing page optimization ...
+  Collecting build traces ...
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ○ /accessibility
+├ ○ /admin-signin
+├ ƒ /api/admin/accounts/reset
+├ ƒ /api/admin/backups
+├ ƒ /api/admin/facilitators
+├ ƒ /api/admin/identity-assignments
+├ ƒ /api/admin/identity-file
+├ ƒ /api/admin/identity-verifications
+├ ƒ /api/admin/pilot-readiness
+├ ƒ /api/analytics/cohorts
+├ ƒ /api/assessment-assurance
+├ ƒ /api/assessment-assurance/evidence
+├ ƒ /api/assessments
+├ ƒ /api/auth/facilitator-onboarding
+├ ƒ /api/auth/password-reset
+├ ƒ /api/auth/resend-code
+├ ƒ /api/auth/session
+├ ƒ /api/certificate-branding
+├ ƒ /api/certificate-signatures
+├ ƒ /api/certificates
+├ ƒ /api/certificates/download
+├ ƒ /api/certificates/qr
+├ ƒ /api/colab/assignments
+├ ƒ /api/colab/files
+├ ƒ /api/colab/submissions
+├ ƒ /api/content/ingest
+├ ƒ /api/course-activity-status
+├ ƒ /api/course-ai/activity-library
+├ ƒ /api/course-ai/design
+├ ƒ /api/course-ai/from-idea
+├ ƒ /api/course-ai/jobs
+├ ƒ /api/course-ai/media
+├ ƒ /api/course-ai/status
+├ ƒ /api/course-ai/verify
+├ ƒ /api/course-design/from-manual
+├ ƒ /api/course-import/manual
+├ ƒ /api/course-materials
+├ ƒ /api/course-progress
+├ ƒ /api/course-revisions
+├ ƒ /api/course-templates/illustrative
+├ ƒ /api/courses
+├ ƒ /api/courses/public
+├ ƒ /api/courses/revisions
+├ ƒ /api/courses/unpublish
+├ ƒ /api/credential-pathways
+├ ƒ /api/dashboard/summary
+├ ƒ /api/delivery
+├ ƒ /api/delivery/evidence
+├ ƒ /api/enrollments
+├ ƒ /api/health
+├ ƒ /api/health/live
+├ ƒ /api/identity-register
+├ ƒ /api/identity-uploads
+├ ƒ /api/internal/delivery
+├ ƒ /api/learner/passport
+├ ƒ /api/learning-activity-submissions
+├ ƒ /api/learning-progress
+├ ƒ /api/lti/ags/[courseCode]/lineitems
+├ ƒ /api/lti/ags/[courseCode]/lineitems/[activityId]
+├ ƒ /api/lti/ags/[courseCode]/lineitems/[activityId]/results
+├ ƒ /api/lti/ags/[courseCode]/lineitems/[activityId]/scores
+├ ƒ /api/lti/authorize
+├ ƒ /api/lti/content-selections
+├ ƒ /api/lti/deep-link
+├ ƒ /api/lti/jwks
+├ ƒ /api/lti/launch
+├ ƒ /api/lti/token
+├ ƒ /api/lti/tools
+├ ƒ /api/payments/initialize
+├ ƒ /api/payments/receipt
+├ ƒ /api/payments/verify
+├ ƒ /api/payments/webhook
+├ ƒ /api/platform-mode
+├ ƒ /api/profile
+├ ƒ /api/registration-draft
+├ ƒ /api/render-auth
+├ ƒ /api/resource-search
+├ ƒ /api/support
+├ ƒ /api/uploads
+├ ƒ /api/virtual-labs
+├ ƒ /api/virtual-labs/evidence
+├ ƒ /api/youtube-transcript
+├ ƒ /facilitator-signin
+├ ○ /facilitator-studio
+├ ○ /forgot-password
+├ ○ /fsadmin
+├ ƒ /learn
+├ ○ /privacy
+├ ○ /refund-policy
+├ ○ /robots.txt
+├ ƒ /signin-with-chatgpt
+├ ƒ /signout-with-chatgpt
+├ ○ /sitemap.xml
+├ ○ /student-registration
+├ ○ /student-signin
+├ ○ /support
+├ ○ /terms
+└ ƒ /verify-credential
+
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
+(node:226) [UNDICI-EHPA] Warning: EnvHttpProxyAgent is experimental, expect them to change at any time.
+(Use `node --trace-warnings ...` to show where the warning was created)
+Production package prepared, including public files, static assets and maintenance scripts.

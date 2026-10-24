@@ -9,8 +9,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV CI=1
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY . .
-RUN test -f src/lib/passwords.ts \
-    && test -f src/lib/file-security.ts \
+RUN node -e 'const fs=require("node:fs"); const files=["src/lib/passwords.ts","src/lib/file-security.ts","src/components/corporate-assessment-settings.tsx","src/components/corporate-assessment-review.tsx","src/components/corporate-assessment-learner.tsx"]; const missing=files.filter(file=>!fs.existsSync(file)||!fs.statSync(file).isFile()); if(missing.length){console.error("Incomplete source upload. Missing exact paths:\n"+missing.join("\n")+"\nUpload the complete src folder at the repository root, preserving every subfolder.");process.exit(1);}' \
     && npm run build
 
 FROM node:22-bookworm-slim AS runtime

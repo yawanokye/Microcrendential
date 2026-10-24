@@ -1,14 +1,15 @@
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { sourceLayoutIssues } from "./next.config.mjs";
 
-const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const root = dirname(fileURLToPath(import.meta.url));
 const routes = [
   ["src/app/page.tsx", "@/components/platform-home"],
   ["src/app/facilitator-studio/page.tsx", "@/components/platform-home"],
   ["src/app/learn/page.tsx", "@/components/learning-page"],
 ];
-const errors = [];
+const errors = sourceLayoutIssues(root);
 for (const [path, module] of routes) {
   let source;
   try {
@@ -24,8 +25,8 @@ for (const [path, module] of routes) {
 }
 if (errors.length) {
   console.error("Page layout check failed:\n" + errors.map((error) => `- ${error}`).join("\n"));
-  console.error("Extract the repair ZIP and upload its src folder from the repository root. Keep each page.tsx in its own subfolder. See BUILD-REPAIR-v13.0.2.md.");
+  console.error("Extract the complete release ZIP and upload src/ and scripts/ from the repository root. Keep all subfolders. See DEPLOYMENT-FIX-v13.3.1.md.");
   process.exitCode = 1;
 } else {
-  console.log("Page layout checked: landing, facilitator and learner pages are in their expected locations.");
+  console.log("Release source checked: required files, canonical imports and the landing, facilitator and learner routes are in their expected locations.");
 }
