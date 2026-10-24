@@ -1,0 +1,100 @@
+# Alternative template for an existing native Node service. See DEPLOYMENT-v13.3.0.md.
+services:
+  - type: web
+    name: ucc-microcredential-platform
+    runtime: node
+    plan: starter
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: npm start
+    # Deployment liveness must test the running service, not optional setup.
+    # /api/health remains the detailed configuration-readiness diagnostic.
+    healthCheckPath: /api/health/live
+    # Deploy manually after the documented quality and production checks pass.
+    autoDeploy: false
+    envVars:
+      - key: NODE_VERSION
+        value: "22.23.4"
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "10000"
+      - key: DATA_DIR
+        value: /var/data
+      - key: SQLITE_PATH
+        value: /var/data/ucc-microcredentials.sqlite
+      - key: AUTH_SECRET
+        generateValue: true
+      - key: INITIAL_ADMIN_EMAIL
+        sync: false
+      - key: NEXT_PUBLIC_APP_URL
+        value: https://ucc-microcredential-platform.onrender.com
+      - key: PILOT_REQUIRE_OFFICIAL_DOMAIN
+        value: "false"
+      - key: PLATFORM_MODE
+        value: demonstration
+      - key: DEMONSTRATION_MODE_LOCK
+        value: "true"
+      - key: DEMONSTRATION_FULL_FUNCTIONALITY
+        value: "true"
+      - key: EMERGENCY_DEMONSTRATION_MODE
+        value: "false"
+      - key: PUBLIC_REGISTRATION_ENABLED
+        value: "true"
+      - key: PILOT_MAX_LEARNERS
+        value: "50"
+      - key: EMAIL_VERIFICATION_REQUIRED
+        value: "true"
+      - key: STAFF_MFA_REQUIRED
+        value: "true"
+      - key: EMAIL_PROVIDER
+        value: google_oauth
+      - key: GMAIL_USER
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+      - key: GOOGLE_OAUTH_CLIENT_ID
+        sync: false
+      - key: GOOGLE_OAUTH_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_OAUTH_REFRESH_TOKEN
+        sync: false
+      - key: SUPPORT_EMAIL
+        sync: false
+      - key: MONITORING_WEBHOOK_URL
+        sync: false
+      - key: PAYMENTS_ENABLED
+        value: "false"
+      - key: PAYSTACK_SECRET_KEY
+        sync: false
+      - key: AUTO_BACKUP_ENABLED
+        value: "true"
+      - key: BACKUP_DIR
+        value: /var/data/backups
+      - key: BACKUP_INTERVAL_HOURS
+        value: "24"
+      - key: BACKUP_RETENTION_DAYS
+        value: "14"
+      - key: IDENTITY_RETENTION_DAYS
+        value: "90"
+      - key: NEXT_PUBLIC_ENABLE_DEMO_CONTENT
+        value: "false"
+      - key: COURSE_AI_PROVIDER
+        value: auto
+      - key: COURSE_AI_TIMEOUT_SECONDS
+        value: "120"
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_COURSE_MODEL
+        value: gpt-5-mini
+      - key: GOOGLE_CLOUD_PROJECT
+        sync: false
+      - key: GOOGLE_CLOUD_LOCATION
+        value: global
+      - key: GOOGLE_VERTEX_MODEL
+        value: gemini-2.5-flash
+      - key: GOOGLE_VERTEX_SERVICE_ACCOUNT_JSON_BASE64
+        sync: false
+    disk:
+      name: ucc-platform-data
+      mountPath: /var/data
+      sizeGB: 10

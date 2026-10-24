@@ -7,7 +7,7 @@ services:
     # Deployment liveness must test the running service, not optional setup.
     # /api/health remains the detailed configuration-readiness diagnostic.
     healthCheckPath: /api/health/live
-    # Production is promoted only after the GitHub quality workflow succeeds.
+    # Deploy manually after the documented quality and production checks pass.
     autoDeploy: false
     envVars:
       - key: NODE_ENV

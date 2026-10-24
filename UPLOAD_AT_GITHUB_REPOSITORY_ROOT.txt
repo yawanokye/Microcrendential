@@ -1,4 +1,4 @@
-UCC GROWTH+ v13.0.2 - PAGE UPLOAD REPAIR
+UCC GROWTH+ v13.3.0 - COMPLETE APPLICATION UPDATE
 
 Extract the ZIP. Open the directory containing package.json and src.
 Open the root of the existing Microcrendential repository in GitHub.
@@ -17,5 +17,9 @@ Upload matching components, next.config.mjs, package.json, package-lock.json
 and scripts/check-route-layout.mjs together. Remove the obsolete bracketed
 learner route file if it already exists.
 
-See BUILD-REPAIR-v13.0.2.md for the full file list and instructions.
-The next Render build must show version 13.0.2.
+See README-FIRST.md and DEPLOYMENT-v13.3.0.md for current instructions.
+The next build must show version 13.3.0. Keep the existing persistent disk
+and environment variables. Use Node 22.23.4 for a native Node service.
+
+All corporate controls are optional and disabled by default. Facilitators
+select them individually in the course Assessment stage before approval.

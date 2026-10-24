@@ -19,6 +19,7 @@ const contentSecurityPolicy = [
 
 const nextConfig = {
   output: "standalone",
+  experimental: { cpus: 2, webpackMemoryOptimizations: true },
   serverExternalPackages: ["pdfjs-dist"],
   outputFileTracingIncludes: { "/api/course-ai/design": ["./node_modules/pdfjs-dist/legacy/build/*.mjs", "./node_modules/@napi-rs/canvas*/**/*"] },
   poweredByHeader: false,
