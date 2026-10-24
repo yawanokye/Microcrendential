@@ -1,3 +1,4 @@
+import { AssuranceError, assuranceEnabled, consumeAssuranceSession, ownedAssuranceSession, type AssuranceSession } from "@/lib/assessment-assurance";
 import { after } from "next/server";
 import { getRawDb } from "@/db/raw";
 import { requireActiveProfile } from "@/lib/accounts";
@@ -14,16 +15,20 @@ type Submission={id:number;user_email:string;course_code:string;status:string;fi
 function present(row:Submission,staff=false) { return {...row,learnerEmail:row.user_email,learnerName:row.learner_name,courseCode:row.course_code,courseTitle:row.course_title,attemptNumber:row.attempt_number,autoScore:row.auto_score,finalScore:row.final_score,passed:Boolean(row.passed),markerFeedback:row.marker_feedback,automaticFeedback:parseRecord(row.auto_feedback_json,[]),submittedAt:row.submitted_at,markedAt:row.marked_at,markedByEmail:row.marked_by_email,answers:parseRecord(row.answers_json,{}),...(staff?{questions:parseRecord<AssessmentConfigRecord>(String(row.assessment_config_json??"{}"),{}).questions??[],passMark:assessmentPassMark(parseRecord(String(row.assessment_config_json??"{}"),{}))}:{assessment_config_json:undefined})}; }
 export async function GET(request:Request) {
   const account=await requireActiveProfile();if(account.error||!account.profile)return account.error;
+  const {ensureAssuranceTables}=await import("@/lib/assessment-assurance");ensureAssuranceTables();
   const db=getRawDb(),params=new URL(request.url).searchParams,code=params.get("courseCode")||"",before=Number(params.get("before"))||Number.MAX_SAFE_INTEGER,id=Number(params.get("id"))||0;
-  const rows=await db.prepare(`SELECT s.*,u.full_name learner_name,c.title course_title,COALESCE(json_extract(e.course_snapshot_json,'$.assessment_config_json'),c.assessment_config_json) assessment_config_json,j.state processing_state,j.last_error FROM assessment_submissions s JOIN course_drafts c ON c.code=s.course_code LEFT JOIN users u ON u.email=s.user_email LEFT JOIN enrollments e ON e.user_email=s.user_email AND e.course_code=s.course_code LEFT JOIN grading_jobs j ON j.submission_id=s.id WHERE (?='' OR s.course_code=?) AND s.id<? AND (?=0 OR s.id=?) ${account.profile.role==="learner"?"AND s.user_email=?":"AND (c.created_by_email=? OR ?='admin' OR EXISTS(SELECT 1 FROM course_team t WHERE t.course_code=c.code AND t.user_email=?))"} ORDER BY s.id DESC LIMIT 101`).bind(code,code,before,id,id,...(account.profile.role==="learner"?[account.profile.email]:[account.profile.email,account.profile.role,account.profile.email])).all<Submission>();
+  const rows=await db.prepare(`SELECT s.*,u.full_name learner_name,c.title course_title,CASE WHEN a.questions_json IS NOT NULL THEN json_set(COALESCE(json_extract(e.course_snapshot_json,'$.assessment_config_json'),c.assessment_config_json),'$.questions',json(a.questions_json)) ELSE COALESCE(json_extract(e.course_snapshot_json,'$.assessment_config_json'),c.assessment_config_json) END assessment_config_json,j.state processing_state,j.last_error FROM assessment_submissions s JOIN course_drafts c ON c.code=s.course_code LEFT JOIN users u ON u.email=s.user_email LEFT JOIN enrollments e ON e.user_email=s.user_email AND e.course_code=s.course_code LEFT JOIN grading_jobs j ON j.submission_id=s.id LEFT JOIN assessment_assurance_sessions a ON a.submission_id=s.id WHERE (?='' OR s.course_code=?) AND s.id<? AND (?=0 OR s.id=?) ${account.profile.role==="learner"?"AND s.user_email=?":"AND (c.created_by_email=? OR ?='admin' OR EXISTS(SELECT 1 FROM course_team t WHERE t.course_code=c.code AND t.user_email=?))"} ORDER BY s.id DESC LIMIT 101`).bind(code,code,before,id,id,...(account.profile.role==="learner"?[account.profile.email]:[account.profile.email,account.profile.role,account.profile.email])).all<Submission>();
   const passedAssessment=code?await db.prepare("SELECT score,passed,completed_at FROM assessment_attempts WHERE user_email=? AND course_code=? AND passed=1").bind(account.profile.email,code).first():null;
   return Response.json({submissions:rows.results.slice(0,100).map(row=>present(row,account.profile!.role!=="learner")),nextCursor:rows.results.length>100?rows.results[99].id:null,passedAssessment});
 }
 export async function POST(request:Request) {
   const origin=rejectCrossSiteMutation(request);if(origin)return origin;
   const account=await requireActiveProfile(["learner"]);if(account.error||!account.profile)return account.error;
-  const payload=await request.json() as {courseCode?:string;answers?:Record<string,unknown>},code=String(payload.courseCode||""),access=await learningAccess(account.profile,code);if(access.error||!access.course)return access.error;
-  const course=access.course,design=normalizeCourseDesign(parseRecord(course.design_json,{})),config=parseRecord<AssessmentConfigRecord>(course.assessment_config_json,{}),questions=(config.questions??[]).filter(q=>q.approved&&q.previewed).slice(0,course.question_limit||100),answers=payload.answers;
+  const payload=await request.json() as {courseCode?:string;answers?:Record<string,unknown>;assuranceSessionId?:string},code=String(payload.courseCode||""),access=await learningAccess(account.profile,code);if(access.error||!access.course)return access.error;
+  const course=access.course,design=normalizeCourseDesign(parseRecord(course.design_json,{})),config=parseRecord<AssessmentConfigRecord>(course.assessment_config_json,{}),defaultQuestions=(config.questions??[]).filter(q=>q.approved&&q.previewed).slice(0,course.question_limit||100),answers=payload.answers;
+  let assuranceSession:AssuranceSession|null=null;
+  if(assuranceEnabled(design.assurance)){try{assuranceSession=await ownedAssuranceSession(account.profile.email,String(payload.assuranceSessionId||""),request.headers.get("x-assessment-key")||"",true);if(assuranceSession.course_code!==code)return Response.json({error:"This assessment session belongs to another course."},{status:403});}catch(error){return Response.json({error:error instanceof Error?error.message:"Start the verified assessment session."},{status:error instanceof AssuranceError?error.status:409});}}
+  const questions=assuranceSession?parseRecord<NonNullable<AssessmentConfigRecord["questions"]>>(assuranceSession.questions_json,[]):defaultQuestions;
   if(!answers||typeof answers!=="object"||Array.isArray(answers)||JSON.stringify(answers).length>200000)return Response.json({error:"Supply valid assessment answers."},{status:400});
   if(!questions.length)return Response.json({error:"No approved assessment is available."},{status:409});
   if(design.delivery.assessmentDueAt&&Date.parse(design.delivery.assessmentDueAt)<Date.now())return Response.json({error:"The assessment deadline has passed. Ask your facilitator for support."},{status:409});
@@ -31,17 +36,19 @@ export async function POST(request:Request) {
   const evaluation=await evaluateCourseCompletion(account.profile.email,code);
   if(evaluation?.requirements.some(r=>["content","learning_activity","virtual_lab","colab"].includes(r.type)&&!r.complete))return Response.json({error:"Complete the required learning before submitting."},{status:409});
   const db=getRawDb(),mode=design.delivery.markingMode;
-  const saved=db.transaction(native=>{
+  let saved:{id:number;attempt:number}|{error:string};
+  try{saved=db.transaction(native=>{
     if(native.prepare("SELECT id FROM assessment_attempts WHERE user_email=? AND course_code=? AND passed=1").get(account.profile!.email,code))return {error:"This assessment is already passed."};
     if(native.prepare("SELECT id FROM assessment_submissions WHERE user_email=? AND course_code=? AND status IN ('submitted','awaiting_marking')").get(account.profile!.email,code))return {error:"Your saved submission is awaiting grading."};
     const count=native.prepare("SELECT COALESCE(MAX(attempt_number),0) count FROM assessment_submissions WHERE user_email=? AND course_code=?").get(account.profile!.email,code) as {count:number};
-    const attempt=count.count+1;if(attempt>allowedAttempts(config))return {error:"The allowed assessment attempts have been used."};
+    const attempt=assuranceSession?.attempt_no||count.count+1;if(attempt>allowedAttempts(config))return {error:"The allowed assessment attempts have been used."};
     const result=native.prepare("INSERT INTO assessment_submissions(user_email,course_code,attempt_number,status,answers_json) VALUES(?,?,?,?,?)").run(account.profile!.email,code,attempt,mode==="human"?"awaiting_marking":"submitted",JSON.stringify(answers));
     const id=Number(result.lastInsertRowid);
+    if(assuranceSession)consumeAssuranceSession(native,account.profile!.email,code,assuranceSession.id,request.headers.get("x-assessment-key")||"",id);
     if(mode!=="human")native.prepare("INSERT INTO grading_jobs(submission_id,config_json) VALUES(?,?)").run(id,JSON.stringify({...config,questions,markingMode:mode}));
     native.prepare("DELETE FROM learner_workspace WHERE user_email=? AND course_code=? AND item_key='assessment-draft'").run(account.profile!.email,code);
     return {id,attempt};
-  });
+  });}catch(error){return Response.json({error:error instanceof Error?error.message:"Assessment could not be saved."},{status:error instanceof AssuranceError?error.status:500});}
   if("error" in saved)return Response.json({error:saved.error},{status:409});
   await recordEngagement(account.profile.email,code,"assessment");
   await notifyTeachers(code,`submitted-${saved.id}`,"Assessment submitted",`Submission ${saved.id} is saved. ${mode==="human"?"Human marking is required.":"Processing is queued."}`);

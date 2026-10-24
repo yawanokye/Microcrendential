@@ -254,7 +254,7 @@ export async function GET(request: Request) {
   for(const course of presented) {
     const canView=await coursePermission(account.profile,course.code,"view");
     const canEdit=await coursePermission(account.profile,course.code,"teach");
-    staffCourses.push(canView?{...course,canEdit}:{...catalogueOnly(learnerVisibleCourse(course)),canEdit:false});
+    staffCourses.push(canView?{...course,canEdit,canView:true}:{...catalogueOnly(learnerVisibleCourse(course)),canEdit:false,canView:false});
   }
   return Response.json({ courses: staffCourses, nextOffset });
 }
