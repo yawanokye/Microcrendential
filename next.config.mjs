@@ -11,6 +11,11 @@ export const requiredReleaseSources = [
   "src/components/corporate-assessment-learner.tsx",
   "src/lib/assessment-assurance-policy.ts", "src/lib/assessment-assurance.ts",
   "src/lib/passwords.ts", "src/lib/file-security.ts",
+  "src/lib/learning-labs.ts", "src/lib/course-development.ts", "src/lib/python-lab-runtime.ts",
+  "public/vendor/pyodide/manifest.json", "scripts/verify-python-runtime.mjs",
+  "src/components/learning-lab-player.tsx", "src/components/learning-lab-author.tsx",
+  "src/components/course-development-review.tsx", "src/app/learning-labs.css",
+  "src/app/api/learning-labs/runtime/route.ts",
   "src/app/api/assessment-assurance/route.ts",
   "src/app/api/assessment-assurance/evidence/route.ts",
   "scripts/prepare-production.mjs", "scripts/start-production.mjs",
@@ -71,10 +76,10 @@ const nextConfig = {
     { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
     { key: "X-Permitted-Cross-Domain-Policies", value: "none" },
   ] }, {
-    // LTI authorization supplies a nonce policy and its validated tool form target.
-    source: "/((?!api/lti/authorize$).*)",
+    // LTI authorization and the isolated lab runner supply their own restricted policies.
+    source: "/((?!api/lti/authorize$|api/learning-labs/runtime$).*)",
     headers: [{ key: "Content-Security-Policy", value: contentSecurityPolicy }],
-  }]; },
+  }, { source: "/api/learning-labs/runtime", headers: [{ key: "X-Frame-Options", value: "SAMEORIGIN" }] }, { source: "/api/learning-labs/python/:path*", headers: [{ key: "Access-Control-Allow-Origin", value: "*" }, { key: "Cross-Origin-Resource-Policy", value: "cross-origin" }] }]; },
 };
 
 export default function configuration(phase) {

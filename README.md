@@ -1,6 +1,6 @@
 # UCC Growth+ Learning Platform - GitHub/Render Edition
 
-Current release: **v13.3.1**. See [the missing-import deployment repair](DEPLOYMENT-FIX-v13.3.1.md), [optional corporate controls](CORPORATE-ASSURANCE-v13.3.0.md) and [current validation](VALIDATION-v13.3.1.md). All new employee-verification and competency controls are optional and off by default. The previous AI authoring and H5P/LTI capabilities remain available. See [Live AI and LTI setup](LIVE-AI-LTI-v13.2.0.md) for provider diagnostics, tool registration, saved section generation and source page references.
+Current release: **v13.4.0**. Optional working labs now run Python, NumPy, pandas and JavaScript inside lessons, with editable datasets, model experiments, defensive log analysis, measurement plots, saved evidence and human marking. Facilitators plan and test each selected lab before applying it. The development review connects outcomes to lessons and assessment evidence. See [working labs and course development](WORKING-LABS-v13.4.0.md) and [current validation](VALIDATION-v13.4.0.md). **No practical activity** and **Skip practical activities** remain available. New labs and corporate controls are optional and off by default. Previous AI authoring, H5P/LTI integration and the [missing-import deployment repair](DEPLOYMENT-FIX-v13.3.1.md) are retained. See [Live AI and LTI setup](LIVE-AI-LTI-v13.2.0.md) for provider diagnostics and tool registration.
 
 This package contains dedicated learner, facilitator and system-administration portals, a public learner registration journey, a commercial outcome-led Course Studio, governed identity and assessment workflows, verifiable certificates and institution-level learning analytics. Version 13 adds saved learner work, permanent lesson routes, durable grading, course teams, intakes and cohorts, working discussions and schedules, threaded support, PDF receipts, refund tracking and UCC-to-Anovlad usage reconciliation. Existing email, pilot security and Render storage controls are retained. See [commercial release notes](docs/archive/RELEASE-NOTES-UCC-GROWTHPLUS-v13.0.0.md), [setup and acceptance](docs/archive/COMMERCIAL-DELIVERY-RUNBOOK.md) and [validation](docs/archive/VALIDATION-2026-10-07-v13.0.0.md).
 
@@ -28,7 +28,7 @@ Role separation is enforced by both the interface and the API. Hiding a navigati
 - Facilitators receive governed **cohort intelligence** for courses they own or are assigned to, including participation, completion, average scores, pass rates and evidence queues.
 - Administrators receive institution-wide analytics plus a searchable **Credential Registry** with a recorded reason for every revocation and a controlled restoration action.
 - Commercial role-selection, sign-in, registration, learner, educator, administrator and verifier experiences share one responsive product design and remain usable on desktop, tablet and mobile.
-- Virtual laboratories use recognisable workbenches, apparatus, instrument panels, clinical stations, observations and practical reports so the learner experience resembles a real guided laboratory workflow.
+- **Protocol practice** provides guided procedure rehearsal. Optional working labs provide editable code, data, calculated outputs, experiment history and evidence submission. They support introductory coding, data science, AI, defensive cybersecurity and measurement analysis.
 
 ### Learner registration and access
 
@@ -53,7 +53,7 @@ The package is adapted for Render. It uses:
 1. In **Facilitator Portal → Course Studio**, define the market-facing title, code, category, level, delivery pattern, expected hours, language, audience, prerequisites, accessibility commitment, enrolment mode and optional price marker.
 2. Add at least two objectives and measurable outcomes. Each outcome must name its related skill and assessment method. Create one or more learner-facing syllabus sections.
 3. Add learning blocks by writing/pasting text, supplying reviewed HTML, uploading a document/media file, converting a public web link, or keeping a link as a sandboxed embed. Map each block to a section and one or more outcomes.
-4. Add required or optional Colab and virtual-lab evidence activities, then author scored assessment questions and map them to outcomes.
+4. Optionally add and test a working lab in Build Content. Choose **No practical activity** or **Skip practical activities** to continue without a separate practical, or add optional Colab and virtual-lab tools. Required lesson activities remain configured in Build Content. Then author scored assessment questions and map them to outcomes.
 5. Save freely as a draft. The quality screen checks course identity, audience, objectives, outcomes, structure, outcome alignment, accessibility and assessment. Only a complete version can be submitted.
 6. A system administrator reviews the submitted version and activates it. Learners see only active versions.
 

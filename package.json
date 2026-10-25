@@ -1,13 +1,13 @@
 {
   "name": "ucc-microcredentials",
-  "version": "13.3.2",
+  "version": "13.4.0",
   "private": true,
   "engines": {
     "node": ">=22.13.0 <23"
   },
   "scripts": {
     "dev": "next dev",
-    "build": "next build --webpack && node scripts/prepare-production.mjs",
+    "build": "node scripts/verify-python-runtime.mjs && next build --webpack && node scripts/prepare-production.mjs",
     "start": "node scripts/start-production.mjs",
     "lint": "eslint . --ignore-pattern .next",
     "test": "node --import tsx --test tests/*.test.ts tests/*.test.mjs",
@@ -24,7 +24,9 @@
     "test:integrations": "node scripts/test-live-ai-lti.mjs",
     "test:corporate": "node scripts/test-corporate-assurance.mjs",
     "check:source": "node check-route-layout.mjs",
-    "test:practicals": "node scripts/test-optional-practicals.mjs"
+    "test:practicals": "node scripts/test-optional-practicals.mjs",
+    "test:labs": "node scripts/test-learning-labs.mjs",
+    "test:lab-runtime": "node --import tsx scripts/test-lab-runtime.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
