@@ -72,6 +72,9 @@ function EvidenceQueue({courseCode}:{courseCode:string}) {
 }
 function ResponseValue({value}:{value:unknown}) {
   if (value==null || value==="") return <span>No response recorded.</span>;
+  let work: Row | null = null;
+  if (typeof value === "string" && value.startsWith("{")) { try { work = JSON.parse(value) as Row; } catch { /* Ordinary text response. */ } }
+  if (work?.version === 1 && typeof work.kind === "string" && Array.isArray(work.runs)) return <section className="lab-evidence"><h4>Working lab evidence</h4><p>Review the learner’s code, dataset, experiment history and explanation against the rubric. Browser run results are learner-recorded evidence, not a server-verified grade.</p><h5>Findings and limitations</h5><p>{s(work.reflection)}</p><details><summary>Code and dataset</summary><pre>{s(work.code)}</pre><pre>{s(work.dataCsv)}</pre></details><details><summary>Recorded experiment history</summary><pre>{JSON.stringify(work.runs, null, 2)}</pre></details></section>;
   if (Array.isArray(value)) return <ol>{value.map((item,i)=><li key={i}><ResponseValue value={item}/></li>)}</ol>;
   if (typeof value==="object") return <dl>{Object.entries(value as Row).map(([key,item])=><div key={key}><dt>{key.replaceAll("_"," ")}</dt><dd><ResponseValue value={item}/></dd></div>)}</dl>;
   return <span style={{whiteSpace:"pre-wrap",overflowWrap:"anywhere"}}>{s(value)}</span>;
