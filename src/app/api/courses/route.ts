@@ -90,6 +90,7 @@ function learnerVisibleCourse(course: PresentedCourse) {
   } = course;
 
   const activities = internalActivities.map((activity) => ({
+    lab: activity.lab,
     interactive: activity.interactive ? learnerInteractive(activity.interactive) : undefined,
     lti: activity.lti,
     id: activity.id,

@@ -1,3 +1,4 @@
+import { normalizeTeachingFocus, type TeachingFocus } from "@/lib/course-development";
 import { after } from "next/server";
 import { queueCourseAi, processCourseAiJob, recoverStaleAiJobs } from "@/lib/course-ai-jobs";
 import { requireActiveProfile } from "@/lib/accounts";
@@ -69,8 +70,8 @@ export async function POST(request: Request) {
     }
 
     if (mode === "media") { const transcript = field(form, "transcript", 600_000); if (transcript) { sourceText = transcript; sourceTotalCharacters = transcript.length; sourceSpans = transcriptSpans(transcript); sourceNote = "Timestamp references come only from the supplied reviewed transcript. Media claims still require facilitator verification."; } }
-    let brief: { audience: string; level: string; durationHours: number; goals: string; deliveryMode: string; awardType: string } | undefined;
-    try { const b = JSON.parse(field(form,"brief",8000) || "{}"); brief = { audience:String(b.audience||"").slice(0,2000),level:String(b.level||"applied").slice(0,80),durationHours:Math.min(500,Math.max(1,Number(b.durationHours)||24)),goals:String(b.goals||"").slice(0,3000),deliveryMode:String(b.deliveryMode||"asynchronous").slice(0,80),awardType:String(b.awardType||"").slice(0,120) }; } catch { return Response.json({error:"The course brief is invalid."},{status:400}); }
+    let brief: { audience: string; level: string; durationHours: number; goals: string; deliveryMode: string; awardType: string; teachingFocus?: TeachingFocus; learnerResources?: string; evidenceGoal?: string } | undefined;
+    try { const b = JSON.parse(field(form,"brief",16000) || "{}"); brief = { audience:String(b.audience||"").slice(0,2000),level:String(b.level||"applied").slice(0,80),durationHours:Math.min(500,Math.max(1,Number(b.durationHours)||24)),goals:String(b.goals||"").slice(0,3000),deliveryMode:String(b.deliveryMode||"asynchronous").slice(0,80),awardType:String(b.awardType||"").slice(0,120),teachingFocus:normalizeTeachingFocus(b.teachingFocus),learnerResources:String(b.learnerResources||"").slice(0,1500),evidenceGoal:String(b.evidenceGoal||"").slice(0,2000) }; } catch { return Response.json({error:"The course brief is invalid."},{status:400}); }
     await recoverStaleAiJobs();
     const id = queueCourseAi(account.profile.email,{ mode,provider,sourceText,sourceTotalCharacters,sourceSpans,sourceNote,sectionCount,preferredTitle,preferredDiscipline,sourceFile,media,targetMaterialId:field(form,"targetMaterialId",80),targetCourseCode:field(form,"targetCourseCode",80),stage:field(form,"stage",20)==="outline"?"outline":"lessons",brief,action:field(form,"action",1000),approvedOutline:field(form,"approvedOutline",24000) });
     after(()=>processCourseAiJob(id));

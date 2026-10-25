@@ -1,3 +1,4 @@
+import { labSubmissionIssues } from "@/lib/learning-labs";
 import { gradeInteractive } from "@/lib/interactive-activities";
 import { Buffer } from "node:buffer";
 import { getRawDb } from "@/db/raw";
@@ -39,7 +40,9 @@ export async function POST(request: Request) {
   const form = await request.formData();
   const courseCode = String(form.get("courseCode") ?? "").trim();
   const activityId = String(form.get("activityId") ?? "").trim();
-  const responseText = String(form.get("responseText") ?? "").trim().slice(0, 100_000);
+  const rawResponse = String(form.get("responseText") ?? "").trim();
+  if (rawResponse.length > 120_000) return Response.json({ error: "The activity response exceeds 120,000 characters. Use a smaller dataset or export and clear earlier lab runs." }, { status: 413 });
+  const responseText = rawResponse;
   const evidence = form.get("evidence"); const hasFile = evidence instanceof File && evidence.size > 0;
   if (!courseCode || !activityId) return Response.json({ error: "Course and learning activity are required." }, { status: 400 });
   const db = getRawDb();
@@ -48,6 +51,11 @@ export async function POST(request: Request) {
   const activity = parseActivities(course.materials_json, course.activities_json).find((item) => String(item.id ?? "") === activityId);
   if (!activity || !activity.materialId) return Response.json({ error: "The structured learning activity was not found." }, { status: 404 });
   if (activity.lti) return Response.json({error:"Complete this activity in the registered learning tool. Results must arrive through its authenticated grade service."},{status:409});
+  if (activity.lab) {
+    let work: unknown; try { work = JSON.parse(responseText); } catch { return Response.json({ error: "Submit a complete working lab record." }, { status: 400 }); }
+    const issues = labSubmissionIssues(activity.lab, work);
+    if (issues.length) return Response.json({ error: issues.join(" ") }, { status: 400 });
+  }
   if (activity.dueAt && Date.parse(activity.dueAt) < Date.now()) return Response.json({ error: "The deadline for this learning activity has passed. Contact the teaching team." }, { status: 409 });
   const responseType = activity.responseType ?? "long_text";
   if (["short_text","long_text"].includes(responseType) && !responseText) return Response.json({ error: "Enter your response before submitting the activity." }, { status: 400 });
