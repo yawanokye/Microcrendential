@@ -1,8 +1,10 @@
+import { normalizeLearningLab, type LearningLab } from "./learning-labs";
 import { normalizeExternalActivity, type ExternalActivity } from "./lti-types";
 import { normalizeInteractive, type InteractiveActivity } from "./interactive-activities";
 import type { CourseMaterialRecord } from "@/lib/course-design";
 
 export type StructuredLearningActivity = {
+  lab?: LearningLab;
   interactive?: InteractiveActivity;
   lti?: ExternalActivity;
   id: string;
@@ -59,22 +61,24 @@ export function ensureStructuredLearningActivities(materials: CourseMaterialReco
   const activities: StructuredLearningActivity[] = Array.isArray(rawActivities)
     ? rawActivities.map((item, index) => {
         const a = asRecord(item);
-        const kind = a.kind === "colab" || a.kind === "virtual_lab" ? a.kind : "inline";
+        const lab = normalizeLearningLab(a.lab);
+        const kind = lab ? "inline" : a.kind === "colab" || a.kind === "virtual_lab" ? a.kind : "inline";
         return {
           ...a,
-          interactive: a.lti ? undefined : normalizeInteractive(a.interactive),
-          lti: normalizeExternalActivity(a.lti),
+          lab,
+          interactive: a.lti || lab ? undefined : normalizeInteractive(a.interactive),
+          lti: lab ? undefined : normalizeExternalActivity(a.lti),
           id: clip(a.id, 100) || `activity-${index + 1}`,
           kind,
           title: clip(a.title, 240) || "Learning activity",
           instructions: clip(a.instructions, 12000) || "Complete the learning activity and submit your response.",
-          required: kind === "inline" ? a.required !== false : false,
+          required: lab ? a.required === true : kind === "inline" ? a.required !== false : false,
           passMark: Math.min(100, Math.max(1, Number(a.passMark) || 60)),
           attemptsAllowed: Math.min(20, Math.max(1, Number(a.attemptsAllowed) || 3)),
           maxMark: Math.max(1, Number(a.maxMark) || 100),
-          responseType: ["short_text","long_text","file","image","link"].includes(String(a.responseType)) ? a.responseType as StructuredLearningActivity["responseType"] : "long_text",
+          responseType: lab ? "long_text" : ["short_text","long_text","file","image","link"].includes(String(a.responseType)) ? a.responseType as StructuredLearningActivity["responseType"] : "long_text",
           responseEntryMode: ["type","paste","either"].includes(String(a.responseEntryMode)) ? a.responseEntryMode as StructuredLearningActivity["responseEntryMode"] : "either",
-          gradingMode: a.lti ? "lti" : normalizeInteractive(a.interactive) ? "rule" : ["facilitator","rule","ai_auto","ai_luna","ai_terra"].includes(String(a.gradingMode)) ? a.gradingMode as StructuredLearningActivity["gradingMode"] : "ai_auto",
+          gradingMode: lab ? "facilitator" : a.lti ? "lti" : normalizeInteractive(a.interactive) ? "rule" : ["facilitator","rule","ai_auto","ai_luna","ai_terra"].includes(String(a.gradingMode)) ? a.gradingMode as StructuredLearningActivity["gradingMode"] : "ai_auto",
         } as StructuredLearningActivity;
       })
     : [];

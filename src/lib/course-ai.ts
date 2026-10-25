@@ -1,3 +1,4 @@
+import { technicalTeachingGuidance, type TeachingFocus } from "./course-development";
 import type { StructuredLearningActivity } from "./structured-learning-activities";
 import { normalizeInteractive } from "./interactive-activities";
 import { sourceReferences, type SourceSpan } from "./course-source";
@@ -98,7 +99,7 @@ export type GenerateInput = {
   sectionTopic?: string;
   targetMaterialId?: string;
   targetCourseCode?: string;
-  brief?: { audience: string; level: string; durationHours: number; goals: string; deliveryMode: string; awardType: string };
+  brief?: { audience: string; level: string; durationHours: number; goals: string; deliveryMode: string; awardType: string; teachingFocus?: TeachingFocus; learnerResources?: string; evidenceGoal?: string };
   action?: string;
   approvedOutline?: string;
   mode: CourseAiMode;
@@ -146,17 +147,20 @@ export function courseAiStatus() {
   };
 }
 
-function promptFor(input: GenerateInput) {
+export function promptFor(input: GenerateInput) {
   const sourceLabel = input.mode === "idea" ? "course synopsis or idea" : input.mode === "manual" ? "uploaded learning manual" : input.mode === "media" ? "video or audio source" : "current course draft";
   return `Design an academically credible, practical microcredential from the ${sourceLabel} below.
 
 ${input.stage === "outline" ? "OUTLINE ONLY: Return the course brief, measurable outcomes and section titles/purposes for approval. Keep lessonHtml, activityInstructions and assessmentQuestions empty. Return interactive.items as an empty array. Do not develop lessons yet." : "Develop the approved outline if supplied. Generate one native formative interactive activity per section. Use knowledge_check, matching, sequencing, flashcards or scenario. Use 2–6 items, stable item IDs, exact answers and specific explanatory feedback. Matching answers must be distinct. For sequencing, order contains all item IDs once in the correct order. For other formats order is empty. Flashcard answers are intentionally revealed during practice."}
 ${input.mode === "lesson" ? `LESSON TASK: ${input.action || "Improve this lesson"}. Change only the supplied lesson. Preserve the provided outcome meanings. For rubric tasks include an explicit criterion/marks table in lessonHtml. Use British English and varied, natural prose.` : ""}
 ${input.sectionTopic ? `SECTION TASK: Develop only this approved section: ${input.sectionTopic}. Return the approved outcome statements unchanged and in their approved order. Limit assessmentQuestions to 2–4 questions about this section.` : ""}
+${technicalTeachingGuidance(input.brief?.teachingFocus)}
+Learner tools and access requirements: ${input.brief?.learnerResources || "Confirm during facilitator review."}
+Practical evidence goal: ${input.brief?.evidenceGoal || "Propose an authentic task for facilitator review."}
 Structured brief: ${JSON.stringify(input.brief || {})}
 Approved outline: ${input.approvedOutline?.slice(0, 24000) || "none"}
 For every section, return outcomeIndexes as zero-based indexes referring to the returned outcomes, with alignmentReason explaining the link. Never infer alignment from list position. Use an empty list when unsupported. Include a short exact sourceExcerpt copied from the supplied text, or an empty string if there is no supporting text. Never invent page numbers, timestamps or evidence.
-Return exactly ${input.sectionCount} ordered course sections. Each section must contain a concise, original HTML learning lesson of roughly 250–450 words using only h2, h3, p, ul, ol, li, strong, em, blockquote and table elements. Do not include scripts, styles, iframes, images or invented quotations. Also propose one authentic learner activity, one YouTube search query, and one open-resource search query per section. ${input.sectionTopic ? "Preserve all approved outcome statements. Create 2–4 assessment questions for this section." : "Create 3–8 measurable outcomes and 4–10 assessment questions."} Multiple-choice questions need 4 credible options and one exact correct answer. Short and scenario responses need a clear marking scheme. Keep estimatedMinutes for each section between 5 and 240 and return no more than 12 questions.
+Return exactly ${input.sectionCount} ordered course sections. ${input.stage === "outline" ? "This stage defines section titles and purposes only. Keep lessonHtml and activityInstructions empty." : "Each section must contain a concise, original HTML learning lesson of roughly 250–450 words using only h2, h3, p, ul, ol, li, strong, em, blockquote and table elements."} Do not include scripts, styles, iframes, images or invented quotations. Also propose one authentic learner activity, one YouTube search query, and one open-resource search query per section. ${input.stage === "outline" ? "Create 3–8 measurable outcomes and no assessment questions yet." : input.sectionTopic ? "Preserve all approved outcome statements. Create 2–4 assessment questions for this section." : "Create 3–8 measurable outcomes and 4–10 assessment questions."} Multiple-choice questions need 4 credible options and one exact correct answer. Short and scenario responses need a clear marking scheme. Keep estimatedMinutes for each section between 5 and 240 and return no more than 12 questions.
 
 Do not invent specific video URLs, article URLs, licences, institutional approval, named experts, statistics or citations. Search queries are recommendations for facilitator review, not approved resources. The facilitator must approve every generated field before it becomes a draft.
 
