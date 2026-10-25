@@ -1,0 +1,2 @@
+Pyodide 314.0.7, Python 3.14.2. Core files from the official pyodide npm package. Scientific package wheels from the matching official Pyodide distribution. Original dependency licenses remain inside each wheel. Upstream source: https://github.com/pyodide/pyodide/tree/314.0.7 and https://github.com/python/cpython/tree/v3.14.2.
+The runtime and selected packages are served locally. No package CDN is used by the learner.

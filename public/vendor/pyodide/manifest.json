@@ -1,0 +1,69 @@
+{
+  "version": "314.0.7",
+  "pythonVersion": "3.14.2",
+  "packages": {
+    "numpy": "2.4.6",
+    "pandas": "3.0.2",
+    "python-dateutil": "2.9.0.post0",
+    "pytz": "2026.1.post1",
+    "six": "1.17.0"
+  },
+  "files": {
+    "NOTICE.txt": {
+      "sha256": "2b230057f1f5d59d9a48a0cdf91744a29af53fdec0183e7c58d517f2517f8a4c",
+      "bytes": 422
+    },
+    "PYODIDE-LICENSE.txt": {
+      "sha256": "1f256ecad192880510e84ad60474eab7589218784b9a50bc7ceee34c2b91f1d5",
+      "bytes": 16725
+    },
+    "PYTHON-LICENSE.txt": {
+      "sha256": "b0e25a78cffb43f4d92de8b61ccfa1f1f98ecbc22330b54b5251e7b6ba010231",
+      "bytes": 13804
+    },
+    "numpy-2.4.6-cp314-cp314-pyemscripten_2026_0_wasm32.whl": {
+      "sha256": "a292c1f5d7d8a2208cd5e94fc467604c131cabcd2fc14fed6eefde121e7fabdf",
+      "bytes": 2960568
+    },
+    "pandas-3.0.2-cp314-cp314-pyemscripten_2026_0_wasm32.whl": {
+      "sha256": "45ff57772cc2f366a8582c7d3097cc4e6676342ecd5a3c08184a43462d5a02ae",
+      "bytes": 4177749
+    },
+    "pyodide-lock.json": {
+      "sha256": "fbb5f38019a3f1d46326d6f119c71b4e15614f311281048fd9c7208755c51dbe",
+      "bytes": 1654
+    },
+    "pyodide.asm.mjs": {
+      "sha256": "f7cdc8ece80678ceb712f8e65ebe6d3a83203a180c399865f49612a051693635",
+      "bytes": 1250344
+    },
+    "pyodide.asm.wasm": {
+      "sha256": "cc36e3cab04fdfc9a63ff13eb52eae2b911bf46c025cc7b281f394bd3de1d5e6",
+      "bytes": 9598218
+    },
+    "pyodide.js": {
+      "sha256": "3141b814715a72e59b51b1b18b9ceae5bf19f7c852417e431bb0a34feadf825c",
+      "bytes": 18912
+    },
+    "pyodide.mjs": {
+      "sha256": "6f1d60f7bf529beb300f0f47983c921d3982363640ba20af0e38efdddbc66109",
+      "bytes": 17931
+    },
+    "python_dateutil-2.9.0.post0-py2.py3-none-any.whl": {
+      "sha256": "9b13365edf9c188f570baf9c540bbb3029ada2a2dacb9694b3659941693ee9e5",
+      "bytes": 229892
+    },
+    "python_stdlib.zip": {
+      "sha256": "fa1957e5777068fc4f7437f96d860ae2fbe9c19732ba06c84e004ec16dd7dd7a",
+      "bytes": 2545637
+    },
+    "pytz-2026.1.post1-py2.py3-none-any.whl": {
+      "sha256": "b8249d6450146e0b61e6d710dc02ebb35a904796c4c2f97fe87d4ac5872db36a",
+      "bytes": 510489
+    },
+    "six-1.17.0-py2.py3-none-any.whl": {
+      "sha256": "228c50f73aa7addf2c2ccf2979c256802a59ab69cad8152b31b9443cc8140f42",
+      "bytes": 11050
+    }
+  }
+}
