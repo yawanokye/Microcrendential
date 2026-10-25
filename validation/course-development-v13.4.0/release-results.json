@@ -1,0 +1,37 @@
+{
+  "release": "13.4.0",
+  "date": "2026-10-24",
+  "node": "22.23.4",
+  "sourceBaseline": "verified v13.3.2",
+  "productionBuild": "passed",
+  "typecheck": "passed",
+  "lint": {
+    "errors": 0,
+    "warnings": 42,
+    "note": "Existing baseline warnings, no new warnings"
+  },
+  "unit": {
+    "total": 118,
+    "passed": 115,
+    "failed": 0,
+    "skipped": 3,
+    "skipReason": "CHOWN, SETUID and SETGID capabilities unavailable in this workspace"
+  },
+  "acceptance": {
+    "passed": 182,
+    "suites": {
+      "workingLabs": 15,
+      "isolatedRuntime": 5,
+      "studioApi": 23,
+      "studioBrowser": 14,
+      "commercialApi": 46,
+      "commercialBrowser": 14,
+      "ltiIntegration": 25,
+      "corporateAssurance": 33,
+      "optionalPracticals": 7
+    },
+    "environment": "Local production standalone server, Chromium and synthetic data"
+  },
+  "liveServices": "No live AI generation, customer H5P/LTI connection, email, payment, Colab or external cyber range exercised. LTI grading used a signed mock tool.",
+  "deployment": "Not deployed to Render or pushed to GitHub."
+}
