@@ -131,6 +131,7 @@ const roleNavigation: Record<PortalRole, PortalNavGroup[]> = {
   learner: [
     { label: "My journey", items: [
       { id: "overview", label: "Learning home", icon: LayoutDashboard },
+      { id: "library", label: "Open Access Library", icon: BookOpen, href: "/library" },
       { id: "explore", label: "Explore offerings", icon: GraduationCap, href: "/explore" },
       { id: "learning", label: "My courses", icon: BookOpen },
       { id: "programmes", label: "My programmes", icon: Layers3 },
@@ -150,6 +151,7 @@ const roleNavigation: Record<PortalRole, PortalNavGroup[]> = {
     { label: "Teaching", items: [
       { id: "overview", label: "Teaching home", icon: LayoutDashboard },
       { id: "facilitator", label: "Course studio", icon: BookOpen },
+      { id: "library", label: "Open Access Library", icon: BookOpen, href: "/library" },
       { id: "programmes", label: "Programme studio", icon: Layers3 },
       { id:"catalogue_management",label:"Catalogue audience",icon:Users },
       { id: "colab", label: "Colab assessment", icon: Code2 },
@@ -170,6 +172,7 @@ const roleNavigation: Record<PortalRole, PortalNavGroup[]> = {
     { label: "Governance", items: [
       { id: "overview", label: "Operations home", icon: LayoutDashboard },
       { id: "admin", label: "Users & access", icon: Users },
+      { id: "library", label: "Open Access Library", icon: BookOpen, href: "/library" },
       { id: "course_admin", label: "Programme governance", icon: CheckCircle2 },
       { id: "programmes", label: "Full programmes", icon: Layers3 },
       { id:"catalogue_management",label:"Organisations and fees",icon:Users },

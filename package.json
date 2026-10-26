@@ -1,6 +1,6 @@
 {
   "name": "ucc-microcredentials",
-  "version": "13.6.1",
+  "version": "13.7.0",
   "private": true,
   "engines": {
     "node": ">=22.13.0 <23"
@@ -29,7 +29,8 @@
     "test:labs": "node scripts/test-learning-labs.mjs",
     "test:lab-runtime": "node --import tsx scripts/test-lab-runtime.mjs",
     "test:catalogue": "node scripts/test-catalogue-finance.mjs",
-    "test:discovery": "node scripts/test-learning-discovery.mjs"
+    "test:discovery": "node scripts/test-learning-discovery.mjs",
+    "test:library": "node scripts/test-open-library.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

@@ -3,6 +3,7 @@ import { dirname, join } from "node:path";
 import { DatabaseSync, type StatementSync } from "node:sqlite";
 import { migrateDelivery } from "./delivery-schema";
 import { migrateProgrammes } from "./programme-schema";
+import { migrateLibrary } from "./library-schema";
 import { migrateCatalogue } from "./catalogue-schema";
 
 type SqlValue = string | number | bigint | null | Uint8Array;
@@ -579,6 +580,7 @@ export function getRawDb() {
   migrateDelivery(database);
   migrateProgrammes(database);
   migrateCatalogue(database);
+  migrateLibrary(database);
   globalForDatabase.__uccRawDb = new RenderDatabase(database);
   return globalForDatabase.__uccRawDb;
 }
