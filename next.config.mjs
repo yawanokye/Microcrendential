@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 
 const projectRoot = dirname(fileURLToPath(import.meta.url));
 export const requiredReleaseSources = [
+  "src/lib/library-media.ts",
   "src/app/library/page.tsx", "src/app/api/library/route.ts", "src/components/open-library.tsx", "src/lib/open-library.ts", "src/lib/open-library-policy.ts", "src/db/library-schema.ts", "src/app/open-library.css",
   "src/components/learning-discovery.tsx", "src/lib/learning-discovery.ts", "src/app/learning-discovery.css", "src/app/explore/page.tsx",
   "src/lib/catalogue-policy.ts", "src/lib/catalogue-access.ts", "src/lib/catalogue-management.ts", "src/lib/learning-billing.ts",

@@ -1,0 +1,15 @@
+{
+  "passed": 9,
+  "checks": [
+    "Library page and API require active sign-in and reject cross-site writes",
+    "Personal bookshelves and administrator controls are isolated by role",
+    "Course readings require course access and administrators can disable external calls",
+    "Public homepage does not advertise or link the library",
+    "learner portal opens its signed-in library",
+    "facilitator portal opens its signed-in library",
+    "admin portal opens its signed-in library",
+    "Books, videos, format filters and source warnings render on mobile",
+    "Mobile search and course readings fit the viewport with no browser errors"
+  ],
+  "environment": "Local production standalone; isolated synthetic data; external providers disabled"
+}

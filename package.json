@@ -1,6 +1,6 @@
 {
   "name": "ucc-microcredentials",
-  "version": "13.7.0",
+  "version": "13.7.1",
   "private": true,
   "engines": {
     "node": ">=22.13.0 <23"
