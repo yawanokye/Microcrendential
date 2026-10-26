@@ -1,0 +1,29 @@
+{
+  "passed": 22,
+  "checks": [
+    "Organisation rosters and finance require administrator access",
+    "Approved employee rosters and assigned facilitator groups are recorded independently of profile employer names",
+    "The public catalogue shows all four routes and excludes private training and programme-only modules",
+    "Private course and programme discovery require current approved membership, including direct catalogue requests",
+    "Facilitators cannot change fixed fees or publish private training to the public",
+    "Learners cannot claim organisation payment or enter individual checkout for organisation-assigned fees",
+    "A fixed group invoice is charged once for all listed employees",
+    "Unique receipts, invoice balances and partial funding are enforced server-side",
+    "A fully funded invoice releases enrolment only for its named approved employees",
+    "Private certificate verification exposes status only and anonymous PDF download is blocked",
+    "Revocation removes training access immediately while preserving the employee’s earned credential record",
+    "Expired membership cannot be revived by an existing paid enrolment",
+    "Individual checkout uses the server amount and preserves the agreed order fees when prices change before settlement",
+    "Admitted programme tuition has a working individual checkout and separate financial clearance",
+    "Programme-only course fees can be paid from the admitted curriculum and then registered",
+    "Academic completion does not issue a certificate while its organisation-assigned fee remains unfunded",
+    "The background worker creates the authorised course certificate after organisation certificate funding is confirmed",
+    "Per-learner invoices multiply only the approved named participants",
+    "Leaving an organisation blocks new programme registration while preserving the personal academic record",
+    "The public homepage presents all four learning routes and filters full degree offerings",
+    "Administrator screens expose fixed payer controls, approved rosters and funded invoice balances",
+    "Administrator controls remain usable on a mobile viewport without page overflow or browser errors"
+  ],
+  "node": "v22.23.4",
+  "environment": "Local production standalone; isolated data; mock Paystack only; no external payment or deployment."
+}

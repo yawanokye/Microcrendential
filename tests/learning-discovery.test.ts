@@ -1,0 +1,15 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { offeringRoute, filterOfferings, discoveryLink, type DiscoveryOffering } from "../src/lib/learning-discovery";
+const fixtures:DiscoveryOffering[]=[
+ {id:1,kind:"course",code:"PY-1",title:"Python programming",discipline:"Technology",description:"Code and analyse evidence",design:{certificate:{awardType:"microcredential_achievement",partnerName:"Test partner"}}},
+ {id:2,kind:"course",code:"CPD-1",title:"Teaching with AI",discipline:"Education",description:"Use artificial intelligence responsibly",design:{certificate:{awardType:"cpd_achievement"}}},
+ {id:3,kind:"programme",code:"AC-1",title:"Advanced teaching certificate",discipline:"Education",description:"Fully online training",design:{certificate:{awardType:"advanced_certificate"}}},
+ {id:4,kind:"programme",code:"PG-1",title:"Postgraduate diploma in inquiry",discipline:"Education",description:"Applied enquiry",design:{certificate:{awardType:"postgraduate_diploma"}}},
+ {id:5,kind:"programme",code:"MSC-1",title:"Master’s degree in Data Science",discipline:"Technology",description:"Data analysis and research",design:{certificate:{awardType:"masters"}}},
+];
+test("Advanced certificates and postgraduate diplomas stay in certificate discovery",()=>{for(const a of ["certificate","advanced_certificate","diploma","postgraduate_diploma"])assert.equal(offeringRoute("programme",a),"certificate");for(const a of ["bachelors","masters","doctorate"])assert.equal(offeringRoute("programme",a),"degree");assert.equal(filterOfferings(fixtures,{type:"degree"}).length,1);assert.equal(filterOfferings(fixtures,{type:"certificate"}).length,2);});
+test("Topic, award, provider and offering filters combine without changing records",()=>{assert.deepEqual(filterOfferings(fixtures,{type:"microcredential",subject:"Technology",provider:"Test partner",q:"Python"}).map(o=>o.code),["PY-1"]);assert.equal(filterOfferings(fixtures,{type:"degree",award:"masters",subject:"Education"}).length,0);assert.equal(fixtures.length,5);});
+test("AI searches use words and related terms rather than matching the letters inside training",()=>{assert.deepEqual(filterOfferings(fixtures,{q:"AI"}).map(o=>o.code),["CPD-1"]);assert.deepEqual(filterOfferings(fixtures,{q:"artificial intelligence"}).map(o=>o.code),["CPD-1"]);});
+test("Digital skill navigation finds related published courses",()=>{assert.deepEqual(filterOfferings(fixtures,{q:"coding"}).map(o=>o.code),["PY-1"]);assert.deepEqual(filterOfferings(fixtures,{q:"data science"}).map(o=>o.code),["MSC-1"]);assert.equal(filterOfferings(fixtures,{q:"cybersecurity"}).length,0);});
+test("Catalogue links preserve course identity and safely encode search values",()=>{const link=discoveryLink({subject:"Arts & Sciences",offering:"course:UCC/01",q:"AI & ethics"});const u=new URL(link,"https://example.test");assert.equal(u.pathname,"/explore");assert.equal(u.searchParams.get("subject"),"Arts & Sciences");assert.equal(u.searchParams.get("offering"),"course:UCC/01");assert.equal(u.searchParams.get("q"),"AI & ethics");assert.equal(discoveryLink({type:"All"}),"/explore");});

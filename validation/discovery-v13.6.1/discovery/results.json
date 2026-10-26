@@ -1,0 +1,20 @@
+{
+  "passed": 13,
+  "checks": [
+    "Public discovery preserves private group filtering and correctly classifies advanced certificates",
+    "Learn opens the five-column UCC navigation with genuine public offerings and no private training names",
+    "Learn supports keyboard opening, Escape dismissal and focus return",
+    "Offering links open a shareable filtered catalogue before registration",
+    "CPD, full certificate and degree links each display their matching offerings",
+    "Award-level filtering and programme details show admission, duration and fee information before application",
+    "Public course details provide a clear sign-in route without exposing paid lessons or answer keys",
+    "Search and clear filters update catalogue results and the browser URL",
+    "Unpublished subject areas show an honest empty state rather than invented courses",
+    "The Learn panel closes when the learner selects another part of the page",
+    "Mobile Learn navigation scrolls within the screen and the catalogue fits a phone viewport",
+    "Signed-in learners can browse public offerings and return to their eligible private employee training",
+    "The discovery workflow runs without browser errors"
+  ],
+  "node": "v22.23.4",
+  "environment": "Local production standalone, synthetic records, external providers disabled."
+}

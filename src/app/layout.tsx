@@ -7,6 +7,7 @@ import "./lab-visuals.css";
 import "./modern-platform.css";
 import "./commercial-course-studio.css";
 import "./professional-public-landing.css";
+import "./learning-discovery.css";
 import "./certificate-template-platform.css";
 import "./ucc-brand.css";
 import "./policy.css";
