@@ -1,3 +1,4 @@
+import { audienceAllowed,courseDiscoverySql } from "@/lib/catalogue-access";
 import { getRawDb } from "@/db/raw";
 import { requireActiveProfile } from "@/lib/accounts";
 import { normalizeCourseDesign } from "@/lib/course-design";
@@ -31,7 +32,8 @@ export async function GET() {
     WHERE learner_email = ? AND passed = 1
     ORDER BY assessed_at DESC LIMIT 50
   `).bind(email).all<PracticalRow>();
-  const courseRows = await db.prepare("SELECT code,title,design_json FROM course_drafts WHERE status='active'").all<CoursePathRow>();
+  const audience=courseDiscoverySql("c.code",account.profile);
+  const courseRows = await db.prepare(`SELECT code,title,design_json FROM course_drafts c WHERE status='active' AND ${audience.sql}`).bind(...audience.values).all<CoursePathRow>();
 
   let interests: string[] = [];
   try { interests = JSON.parse(account.profile.interests_json || "[]") as string[]; } catch { interests = []; }
@@ -52,7 +54,7 @@ export async function GET() {
     // Backward compatibility for legacy component-defined pathways.
     const code = design.broaderCredentialCode.trim().toUpperCase();
     const title = design.broaderCredentialTitle.trim();
-    if (!code || !title) continue;
+    if (!code || !title || !audienceAllowed("course",code,account.profile)) continue;
     const current = pathwayMap.get(code) ?? { code, title, requiredCodes: new Set<string>() };
     current.title = title;
     for (const component of design.broaderCredentialRequiredCodes) if (component.trim()) current.requiredCodes.add(component.trim().toUpperCase());

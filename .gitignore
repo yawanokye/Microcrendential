@@ -7,3 +7,8 @@ node_modules/
 *.log
 *.zip
 .DS_Store
+
+*.tsbuildinfo
+
+# Python standard library is a required runtime asset.
+!public/vendor/pyodide/python_stdlib.zip

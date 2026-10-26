@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import "./programme-activities.css";
 import "./learning-labs.css";
+import "./programmes.css";
 import "./lab-visuals.css";
 import "./modern-platform.css";
 import "./commercial-course-studio.css";

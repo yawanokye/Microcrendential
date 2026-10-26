@@ -1,6 +1,6 @@
-# Clean the GitHub repository for v13.4.0
+# Clean the GitHub repository for v13.5.0
 
-Use the complete v13.4.0 ZIP for the current update. The v13.3.1 patch below is a historical repair for the supplied older GitHub snapshot and does not include working labs or Python. Keep `public/vendor/pyodide/`, including its required `python_stdlib.zip`, and all `src/app/api/learning-labs/` routes. See `WORKING-LABS-v13.4.0.md` for the current file list and deployment steps.
+Use the complete v13.5.0 ZIP for the current update. The v13.3.1 patch below is a historical repair for the supplied older GitHub snapshot and does not include working labs, Python or full programme delivery. Keep the new `src/app/api/programmes/` routes and programme source modules. Keep `public/vendor/pyodide/`, including its required `python_stdlib.zip`, and all `src/app/api/learning-labs/` routes. See `FULL-PROGRAMMES-v13.5.0.md` for the current file list and deployment steps.
 
 The supplied `Microcrendential-master (12).zip` confirms the deployment problem. The root `components/` folder contains all three current corporate assessment components, but they are absent from `src/components/`. Its `platform-home.tsx` is also newer than the one under `src`. All 79 files in the root component folder match the current components in this cleaned release.
 
@@ -47,6 +47,6 @@ git apply --index /path/to/github-cleanup-v13.3.1.patch
 git diff --cached --stat
 ```
 
-The first command must pass before applying the patch. A changed repository may need the complete ZIP and manual review instead. Commit the resulting changes, then redeploy the existing Render service. After uploading the complete current package, the version must show **13.4.0**. See `DEPLOYMENT-FIX-v13.3.1.md` for the build and deployment steps.
+The first command must pass before applying the patch. A changed repository may need the complete ZIP and manual review instead. Commit the resulting changes, then redeploy the existing Render service. After uploading the complete current package, the version must show **13.5.0**. See `DEPLOYMENT-FIX-v13.3.1.md` for the build and deployment steps.
 
 All corporate features remain optional and off by default. The cleanup does not alter course fees, existing enrolments, approval settings or learner records.

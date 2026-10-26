@@ -4,3 +4,15 @@ node_modules
 .data
 *.zip
 npm-debug.log*
+.env
+.env.*
+!.env.example
+validation
+*.tsbuildinfo
+# Canonical application code is in src. Exclude obsolete upload copies.
+/components
+/app
+/lib
+
+# Python standard library is a required runtime asset.
+!public/vendor/pyodide/python_stdlib.zip

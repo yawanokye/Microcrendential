@@ -1,3 +1,4 @@
+import { copyOfferingPoliciesNative } from "@/lib/catalogue-access";
 import { credentialEvidenceValid, reviewAffectedCredential } from "@/lib/grading-workflow";
 import { getRawDb } from "@/db/raw";
 import { requireActiveProfile } from "@/lib/accounts";
@@ -113,6 +114,7 @@ export async function POST(request:Request) {
       if(native.prepare("SELECT id FROM course_drafts WHERE code=?").get(offering))throw new Error("That offering code is already used.");
       const keys=Object.keys(course).filter(key=>!["id","code","title","created_at","updated_at"].includes(key));
       native.prepare(`INSERT INTO course_drafts(code,title,${keys.join(",")}) VALUES(${Array(keys.length+2).fill("?").join(",")})`).run(offering,`${course.title} · ${name}`,...keys.map(key=>course[key] as string|number|null));
+      copyOfferingPoliciesNative(native,code,offering,profile);
       native.prepare("INSERT INTO course_runs(base_code,offering_code,name,starts_at,ends_at,enrolment_closes_at,capacity,created_by) VALUES(?,?,?,?,?,?,?,?)").run(code,offering,name,new Date(start).toISOString(),new Date(end).toISOString(),new Date(close).toISOString(),Math.max(0,Math.floor(Number(p.capacity)||0)),profile.email);
       native.prepare("INSERT INTO course_team(course_code,user_email,team_role,assigned_by) SELECT ?,user_email,team_role,assigned_by FROM course_team WHERE course_code=?").run(offering,code);
       const assignments=native.prepare("SELECT * FROM colab_assignments WHERE course_code=? AND status='active'").all(code) as Record<string,unknown>[];

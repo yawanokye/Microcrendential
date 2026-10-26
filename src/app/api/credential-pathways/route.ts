@@ -1,3 +1,4 @@
+import { audienceAllowed, courseDiscoverySql } from "@/lib/catalogue-access";
 import { getRawDb } from "@/db/raw";
 import { requireActiveProfile } from "@/lib/accounts";
 import { normalizeCourseDesign } from "@/lib/course-design";
@@ -21,7 +22,8 @@ export async function GET() {
   const account = await requireActiveProfile(["learner"]);
   if (account.error || !account.profile) return account.error;
   const db = getRawDb();
-  const courses = await db.prepare("SELECT code,title,design_json FROM course_drafts WHERE status='active' ORDER BY title").all<CourseRow>();
+  const audience=courseDiscoverySql("c.code",account.profile);
+  const courses = await db.prepare(`SELECT code,title,design_json FROM course_drafts c WHERE status='active' AND ${audience.sql} ORDER BY title`).bind(...audience.values).all<CourseRow>();
   const certs = await db.prepare("SELECT course_code FROM certificates WHERE user_email=? AND status='active'").bind(account.profile.email).all<CertificateRow>();
   const completed = new Set(certs.results.map((item) => item.course_code.trim().toUpperCase()));
   const courseTitle = new Map(courses.results.map((item) => [item.code.trim().toUpperCase(), item.title]));
@@ -38,7 +40,7 @@ export async function GET() {
     // Backward compatibility for legacy component-defined pathways.
     const code = design.broaderCredentialCode.trim().toUpperCase();
     const title = design.broaderCredentialTitle.trim();
-    if (!code || !title) continue;
+    if (!code || !title || !audienceAllowed("course",code,account.profile)) continue;
     const entry = grouped.get(code) ?? { title, required: new Set<string>() };
     design.broaderCredentialRequiredCodes.forEach((item) => entry.required.add(item.trim().toUpperCase()));
     entry.required.add(course.code.trim().toUpperCase());

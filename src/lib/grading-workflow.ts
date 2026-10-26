@@ -7,7 +7,10 @@ import { parseRecord } from "./course-access";
 import { recordAudit } from "./audit";
 
 export function recomputeAssessment(database: import("node:sqlite").DatabaseSync,email:string,code:string) {
-  const best=database.prepare("SELECT final_score,passed,answers_json,marked_at FROM assessment_submissions WHERE user_email=? AND course_code=? AND status='marked' AND final_score IS NOT NULL ORDER BY passed DESC,final_score DESC,id DESC LIMIT 1").get(email,code) as {final_score:number;passed:number;answers_json:string;marked_at:string}|undefined;
+  const course = database.prepare("SELECT c.design_json,e.course_snapshot_json FROM course_drafts c LEFT JOIN enrollments e ON e.course_code=c.code AND e.user_email=? WHERE c.code=? LIMIT 1").get(email,code) as {design_json:string;course_snapshot_json:string|null}|undefined;
+  const design = parseRecord<{offeringType?:string}>(parseRecord<{design_json?:string}>(course?.course_snapshot_json,{}).design_json || course?.design_json,{});
+  const order = design.offeringType === "programme_course" ? "id DESC" : "passed DESC,final_score DESC,id DESC";
+  const best=database.prepare("SELECT final_score,passed,answers_json,marked_at FROM assessment_submissions WHERE user_email=? AND course_code=? AND status='marked' AND final_score IS NOT NULL ORDER BY " + order + " LIMIT 1").get(email,code) as {final_score:number;passed:number;answers_json:string;marked_at:string}|undefined;
   // The aggregate derives only from current, final decisions. A correction can lower it.
   database.prepare(`INSERT INTO assessment_attempts(user_email,course_code,score,passed,answers_json,completed_at) VALUES(?,?,?,?,?,?) ON CONFLICT(user_email,course_code) DO UPDATE SET score=excluded.score,passed=excluded.passed,answers_json=excluded.answers_json,completed_at=excluded.completed_at`).run(email,code,best?.final_score??0,best?.passed??0,best?.answers_json??"{}",best?.marked_at??new Date().toISOString());
 }

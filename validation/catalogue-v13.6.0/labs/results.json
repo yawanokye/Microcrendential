@@ -1,0 +1,22 @@
+{
+  "suite": "labs",
+  "passed": 15,
+  "checks": [
+    "Facilitator tests an actual JavaScript programme before applying an optional lab",
+    "Browser code has an opaque origin, no document access, and an enforced execution timeout",
+    "Applied labs save with reviewed settings and optional completion, and their changes support Undo",
+    "Editing tested settings requires another preview and outcome review highlights missing assessed evidence",
+    "Incomplete or forged lab completion fields cannot bypass required evidence",
+    "coding: a working experiment changes results, survives refresh and submits complete evidence on mobile without awarding a client grade",
+    "data_science: a working experiment changes results, survives refresh and submits complete evidence on mobile without awarding a client grade",
+    "ai: a working experiment changes results, survives refresh and submits complete evidence on mobile without awarding a client grade",
+    "cybersecurity: a working experiment changes results, survives refresh and submits complete evidence on mobile without awarding a client grade",
+    "experiment: a working experiment changes results, survives refresh and submits complete evidence on mobile without awarding a client grade",
+    "Python executes inside the lesson using the bundled local interpreter without a Colab or AI account",
+    "NumPy and pandas run real calculations against the lesson dataset with locally supplied package files",
+    "Timed-out Python work recovers and the learner can export an editable Jupyter notebook",
+    "Required lab evidence blocks the final assessment until an authorised facilitator records a passing result",
+    "Lab evidence appears in the gradebook queue and all authoring and learner screens render without page errors"
+  ],
+  "environment": "Node 22 local production standalone, isolated synthetic records. External AI disabled; mock LTI and Paystack only."
+}

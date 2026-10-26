@@ -1,3 +1,4 @@
+import { feeState } from "./learning-billing";
 import { assuranceCompletion } from "./assessment-assurance";
 import { getRawDb } from "@/db/raw";
 import { normalizeCourseDesign } from "@/lib/course-design";
@@ -156,14 +157,13 @@ export async function evaluateCourseCompletion(userEmail: string, courseCode: st
   }
 
   requirements.push(...await assuranceCompletion(userEmail,course.code,design.assurance));
-  const paidCertificate = design.certificateFeeGhs > 0 ? await db.prepare("SELECT id FROM payment_orders WHERE user_email = ? AND course_code = ? AND purpose = 'certificate' AND status = 'paid' LIMIT 1")
-    .bind(userEmail, course.code).first() : null;
+  const certificateFinance = feeState("course",courseCode,"certificate",userEmail);
   return {
     courseCode: course.code,
     courseTitle: course.title,
     certificateEnabled: Boolean(course.certificate_enabled),
-    certificateFeeGhs: design.certificateFeeGhs,
-    certificatePaymentRequired: design.certificateFeeGhs > 0 && !paidCertificate,
+    certificateFeeGhs: certificateFinance.amountGhs,
+    certificatePaymentRequired: !certificateFinance.satisfied,
     certificatePreauthorised: Boolean(course.certificate_preapproved),
     certificateAuthorizationReference: course.approval_reference,
     certificateAuthorizationAuthority: course.approval_authority,
@@ -181,6 +181,7 @@ export async function evaluateCourseCompletion(userEmail: string, courseCode: st
 export async function issueCertificateIfComplete(userEmail: string, courseCode: string) {
   const evaluation = await evaluateCourseCompletion(userEmail, courseCode);
   if (!evaluation) return { evaluation: null, certificate: null };
+  await (await import("./programme-credentials")).synchroniseProgrammeCredentialsForCourse(userEmail, courseCode);
   if (!evaluation.complete) return { evaluation, certificate: null };
 
   const db = getRawDb();

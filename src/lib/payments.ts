@@ -6,6 +6,8 @@ import { notify } from "./delivery-notifications";
 export type PaymentPurpose = "enrollment" | "certificate";
 
 export type PaymentOrder = {
+  offering_kind?: "course"|"programme";
+  programme_enrolment_id?: number|null;
   reference: string;
   user_email: string;
   course_code: string;
@@ -38,18 +40,19 @@ export function amountForPurpose(terms: NonNullable<Awaited<ReturnType<typeof ge
 
 export async function settlePaymentOrder(reference: string, providerData: unknown) {
   const db = getRawDb();
-  const order = await db.prepare("SELECT reference, user_email, course_code, purpose, amount_pesewas, currency, status FROM payment_orders WHERE reference = ? LIMIT 1")
+  const order = await db.prepare("SELECT reference, user_email, course_code, purpose, amount_pesewas, currency, status, offering_kind, programme_enrolment_id FROM payment_orders WHERE reference = ? LIMIT 1")
     .bind(reference).first<PaymentOrder>();
   if (!order) return { error: "Payment order was not found.", status: 404 } as const;
   if (order.status !== "paid") {
     await db.prepare("UPDATE payment_orders SET status = 'paid', provider_data_json = ?, paid_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE reference = ? AND status <> 'paid'")
       .bind(JSON.stringify(providerData ?? {}), reference).run();
   }
-  if (order.purpose === "enrollment") {
+  if(order.offering_kind==="programme"){if(order.programme_enrolment_id)await (await import("./programme-credentials")).synchroniseProgrammeCredential(order.programme_enrolment_id);}
+  else if (order.purpose === "enrollment") {
     const enrolled = enrolWithSnapshot(order.user_email,order.course_code);
     if (enrolled.error) { await notify(order.user_email,`paid-unenrolled-${reference}`,"payment","Payment received; enrolment needs support",`${reference}: ${enrolled.error}. Request support or a refund in your payment history.`,"/?view=payments"); return {error:enrolled.error,status:409} as const; }
   }
-  if (order.purpose === "certificate") {
+  if (order.offering_kind!=="programme" && order.purpose === "certificate") {
     const { issueCertificateIfComplete } = await import("@/lib/course-completion");
     await issueCertificateIfComplete(order.user_email, order.course_code);
   }

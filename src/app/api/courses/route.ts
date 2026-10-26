@@ -1,3 +1,5 @@
+import { courseDiscoverySql, audienceAllowed, audienceCompatibilityNative } from "@/lib/catalogue-access";
+import { currentBillingNative, learnerBillingNative, learnerFinance } from "@/lib/learning-billing";
 import { notifyTeachers } from "@/lib/delivery-notifications";
 import { coursePermission, enrolledCourse } from "@/lib/course-access";
 import { learnerCourseRecord } from "@/lib/delivery-reports";
@@ -168,6 +170,7 @@ function attachBroaderCredentialLinks(courses: PresentedCourse[]) {
 
 async function validateBroaderComponentsForReview(design: ReturnType<typeof normalizeCourseDesign>, courseCode: string) {
   if (design.credentialStructure !== "broader") return "";
+  const accessError=getRawDb().read(db=>audienceCompatibilityNative(db,"course",courseCode,design.componentCredentialCodes));if(accessError)return accessError;
   const codes = [...new Set(design.componentCredentialCodes.map((item) => item.trim().toUpperCase()).filter(Boolean))];
   if (codes.length < 2) return "Select at least two existing active component microcredentials for the broader credential.";
   if (codes.includes(courseCode.trim().toUpperCase())) return "A broader credential cannot include itself as a component.";
@@ -243,13 +246,18 @@ export async function GET(request: Request) {
   const filter = code ? " AND c.code = ?" : "";
   const codeValues = code ? [code] : [];
   const db = getRawDb(); let rows;
-  if (account.profile.role === "learner") rows = await db.prepare(`${select} WHERE c.status = 'active'${filter} ORDER BY c.activated_at DESC, c.created_at DESC, c.id DESC LIMIT ? OFFSET ?`).bind(...codeValues, limit + 1, offset).all<CourseRow>();
-  else if (account.profile.role === "facilitator") rows = await db.prepare(`${select} WHERE (c.created_by_email = ? OR c.status = 'active' OR EXISTS (SELECT 1 FROM course_team t WHERE t.course_code=c.code AND t.user_email=?))${filter} ORDER BY c.updated_at DESC, c.created_at DESC, c.id DESC LIMIT ? OFFSET ?`).bind(account.profile.email, account.profile.email, ...codeValues, limit + 1, offset).all<CourseRow>();
-  else rows = await db.prepare(`${select} WHERE 1=1${filter} ORDER BY CASE c.status WHEN 'pending_review' THEN 0 WHEN 'active' THEN 1 WHEN 'draft' THEN 2 ELSE 3 END, c.updated_at DESC, c.created_at DESC, c.id DESC LIMIT ? OFFSET ?`).bind(...codeValues, limit + 1, offset).all<CourseRow>();
+  const audience=courseDiscoverySql("c.code",account.profile);
+  if (account.profile.role === "learner") rows = await db.prepare(`${select} WHERE c.status = 'active' AND ${audience.sql}${filter} ORDER BY c.activated_at DESC, c.created_at DESC, c.id DESC LIMIT ? OFFSET ?`).bind(...audience.values, ...codeValues, limit + 1, offset).all<CourseRow>();
+  else if (account.profile.role === "facilitator") rows = await db.prepare(`${select} WHERE ${audience.sql} AND (c.created_by_email = ? OR c.status = 'active' OR EXISTS (SELECT 1 FROM course_team t WHERE t.course_code=c.code AND t.user_email=?))${filter} ORDER BY c.updated_at DESC, c.created_at DESC, c.id DESC LIMIT ? OFFSET ?`).bind(...audience.values,account.profile.email, account.profile.email, ...codeValues, limit + 1, offset).all<CourseRow>();
+  else rows = await db.prepare(`${select} WHERE 1=1${filter} ORDER BY CASE c.status WHEN 'pending_review' THEN 0 WHEN 'active' THEN 1 WHEN 'draft' THEN 2 ELSE 3 END, c.updated_at DESC, c.created_at DESC, c.id DESC LIMIT ? OFFSET ?`).bind(...audience.values, ...codeValues, limit + 1, offset).all<CourseRow>();
   const nextOffset = rows.results.length > limit ? offset + limit : null;
   rows.results = rows.results.slice(0, limit);
   if(account.profile.role==="learner") { for(const row of rows.results) {const enrolled=await enrolledCourse(account.profile.email,row.code);if(enrolled)Object.assign(row,enrolled);} }
-  const presented = attachBroaderCredentialLinks(rows.results.map(present));
+  const presented = attachBroaderCredentialLinks(rows.results.map(present)).map(course => {
+    const terms=getRawDb().read(db=>account.profile!.role==="learner"?learnerBillingNative(db,"course",course.code,account.profile!.email):currentBillingNative(db,"course",course.code));
+    const parent=course.design.broaderCredentialCode;
+    return {...course, billing: terms, ...(account.profile!.role==="learner"?{finance:learnerFinance("course",course.code,account.profile!.email)}:{}), design:{...course.design,priceGhs:terms.enrollmentPesewas/100,certificateFeeGhs:terms.certificatePesewas/100,...(parent&&!audienceAllowed("course",parent,account.profile)?{broaderCredentialCode:"",broaderCredentialTitle:"",broaderCredentialRequiredCodes:[]}: {})}};
+  });
   if(account.profile.role==="learner") { const courses=[];for(const course of presented.filter(c=>c.design.credentialStructure!=="broader")){const enrolled=await enrolledCourse(account.profile.email,course.code);const safe=learnerVisibleCourse(course);if(enrolled){const record=await learnerCourseRecord(account.profile.email,course.code);const design=course.design;if(design.delivery.identityRequired==="before_learning"&&account.profile.identity_status!=="verified"){courses.push({...catalogueOnly(safe),enrolled:true,identityRequired:true});}else courses.push({...safe,enrolled:true,progress:record?.progress??0,resumeUrl:record?.resumeUrl,lastActivityAt:record?.lastActivityAt,assessmentConfig:learnerSafeAssessmentConfig(course.assessmentConfig as AssessmentConfigRecord,course.questionLimit)});}else courses.push(catalogueOnly(safe));}return Response.json({courses,nextOffset});}
   const staffCourses=[];
   for(const course of presented) {
@@ -265,6 +273,7 @@ export async function POST(request: Request) {
   const account = await requireActiveProfile(["facilitator", "admin"]);
   if (account.error || !account.profile) return account.error;
   const payload = await request.json() as Record<string, unknown>; const course = normalizedPayload(payload);
+  if(account.profile.role!=="admin"){course.design.priceGhs=0;course.design.certificateFeeGhs=0;}
   const externalError = await validateExternalActivities(course.materials,course.activities); if(externalError)return externalError;
   if (!course.title || !course.code || !course.discipline) return Response.json({ error: "Course title, code and discipline are required." }, { status: 400 });
   const submissionMode = payload.submissionMode === "review" ? "review" : "draft";
@@ -291,6 +300,9 @@ export async function PUT(request: Request) {
   if (existing.status === "active") return Response.json({ error: "An active course is locked. Create a new version through the quality-governance process." }, { status: 409 });
   if (existing.version_number !== expectedVersion) return Response.json({ error: "This draft changed in another session. Reload the latest version before saving." }, { status: 409 });
   const course = normalizedPayload(payload);
+  const prior = await db.prepare("SELECT code,design_json FROM course_drafts WHERE id=?").bind(id).first<{code:string;design_json:string}>();
+  if(prior && prior.code!==course.code) return Response.json({error:"The saved offering code is permanent. Duplicate the course to create a different offering."},{status:409});
+  if(account.profile.role!=="admin" && prior){const fees=normalizeCourseDesign(parseJson(prior.design_json,{}));course.design.priceGhs=fees.priceGhs;course.design.certificateFeeGhs=fees.certificateFeeGhs;}
   const externalError = await validateExternalActivities(course.materials,course.activities); if(externalError)return externalError;
   if (!course.title || !course.code || !course.discipline) return Response.json({ error: "Course title, code and discipline are required." }, { status: 400 });
   const duplicate = await db.prepare("SELECT id FROM course_drafts WHERE code = ? AND id <> ? LIMIT 1").bind(course.code, id).first();
@@ -326,6 +338,7 @@ export async function PATCH(request: Request) {
   if (!course) return Response.json({ error: "Course was not found." }, { status: 404 });
   if (active) {
     const design = normalizeCourseDesign(parseJson(course.design_json, {})); const materials = normalizeMaterials(parseJson(course.materials_json, []));
+    const audienceError=await validateBroaderComponentsForReview(design,course.code);if(audienceError)return Response.json({error:audienceError},{status:409});
     const assessment = parseJson<AssessmentConfigRecord>(course.assessment_config_json, {});
     const activities=parseJson<Parameters<typeof evaluateCourseQuality>[0]["activities"]>(course.activities_json,[]);
     const externalError = await validateExternalActivities(materials,activities || []); if(externalError)return externalError;

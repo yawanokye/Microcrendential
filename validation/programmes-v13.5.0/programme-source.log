@@ -1,0 +1,10 @@
+(node:3) [UNDICI-EHPA] Warning: EnvHttpProxyAgent is experimental, expect them to change at any time.
+(Use `node --trace-warnings ...` to show where the warning was created)
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> ucc-microcredentials@13.5.0 check:source
+> node check-route-layout.mjs
+
+(node:16) [UNDICI-EHPA] Warning: EnvHttpProxyAgent is experimental, expect them to change at any time.
+(Use `node --trace-warnings ...` to show where the warning was created)
+Release source checked: required files, canonical imports and the landing, facilitator and learner routes are in their expected locations.

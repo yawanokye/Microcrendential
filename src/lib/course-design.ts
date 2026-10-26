@@ -24,12 +24,13 @@ export type CredentialStructure = "standalone" | "component" | "broader";
 export type ComponentOutcomeMapping = { broaderOutcomeId: string; componentCourseCode: string; componentOutcomeIds: string[] };
 
 export type CourseDesign = {
+  offeringType: "microcredential" | "programme_course";
   category: "credit" | "professional" | "rpl";
   deliveryPattern: "asynchronous" | "synchronous" | "blended";
   level: "foundation" | "applied" | "advanced";
   language: string;
   expectedHours: number;
-  enrolmentMode: "open" | "application" | "invitation";
+  enrolmentMode: "open" | "application" | "invitation" | "programme";
   priceGhs: number;
   certificateFeeGhs: number;
   creditValue: number;
@@ -92,6 +93,7 @@ export type CourseMaterialRecord = {
 };
 
 export const defaultCourseDesign = (): CourseDesign => ({
+  offeringType: "microcredential",
   category: "professional",
   deliveryPattern: "blended",
   level: "applied",
@@ -164,13 +166,14 @@ export function normalizeCourseDesign(value: unknown): CourseDesign {
   const certificateFeeGhs = Math.min(1_000_000, Math.max(0, Number(input.certificateFeeGhs) || 0));
   const creditValue = Math.min(60, Math.max(0, Number(input.creditValue) || 0));
   return {
+    offeringType: input.offeringType === "programme_course" ? "programme_course" : "microcredential",
     category: categories.has(input.category as CourseDesign["category"]) ? input.category as CourseDesign["category"] : fallback.category,
     deliveryPattern: deliveries.has(input.deliveryPattern as CourseDesign["deliveryPattern"]) ? input.deliveryPattern as CourseDesign["deliveryPattern"] : fallback.deliveryPattern,
     level: levels.has(input.level as CourseDesign["level"]) ? input.level as CourseDesign["level"] : fallback.level,
     language: String(input.language || fallback.language).trim().slice(0, 80),
     expectedHours,
-    // Institution-wide policy: every published offering supports learner self-enrolment.
-    enrolmentMode: "open",
+    // Existing offerings retain open access. Programme-only access is explicitly selected.
+    enrolmentMode: input.offeringType === "programme_course" && input.enrolmentMode === "programme" ? "programme" : "open",
     priceGhs,
     certificateFeeGhs,
     creditValue,

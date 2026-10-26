@@ -1,0 +1,9 @@
+import { UccBrandLockup } from "@/components/ucc-brand";
+import { verifyProgrammeCertificate } from "@/lib/programme-verification";
+
+export const dynamic = "force-dynamic";
+export const metadata = { title: "Verify a programme award · UCC Growth+" };
+export default async function VerifyProgramme({ searchParams }: { searchParams: Promise<{ c?: string; code?: string }> }) {
+  const p = await searchParams, code = (p.c || p.code || "").trim().toUpperCase(), result = code ? await verifyProgrammeCertificate(code) : null;
+  return <main className="programme-public-verifier"><UccBrandLockup subtitle="Programme award verification" /><h1>Verify a programme certificate</h1><form method="get"><label>Programme certificate code<input name="c" defaultValue={code} required maxLength={60} /></label><button type="submit">Verify programme award</button></form>{result && <section className={result.valid ? "programme-verify-valid" : "programme-verify-invalid"}><h2>{result.valid ? "Verified programme award" : "Programme award is not currently valid"}</h2><p>Current status: {result.status.replaceAll("_", " ")}</p>{result.restricted && <p>This is a private training award. Learner and qualification details are available from the holder.</p>}{result.certificate && <dl><dt>Learner</dt><dd>{result.certificate.learnerName}</dd><dt>Qualification</dt><dd>{result.certificate.qualificationTitle}</dd><dt>Issuer</dt><dd>{result.certificate.issuer}</dd><dt>Programme</dt><dd>{result.certificate.programmeCode} · Curriculum {result.certificate.curriculumVersion}</dd><dt>Credits</dt><dd>{result.certificate.credits}</dd><dt>Award date</dt><dd>{result.certificate.awardDate}</dd><dt>Certificate code</dt><dd>{result.certificate.code}</dd></dl>}</section>}<p>Detailed results, transcripts, student numbers and identity documents remain private.</p><a href="/">Return to UCC Growth+</a></main>;
+}

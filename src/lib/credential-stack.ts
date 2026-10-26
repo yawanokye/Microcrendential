@@ -1,3 +1,5 @@
+import { audienceAllowed } from "./catalogue-access";
+import { feeState } from "./learning-billing";
 import { getRawDb } from "@/db/raw";
 import { normalizeCourseDesign } from "@/lib/course-design";
 import { certificateIssuerName, requiresUccSignatory, type CertificateConfiguration } from "@/lib/certificate-policy";
@@ -49,7 +51,7 @@ export async function issueBroaderCredentialsIfEligible(userEmail: string) {
   const learner = await db.prepare("SELECT full_name FROM users WHERE email=? AND role='learner' LIMIT 1").bind(userEmail).first<{ full_name: string }>();
   if (!learner) return [] as string[];
   const courses = await db.prepare("SELECT code,title,design_json,created_by_email,certificate_enabled,certificate_preapproved FROM course_drafts WHERE status='active'").all<PathCourseRow>();
-  const definitions = collectDefinitions(courses.results);
+  const definitions = collectDefinitions(courses.results).filter(d=>audienceAllowed("course",d.code,{email:userEmail,role:"learner"})&&feeState("course",d.code,"enrollment",userEmail).satisfied&&feeState("course",d.code,"certificate",userEmail).satisfied);
   if (!definitions.length) return [] as string[];
   const certificates = await db.prepare("SELECT course_code FROM certificates WHERE user_email=? AND status='active'").bind(userEmail).all<ActiveCertificateRow>();
   const earnedCodes = new Set(certificates.results.map((item) => item.course_code.toUpperCase()));

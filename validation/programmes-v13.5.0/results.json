@@ -1,0 +1,31 @@
+{
+  "passed": 23,
+  "checks": [
+    "Programme authoring and records require an active signed-in role",
+    "Cross-site mutations, oversized bodies and excessive curriculum inputs are rejected before a programme is created",
+    "A complete degree curriculum saves as a draft, with unique identity and protected ownership",
+    "Only recorded academic approval opens a valid curriculum, and approved versions cannot be edited in place",
+    "Facilitators develop and submit a full certificate through Programme Studio, with advanced policies initially disabled",
+    "Mobile learners apply once and cannot register or admit themselves before registry approval",
+    "Registry admission records the student number and cohort without silently waiving existing course fees",
+    "Recorded programme tuition clearance is explicit, and programme-only courses cannot be self-enrolled directly",
+    "Programme registration opens the existing lesson experience with its course snapshot and no duplicate registration",
+    "Prerequisites and term-release checks reject bypasses and use released platform results",
+    "Core and elective results release the next semester and permit the assessed capstone",
+    "Approved recognised credit respects its cap, stays outside GPA and does not automatically issue a degree award",
+    "The selected registry-release policy creates the degree certificate only after the final authorised award decision",
+    "Final transcripts contain semester GPA, CGPA and only registered or recognised courses, while degree PDFs include a verifiable award",
+    "Learner study records download as private PDF and CSV and remain inaccessible to other learners and unassigned staff",
+    "Downward source-grade corrections flag the programme award and prevent restoration until eligibility is recovered",
+    "A changed final mark triggers transcript review even when the learner remains eligible",
+    "Programme award revocation and restoration retain registry control and audit reasons",
+    "Earlier platform passes need explicit curriculum permission or recognition, and deferred learners cannot make new registrations",
+    "A newly approved curriculum applies to new admissions while existing learners retain their admitted curriculum and results",
+    "A two-semester credit-bearing certificate is created automatically only after the last result is released and all credits and GPA requirements pass",
+    "Background maintenance rechecks programme requirements and preserves a single certificate identity",
+    "Programme authoring, admission and learner records fit a phone viewport and render without page errors"
+  ],
+  "node": "v22.23.4",
+  "environment": "Local production standalone server, Chromium and synthetic academic records",
+  "externalServices": "No external admission, fee collection, accreditation, AI provider or degree registry service contacted"
+}

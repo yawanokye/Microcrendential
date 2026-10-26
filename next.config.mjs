@@ -4,12 +4,19 @@ import { fileURLToPath } from "node:url";
 
 const projectRoot = dirname(fileURLToPath(import.meta.url));
 export const requiredReleaseSources = [
+  "src/lib/catalogue-policy.ts", "src/lib/catalogue-access.ts", "src/lib/catalogue-management.ts", "src/lib/learning-billing.ts",
+  "src/db/catalogue-schema.ts", "src/components/catalogue-management.tsx", "src/app/api/catalogue/route.ts", "src/app/api/organisations/route.ts",
   "src/app/page.tsx", "src/app/facilitator-studio/page.tsx", "src/app/learn/page.tsx",
   "src/components/platform-home.tsx", "src/components/learning-page.tsx",
   "src/components/corporate-assessment-settings.tsx",
   "src/components/corporate-assessment-review.tsx",
   "src/components/corporate-assessment-learner.tsx",
   "src/lib/assessment-assurance-policy.ts", "src/lib/assessment-assurance.ts",
+  "src/lib/programme-policy.ts", "src/lib/programmes.ts", "src/lib/programme-http.ts", "src/lib/programme-record.ts",
+  "src/lib/programme-results.ts", "src/lib/programme-credentials.ts", "src/lib/programme-documents.ts", "src/lib/programme-transcript.ts", "src/lib/programme-verification.ts",
+  "src/app/api/programmes/transcript/route.ts", "src/app/api/programmes/certificates/route.ts", "src/app/api/programmes/verify/route.ts", "src/app/verify-programme/page.tsx",
+  "src/db/programme-schema.ts", "src/components/programme-workspace.tsx", "src/app/programmes/page.tsx", "src/app/programmes.css",
+  "src/app/api/programmes/route.ts", "src/app/api/programmes/enrolments/route.ts", "src/app/api/programmes/registration/route.ts", "src/app/api/programmes/record/route.ts",
   "src/lib/passwords.ts", "src/lib/file-security.ts",
   "src/lib/learning-labs.ts", "src/lib/course-development.ts", "src/lib/python-lab-runtime.ts",
   "public/vendor/pyodide/manifest.json", "scripts/verify-python-runtime.mjs",

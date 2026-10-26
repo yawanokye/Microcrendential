@@ -38,6 +38,14 @@ test("a separate valid passing attempt remains authoritative after another attem
   await db.prepare("UPDATE assessment_submissions SET final_score=20,passed=0 WHERE id=?").bind(id).run();db.transaction(native=>recomputeAssessment(native,learner,code));
   const aggregate=await db.prepare("SELECT score,passed FROM assessment_attempts WHERE user_email=? AND course_code=?").bind(learner,code).first();assert.deepEqual({...aggregate},{score:70,passed:1});
 });
+test("programme courses use the latest released attempt while existing microcredentials retain their best-pass rule",async()=>{
+  const code=await course({offeringType:"programme_course"}),first=await submission(code,80);
+  await db.prepare("INSERT INTO assessment_submissions(user_email,course_code,attempt_number,status,final_score,passed) VALUES(?,?,2,'marked',40,0)").bind(learner,code).run();
+  db.transaction(native=>recomputeAssessment(native,learner,code));
+  assert.deepEqual({...await db.prepare("SELECT score,passed FROM assessment_attempts WHERE user_email=? AND course_code=?").bind(learner,code).first()},{score:40,passed:0});
+  await db.prepare("UPDATE assessment_submissions SET final_score=95 WHERE id=?").bind(first).run(); db.transaction(native=>recomputeAssessment(native,learner,code));
+  assert.equal((await db.prepare("SELECT score FROM assessment_attempts WHERE user_email=? AND course_code=?").bind(learner,code).first<{score:number}>())?.score,40);
+});
 test("saved enrolment pins the approved syllabus across later amendments",async()=>{
   const code=await course();await db.prepare("UPDATE course_drafts SET materials_json='[]',version_number=2 WHERE code=?").bind(code).run();
   assert.equal(JSON.parse((await enrolledCourse(learner,code))!.materials_json).length,1);

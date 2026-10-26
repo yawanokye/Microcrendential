@@ -1,0 +1,77 @@
+{
+  "version": "13.6.0",
+  "date": "2026-10-25",
+  "node": "22.23.4",
+  "baseRelease": "13.5.0",
+  "build": "passed",
+  "typecheck": "passed",
+  "sourceLayout": "passed",
+  "lint": {
+    "errors": 0,
+    "baselineWarnings": 42
+  },
+  "unit": {
+    "passed": 145,
+    "failed": 0,
+    "skipped": 3,
+    "total": 148,
+    "skipReason": "CHOWN, SETUID and SETGID unavailable for three existing mounted-storage/backup checks."
+  },
+  "acceptance": {
+    "passed": 222,
+    "suites": [
+      {
+        "suite": "catalogue",
+        "passed": 22,
+        "environment": "Node 22 local production standalone, isolated synthetic records. External AI disabled; mock LTI and Paystack only."
+      },
+      {
+        "suite": "programmes",
+        "passed": 23,
+        "environment": "Node 22 local production standalone, isolated synthetic records. External AI disabled; mock LTI and Paystack only."
+      },
+      {
+        "suite": "commercial",
+        "passed": 46,
+        "environment": "Node 22 local production standalone, isolated synthetic records. External AI disabled; mock LTI and Paystack only."
+      },
+      {
+        "suite": "studio-api",
+        "passed": 23,
+        "environment": "Node 22 local production standalone, isolated synthetic records. External AI disabled; mock LTI and Paystack only."
+      },
+      {
+        "suite": "corporate",
+        "passed": 33,
+        "environment": "Node 22 local production standalone, isolated synthetic records. External AI disabled; mock LTI and Paystack only."
+      },
+      {
+        "suite": "integrations",
+        "passed": 25,
+        "environment": "Node 22 local production standalone, isolated synthetic records. External AI disabled; mock LTI and Paystack only."
+      },
+      {
+        "suite": "labs",
+        "passed": 15,
+        "environment": "Node 22 local production standalone, isolated synthetic records. External AI disabled; mock LTI and Paystack only."
+      },
+      {
+        "suite": "studio-browser",
+        "passed": 14,
+        "environment": "Node 22 local production standalone, isolated synthetic records. External AI disabled; mock LTI and Paystack only."
+      },
+      {
+        "suite": "commercial-browser",
+        "passed": 14,
+        "environment": "Node 22 local production standalone, isolated synthetic records. External AI disabled; mock LTI and Paystack only."
+      },
+      {
+        "suite": "practicals",
+        "passed": 7,
+        "environment": "Node 22 local production standalone, isolated synthetic records. External AI disabled; mock LTI and Paystack only."
+      }
+    ]
+  },
+  "deployment": "Not deployed or pushed to GitHub.",
+  "externalServices": "No live AI, email, H5P customer account, bank or payment provider used. LTI and Paystack were mocked."
+}

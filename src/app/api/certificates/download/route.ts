@@ -1,3 +1,6 @@
+import { isPrivateOffering } from "@/lib/catalogue-access";
+import { requireActiveProfile } from "@/lib/accounts";
+import { coursePermission } from "@/lib/course-access";
 import { getRawDb } from "@/db/raw";
 import { createCertificatePdf, type CertificatePdfRecord } from "@/lib/certificate-pdf";
 import { safeCertificateFilename } from "@/lib/certificate-policy";
@@ -25,6 +28,11 @@ export async function GET(request: Request) {
   if (!/^UCC[A-Z0-9-]{8,40}$/.test(code)) return Response.json({ error: "A valid certificate code is required." }, { status: 400 });
   const certificate = await getRawDb().prepare(`SELECT ${columns} FROM certificates WHERE certificate_code = ? LIMIT 1`).bind(code).first<DownloadableCertificate>();
   if (!certificate) return Response.json({ error: "Certificate was not found." }, { status: 404 });
+  if(isPrivateOffering("course",certificate.course_code)){
+    const account=await requireActiveProfile();if(account.error||!account.profile)return Response.json({error:"Sign in to download a private credential."},{status:403});
+    const owner=await getRawDb().prepare("SELECT user_email FROM certificates WHERE certificate_code=?").bind(code).first<{user_email:string}>();
+    if(owner?.user_email!==account.profile.email && !((account.profile.role==="admin"||account.profile.role==="facilitator")&&await coursePermission(account.profile,certificate.course_code,"view")))return Response.json({error:"Credential not found."},{status:404});
+  }
   const expired = Boolean(certificate.expires_at && Date.parse(certificate.expires_at) < Date.now());
   if (certificate.status !== "active" || expired) return Response.json({ error: expired ? "This credential has expired." : "This credential is not currently valid." }, { status: 410 });
   const verificationUrl = `${publicOrigin(request)}/verify-credential?code=${encodeURIComponent(code)}`;

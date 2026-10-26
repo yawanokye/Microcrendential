@@ -1,0 +1,8 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+npm warn EBADENGINE Unsupported engine {
+npm warn EBADENGINE   package: 'ucc-microcredentials@13.4.0',
+npm warn EBADENGINE   required: { node: '>=22.13.0 <23' },
+npm warn EBADENGINE   current: { node: 'v24.22.1', npm: '11.9.0' }
+npm warn EBADENGINE }
+
+added 550 packages in 37s

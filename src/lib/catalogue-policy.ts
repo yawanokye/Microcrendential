@@ -1,0 +1,10 @@
+export type OfferingKind = "course" | "programme";
+export type FeePurpose = "enrollment" | "certificate";
+export type Payer = "individual" | "organisation";
+export type BillingTerms = { enrollmentPesewas: number; certificatePesewas: number; enrollmentPayer: Payer; certificatePayer: Payer; includesCourseFees: boolean; version: number; managed: boolean };
+export const emptyBillingTerms = (): BillingTerms => ({ enrollmentPesewas: 0, certificatePesewas: 0, enrollmentPayer: "individual", certificatePayer: "individual", includesCourseFees: false, version: 0, managed: false });
+export function parseGhs(value: unknown) { const text = String(value ?? "").trim(); if (!/^\d{1,9}(?:\.\d{1,2})?$/.test(text)) throw new Error("Enter a non-negative Ghana cedi amount with at most two decimal places."); const amount = Math.round(Number(text) * 100); if (!Number.isSafeInteger(amount)) throw new Error("The fee exceeds the supported currency range."); return amount; }
+export function invoiceAmount(basis: "per_learner" | "group_total", amountPesewas: number, participants: number) { if (!Number.isSafeInteger(amountPesewas) || amountPesewas < 0 || !Number.isInteger(participants) || participants < 1 || participants > 500) throw new Error("Set a valid fixed fee and 1–500 participants."); const total = basis === "group_total" ? amountPesewas : amountPesewas * participants; if (!Number.isSafeInteger(total)) throw new Error("The invoice total is too large."); return total; }
+export function activeMembership(status: string, expiresAt: string | null, now = Date.now()) { return status === "active" && (!expiresAt || Number.isFinite(Date.parse(expiresAt)) && Date.parse(expiresAt) > now); }
+export function offeringKind(value: unknown): OfferingKind { if (value !== "course" && value !== "programme") throw new Error("Choose a course or programme."); return value; }
+export function feePurpose(value: unknown): FeePurpose { if (value !== "enrollment" && value !== "certificate") throw new Error("Choose an enrolment or certificate fee."); return value; }

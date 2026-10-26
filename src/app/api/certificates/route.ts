@@ -1,3 +1,5 @@
+import { isPrivateOffering } from "@/lib/catalogue-access";
+import { feeState } from "@/lib/learning-billing";
 import { getRawDb } from "@/db/raw";
 import { requireActiveProfile } from "@/lib/accounts";
 import { issueCertificateIfComplete } from "@/lib/course-completion";
@@ -35,6 +37,7 @@ export async function GET(request: Request) {
     const certificate = await getRawDb().prepare(`SELECT ${columns} FROM certificates WHERE certificate_code = ? LIMIT 1`).bind(code).first<CertificateRow>();
     if (!certificate) return Response.json({ valid: false, error: "Certificate was not found." }, { status: 404 });
     const expired = Boolean(certificate.expires_at && Date.parse(certificate.expires_at) < Date.now());
+    if(isPrivateOffering("course",certificate.course_code))return Response.json({valid:certificate.status==="active"&&!expired,status:expired?"expired":certificate.status,restricted:true,certificate:null});
     return Response.json({ valid: certificate.status === "active" && !expired, status: expired ? "expired" : certificate.status, certificate: presentCertificate(certificate, true) });
   }
   if (parameters.get("scope") === "registry") {
@@ -55,8 +58,7 @@ export async function GET(request: Request) {
     WHERE e.user_email = ? AND e.status = 'completed' AND c.status = 'active' AND c.certificate_enabled = 1 AND c.certificate_preapproved = 1 AND cert.id IS NULL
     ORDER BY e.enrolled_at DESC`).bind(account.profile.email).all<{ course_code: string; course_title: string; design_json: string }>();
   return Response.json({ certificates: certificates.results.map((item) => presentCertificate(item)), eligibleCertificates: credentialIssuanceEnabled ? eligible.results.map((item) => {
-    try { const design = JSON.parse(item.design_json || "{}") as { certificateFeeGhs?: number }; return { courseCode: item.course_code, courseTitle: item.course_title, certificateFeeGhs: Math.max(0, Number(design.certificateFeeGhs) || 0) }; }
-    catch { return { courseCode: item.course_code, courseTitle: item.course_title, certificateFeeGhs: 0 }; }
+    const finance=feeState("course",item.course_code,"certificate",account.profile!.email);return {courseCode:item.course_code,courseTitle:item.course_title,certificateFeeGhs:finance.amountGhs,payer:finance.payer,organisationPaymentRequired:finance.requiresOrganisation,paymentSatisfied:finance.satisfied};
   }) : [], platformMode });
 }
 
@@ -72,7 +74,7 @@ export async function POST(request: Request) {
   if (!result.evaluation) return Response.json({ error: "The published course was not found." }, { status: 404 });
   if (!result.evaluation.complete) return Response.json({ error: "Complete every academic requirement before requesting the certificate.", completion: result.evaluation }, { status: 409 });
   if (!result.evaluation.certificatePreauthorised) return Response.json({ error: "Certificate issuance is not pre-authorised for this programme.", completion: result.evaluation }, { status: 409 });
-  if (result.evaluation.certificatePaymentRequired) return Response.json({ error: "Certificate payment is required.", paymentRequired: true, purpose: "certificate", amountGhs: result.evaluation.certificateFeeGhs, completion: result.evaluation }, { status: 402 });
+  if (result.evaluation.certificatePaymentRequired) { const finance=feeState("course",courseCode,"certificate",account.profile.email); return Response.json({ error: finance.requiresOrganisation?"Your organisation must confirm certificate funding.":"Certificate payment is required.", paymentRequired: !finance.requiresOrganisation, organisationPaymentRequired:finance.requiresOrganisation, purpose: "certificate", amountGhs: result.evaluation.certificateFeeGhs, completion: result.evaluation }, { status: 402 }); }
   return Response.json({ certificate: result.certificate, completion: result.evaluation }, { status: result.certificate ? 201 : 409 });
 }
 

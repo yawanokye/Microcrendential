@@ -1,0 +1,15 @@
+{
+  "layoutCase": "Eight semesters and forty assessed courses",
+  "pages": 6,
+  "credits": 120,
+  "checks": [
+    "All 40 courses appear once",
+    "All eight semester titles appear",
+    "Headers and page numbers repeat",
+    "Semester and cumulative grade totals are present",
+    "All six rendered pages visually inspected",
+    "A two-semester production transcript fits one page with a verification QR",
+    "Production degree certificate contains crest and both registered signatures"
+  ],
+  "evidence": "Internal PDF and browser inspection. Images and generated PDFs excluded from the source package."
+}

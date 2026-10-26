@@ -1,0 +1,12 @@
+(node:47) [UNDICI-EHPA] Warning: EnvHttpProxyAgent is experimental, expect them to change at any time.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:55) [UNDICI-EHPA] Warning: EnvHttpProxyAgent is experimental, expect them to change at any time.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:63) [UNDICI-EHPA] Warning: EnvHttpProxyAgent is experimental, expect them to change at any time.
+(Use `node --trace-warnings ...` to show where the warning was created)
+▲ Next.js 16.4.3
+- Local:         http://localhost:3130
+- Network:       http://0.0.0.0:3130
+✓ Ready in 0ms
+✓ Running next.config took 8ms
+(node:63) ExperimentalWarning: SQLite is an experimental feature and might change at any time

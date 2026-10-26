@@ -1,3 +1,5 @@
+import { reviewFundedCourseCredentials } from "./learning-billing";
+import { reviewPendingProgrammeCredentials } from "./programme-credentials";
 import { cleanupAssuranceEvidence } from "./assessment-assurance";
 import { getRawDb } from "@/db/raw";
 import { notify, deliverNotificationEmails } from "./delivery-notifications";
@@ -26,5 +28,7 @@ export async function deliveryMaintenance() {
   }
   await deliverNotificationEmails();
   const assuranceEvidenceRemoved=await cleanupAssuranceEvidence();
-  return {processed,assuranceEvidenceRemoved};
+  const fundedCoursesReviewed=await reviewFundedCourseCredentials();
+  const programmesReviewed = await reviewPendingProgrammeCredentials();
+  return {processed,assuranceEvidenceRemoved,programmesReviewed,fundedCoursesReviewed};
 }

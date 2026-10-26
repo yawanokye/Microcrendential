@@ -1,3 +1,5 @@
+import { audienceAllowed } from "@/lib/catalogue-access";
+import { feeState } from "@/lib/learning-billing";
 import { getRawDb } from "@/db/raw";
 import { requireActiveProfile } from "@/lib/accounts";
 import { normalizeCourseDesign } from "@/lib/course-design";
@@ -18,11 +20,12 @@ export async function POST(request: Request) {
   try { rawDesign = JSON.parse(published.design_json || "{}"); } catch { rawDesign = {}; }
   const design = normalizeCourseDesign(rawDesign);
   if (design.enrolmentMode !== "open") return Response.json({ error: "This course is not currently configured for self-enrolment." }, { status: 409 });
-  if (design.priceGhs > 0) {
-    if (!paymentsEnabled()) return Response.json({ error: "Paid enrolment is not open during the official pilot. Contact UCC Growth+ support." }, { status: 503 });
-    const paid = await getRawDb().prepare("SELECT id FROM payment_orders WHERE user_email = ? AND course_code = ? AND purpose = 'enrollment' AND status = 'paid' LIMIT 1")
-      .bind(account.profile.email, courseCode).first();
-    if (!paid) return Response.json({ error: "Payment is required to enrol in this course.", paymentRequired: true, purpose: "enrollment", amountGhs: design.priceGhs }, { status: 402 });
+  if (!audienceAllowed("course",courseCode,account.profile)) return Response.json({error:"Course not found."},{status:404});
+  const finance = feeState("course",courseCode,"enrollment",account.profile.email);
+  if (!finance.satisfied) {
+    if (finance.requiresOrganisation) return Response.json({error:"Your organisation must confirm funding before enrolment. Contact the training coordinator.", organisationPaymentRequired:true},{status:402});
+    if (!paymentsEnabled()) return Response.json({error:"Online payment is currently unavailable. Contact learner support."},{status:503});
+    return Response.json({error:"Payment is required for this course.",paymentRequired:true,purpose:"enrollment",amountGhs:finance.amountGhs},{status:402});
   }
   const enrolled = enrolWithSnapshot(account.profile.email,courseCode);
   if (enrolled.error) return Response.json({error:enrolled.error},{status:409});

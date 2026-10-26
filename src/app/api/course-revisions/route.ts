@@ -206,6 +206,9 @@ export async function PUT(request: Request) {
   if (existing.status === "approved") return Response.json({ error: "This revision has already been published." }, { status: 409 });
   if (existing.version_number !== expectedVersion) return Response.json({ error: "This revision changed in another session. Reload it before saving." }, { status: 409 });
   const payload = normalizePayload(value);
+  const source=await db.prepare("SELECT c.code,c.design_json FROM course_revisions r JOIN course_drafts c ON c.id=r.course_id WHERE r.id=?").bind(id).first<{code:string;design_json:string}>();
+  if(source&&source.code!==payload.code)return Response.json({error:"The saved offering code is permanent."},{status:409});
+  if(source&&account.profile.role!=="admin"){const prior=normalizeCourseDesign(parseJson(source.design_json,{}));payload.design.priceGhs=prior.priceGhs;payload.design.certificateFeeGhs=prior.certificateFeeGhs;}
   if (!payload.title || !payload.code || !payload.discipline) return Response.json({ error: "Course title, code and discipline are required." }, { status: 400 });
   const submissionMode = value.submissionMode === "review" ? "review" : "draft";
   if (submissionMode === "review") { const error = validateForReview(payload); if (error) return Response.json({ error, quality: qualityFor(payload) }, { status: 400 }); }
@@ -240,6 +243,7 @@ export async function PATCH(request: Request) {
   if (administrativeOverride && !reviewComment) return Response.json({ error: "Add an administrator justification before approving this revision as an exception." }, { status: 400 });
   const source = await db.prepare("SELECT version_number, code FROM course_drafts WHERE id = ? AND status = 'active' LIMIT 1").bind(revision.course_id).first<{ version_number: number; code: string }>();
   if (!source) return Response.json({ error: "The currently published course was not found." }, { status: 404 });
+  if(source.code!==payload.code)return Response.json({error:"The saved offering code is permanent. Create a new offering instead of renaming an approved course."},{status:409});
   if (value.status === "active" && source.version_number !== revision.base_version_number) return Response.json({ error: "The live course changed after this revision began. Create a fresh revision from the current version." }, { status: 409 });
   if (value.status === "rejected") {
     await db.prepare("UPDATE course_revisions SET status = 'rejected', review_comment = ?, reviewed_by_email = ?, reviewed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?")

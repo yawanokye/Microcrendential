@@ -1,0 +1,19 @@
+(node:3) [UNDICI-EHPA] Warning: EnvHttpProxyAgent is experimental, expect them to change at any time.
+(Use `node --trace-warnings ...` to show where the warning was created)
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> ucc-microcredentials@13.5.0 test:practicals
+> node scripts/test-optional-practicals.mjs
+
+(node:16) [UNDICI-EHPA] Warning: EnvHttpProxyAgent is experimental, expect them to change at any time.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:40) [UNDICI-EHPA] Warning: EnvHttpProxyAgent is experimental, expect them to change at any time.
+(Use `node --trace-warnings ...` to show where the warning was created)
+No practical activity is selected by default and the optional editor is hidden
+Facilitators can choose either practical editor and return to no practical activity
+Skipping reaches assessment and saves with zero practicals while retaining all five required lesson activities
+Saved courses reopen with no practical selected and the skip action works on a phone without horizontal overflow
+A complete course submits for academic review without a separate practical activity
+No additional practical activity preserves saved practicals and required lesson activities
+The complete skip and retain workflows render without browser errors
+{"passed":7,"checks":["No practical activity is selected by default and the optional editor is hidden","Facilitators can choose either practical editor and return to no practical activity","Skipping reaches assessment and saves with zero practicals while retaining all five required lesson activities","Saved courses reopen with no practical selected and the skip action works on a phone without horizontal overflow","A complete course submits for academic review without a separate practical activity","No additional practical activity preserves saved practicals and required lesson activities","The complete skip and retain workflows render without browser errors"]}

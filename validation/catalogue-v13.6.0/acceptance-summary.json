@@ -1,0 +1,55 @@
+{
+  "passed": 222,
+  "suites": [
+    {
+      "suite": "catalogue",
+      "passed": 22,
+      "environment": "Node 22 local production standalone, isolated synthetic records. External AI disabled; mock LTI and Paystack only."
+    },
+    {
+      "suite": "programmes",
+      "passed": 23,
+      "environment": "Node 22 local production standalone, isolated synthetic records. External AI disabled; mock LTI and Paystack only."
+    },
+    {
+      "suite": "commercial",
+      "passed": 46,
+      "environment": "Node 22 local production standalone, isolated synthetic records. External AI disabled; mock LTI and Paystack only."
+    },
+    {
+      "suite": "studio-api",
+      "passed": 23,
+      "environment": "Node 22 local production standalone, isolated synthetic records. External AI disabled; mock LTI and Paystack only."
+    },
+    {
+      "suite": "corporate",
+      "passed": 33,
+      "environment": "Node 22 local production standalone, isolated synthetic records. External AI disabled; mock LTI and Paystack only."
+    },
+    {
+      "suite": "integrations",
+      "passed": 25,
+      "environment": "Node 22 local production standalone, isolated synthetic records. External AI disabled; mock LTI and Paystack only."
+    },
+    {
+      "suite": "labs",
+      "passed": 15,
+      "environment": "Node 22 local production standalone, isolated synthetic records. External AI disabled; mock LTI and Paystack only."
+    },
+    {
+      "suite": "studio-browser",
+      "passed": 14,
+      "environment": "Node 22 local production standalone, isolated synthetic records. External AI disabled; mock LTI and Paystack only."
+    },
+    {
+      "suite": "commercial-browser",
+      "passed": 14,
+      "environment": "Node 22 local production standalone, isolated synthetic records. External AI disabled; mock LTI and Paystack only."
+    },
+    {
+      "suite": "practicals",
+      "passed": 7,
+      "environment": "Node 22 local production standalone, isolated synthetic records. External AI disabled; mock LTI and Paystack only."
+    }
+  ]
+}

@@ -1,3 +1,6 @@
+import { audienceAllowed, audienceAllowedNative, courseDiscoverySql } from "./catalogue-access";
+import { feeStateNative } from "./learning-billing";
+import type { DatabaseSync } from "node:sqlite";
 import { getRawDb } from "@/db/raw";
 import type { AccountProfile } from "./accounts";
 import { normalizeCourseDesign } from "./course-design";
@@ -9,6 +12,7 @@ export async function coursePermission(profile: Pick<AccountProfile,"email"|"rol
   const course=await db.prepare("SELECT created_by_email FROM course_drafts WHERE code=? LIMIT 1").bind(code).first<{created_by_email:string}>();
   if(!course) return false;
   if(profile.role==="admin" || (profile.role==="facilitator" && course.created_by_email===profile.email)) return true;
+  if(profile.role==="learner") { const access=courseDiscoverySql("c.code",profile);if(!getRawDb().read(db=>db.prepare("SELECT 1 FROM course_drafts c WHERE c.code=? AND "+access.sql).get(code,...access.values)))return false; }
   if(profile.role==="learner") return action==="view" && Boolean(await db.prepare("SELECT id FROM enrollments WHERE user_email=? AND course_code=? AND status IN ('active','completed')").bind(profile.email,code).first());
   const team=await db.prepare("SELECT team_role FROM course_team WHERE course_code=? AND user_email=?").bind(code,profile.email).first<{team_role:string}>();
   if(!team) return false;
@@ -30,17 +34,22 @@ export async function snapshotEnrollment(email:string,code:string) {
   await db.prepare("UPDATE enrollments SET course_snapshot_json=? WHERE user_email=? AND course_code=? AND course_snapshot_json IS NULL").bind(JSON.stringify(course),email,code).run();
 }
 export async function learningAccess(profile:AccountProfile,code:string) {
+  if (!audienceAllowed("course",code,profile)) return {course:null,error:Response.json({error:"This offering is not available to your current access group."},{status:403})};
   const course=await enrolledCourse(profile.email,code);
   if(!course) return {course:null,error:Response.json({error:"An active enrolment is required."},{status:403})};
   const design=normalizeCourseDesign(parseRecord(course.design_json,{}));
+  if (design.enrolmentMode === "programme") {
+    const admitted = await getRawDb().prepare("SELECT r.id,p.programme_code FROM programme_registrations r JOIN programme_enrolments p ON p.id=r.enrolment_id WHERE p.user_email=? AND r.course_code=? AND p.status IN ('active','graduated') LIMIT 1").bind(profile.email,code).all<{id:number;programme_code:string}>();
+    if (!admitted.results.some(p => audienceAllowed("programme",p.programme_code,profile))) return {course:null,error:Response.json({error:"An active admitted programme registration is required for this course. Contact the registry about a deferred or withdrawn programme."},{status:403})};
+  }
   if(design.delivery.identityRequired==="before_learning" && profile.identity_status!=="verified") return {course:null,error:Response.json({error:"This course requires identity verification before learning. Submit evidence in your profile."},{status:403})};
   return {course,error:null};
 }
 export async function recordEngagement(email:string,code:string,event="lesson") {
   await getRawDb().prepare("INSERT OR IGNORE INTO engagement_events(user_email,course_code,event_type,event_day) VALUES(?,?,?,?)").bind(email,code,event,new Date().toISOString().slice(0,10)).run();
 }
-export function enrolWithSnapshot(email:string,code:string) {
-  return getRawDb().transaction(native=>{
+export function enrolWithSnapshotInTransaction(native: DatabaseSync, email:string,code:string) {
+    if (!audienceAllowedNative(native,"course",code,{email,role:"learner"})) return {error:"This offering is not available to this learner’s current access group."};
     const existing=native.prepare("SELECT status FROM enrollments WHERE user_email=? AND course_code=?").get(email,code) as {status:string}|undefined;
     if(existing)return existing.status==="withdrawn"?{error:"Contact learner support to reopen a withdrawn enrolment."}:{enrolled:true};
     const course=native.prepare("SELECT * FROM course_drafts WHERE code=? AND status='active' LIMIT 1").get(code) as DeliveryCourse|undefined;
@@ -48,7 +57,10 @@ export function enrolWithSnapshot(email:string,code:string) {
     const run=native.prepare("SELECT enrolment_closes_at,capacity FROM course_runs WHERE offering_code=?").get(code) as {enrolment_closes_at:string;capacity:number}|undefined;
     if(run?.enrolment_closes_at&&Date.parse(run.enrolment_closes_at)<Date.now())return {error:"Enrolment for this intake has closed."};
     if(run?.capacity){const count=native.prepare("SELECT COUNT(*) count FROM enrollments WHERE course_code=? AND status IN ('active','completed')").get(code) as {count:number};if(count.count>=run.capacity)return {error:"This intake has reached its capacity."};}
-    native.prepare("INSERT INTO enrollments(user_email,course_code,status,course_snapshot_json) VALUES(?,?,'active',?)").run(email,code,JSON.stringify(course));
+    const finance=feeStateNative(native,"course",code,"enrollment",email);
+    native.prepare("INSERT INTO enrollments(user_email,course_code,status,course_snapshot_json,billing_snapshot_json) VALUES(?,?,'active',?,?)").run(email,code,JSON.stringify(course),JSON.stringify(finance.fundingSnapshot || finance.terms));
     return {enrolled:true};
-  });
+}
+export function enrolWithSnapshot(email:string,code:string) {
+  return getRawDb().transaction(native => enrolWithSnapshotInTransaction(native, email, code));
 }
