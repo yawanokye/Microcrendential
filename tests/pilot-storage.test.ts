@@ -65,6 +65,17 @@ test("entrypoint orders scoped ownership repair before privilege drop and server
       import { syncBuiltinESMExports } from 'node:module';
       const calls = [];
       let uid = 0, gid = 0;
+      const realLstatSync = fs.lstatSync;
+      fs.lstatSync = path => {
+        const stat = realLstatSync(path);
+        // Model a mounted root-owned disk even when the test runner itself
+        // already has the application's UID, as on GitHub-hosted runners.
+        if (path === process.env.DATA_DIR || path.startsWith(process.env.DATA_DIR + '/')) {
+          stat.uid = 0;
+          stat.gid = 0;
+        }
+        return stat;
+      };
       fs.chownSync = (path, owner, group) => calls.push({operation:'chown',path,owner,group});
       process.getuid = () => uid;
       process.getgid = () => gid;
