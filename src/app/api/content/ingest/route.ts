@@ -53,7 +53,7 @@ export async function POST(request: Request) {
     const inputFormat = clean(form, "inputFormat", 20);
     const readableHtml = inputFormat === "html" ? sanitizeReadableHtml(input) : textToReadableHtml(input);
     const plainText = plainTextFromHtml(readableHtml);
-    material = { id: crypto.randomUUID(), title: requestedTitle || "Readable lesson", kind: "Read", source: sourceLabel, readableHtml, plainText, inlineAssetKeys: inlineAssetKeys(form), estimatedMinutes: Math.max(1, Math.ceil(plainText.split(/\s+/).filter(Boolean).length / 200)), accessibilityChecked: true, license: clean(form, "license", 200) || "Course-authored content", ...location };
+    material = { id: crypto.randomUUID(), title: requestedTitle || "Readable lesson", kind: "Read", source: sourceLabel, readableHtml, plainText, inlineAssetKeys: inlineAssetKeys(form), estimatedMinutes: Math.max(1, Math.ceil(plainText.split(/\s+/).filter(Boolean).length / 200)), accessibilityChecked: false, license: clean(form, "license", 200) || "Course-authored content", ...location };
   } else if (mode === "file") {
     const file = form.get("file");
     if (!(file instanceof File)) return Response.json({ error: "Choose a course document or media file." }, { status: 400 });
@@ -78,14 +78,14 @@ export async function POST(request: Request) {
       }
     }
     const kind = extension === "pdf" || extension === "ppt" || extension === "pptx" || readableHtml ? "Read" : file.type.startsWith("video/") || file.type.startsWith("audio/") ? "Watch" : "Download";
-    material = { id: crypto.randomUUID(), title: requestedTitle || file.name.replace(/\.[^.]+$/, ""), kind, source: sourceLabel, fileKey, fileName: file.name, mimeType, readableHtml: readableHtml || undefined, plainText: plainText || undefined, estimatedMinutes: Math.max(1, Math.ceil((plainText.split(/\s+/).filter(Boolean).length || 200) / 200)), accessibilityChecked: plainText.length >= 80, license: clean(form, "license", 200) || "Institution-supplied learning material", ...location };
+    material = { id: crypto.randomUUID(), title: requestedTitle || file.name.replace(/\.[^.]+$/, ""), kind, source: sourceLabel, fileKey, fileName: file.name, mimeType, readableHtml: readableHtml || undefined, plainText: plainText || undefined, estimatedMinutes: Math.max(1, Math.ceil((plainText.split(/\s+/).filter(Boolean).length || 200) / 200)), accessibilityChecked: false, license: clean(form, "license", 200) || "Institution-supplied learning material", ...location };
     return Response.json({ material, conversionNote: note }, { status: 201 });
   } else if (mode === "video") {
     const rawUrl = clean(form, "url", 3000); if (!rawUrl) return Response.json({ error: "Paste a YouTube, Vimeo or public video link." }, { status: 400 });
     try {
       const url = await validatePublicHttpUrl(rawUrl); const links = videoUrls(url.toString()); const transcript = String(form.get("transcript") ?? "").trim().slice(0, 120_000);
       const displayMode = clean(form, "displayMode", 20) === "new_tab" ? "new_tab" : "in_frame";
-      material = { id: crypto.randomUUID(), title: requestedTitle || "Supporting video", kind: "Watch", source: sourceLabel || url.hostname, url: links.embedUrl, externalUrl: links.externalUrl, displayMode, estimatedMinutes: Math.max(1, Number(clean(form, "estimatedMinutes", 4)) || 10), accessibilityChecked: Boolean(transcript), license: clean(form, "license", 200) || "External video; licence and attribution review required", transcript: transcript || undefined, transcriptLanguage: transcript ? "English" : undefined, transcriptSource: transcript ? "Facilitator supplied" : undefined, transcriptPublished: Boolean(transcript), ...location };
+      material = { id: crypto.randomUUID(), title: requestedTitle || "Supporting video", kind: "Watch", source: sourceLabel || url.hostname, url: links.embedUrl, externalUrl: links.externalUrl, displayMode, estimatedMinutes: Math.max(1, Number(clean(form, "estimatedMinutes", 4)) || 10), accessibilityChecked: false, license: clean(form, "license", 200) || "External video; licence and attribution review required", transcript: transcript || undefined, transcriptLanguage: transcript ? "English" : undefined, transcriptSource: transcript ? "Facilitator supplied" : undefined, transcriptPublished: Boolean(transcript), ...location };
     } catch (reason) { return Response.json({ error: reason instanceof Error ? reason.message : "The video link could not be embedded." }, { status: 422 }); }
   } else if (mode === "url") {
     const rawUrl = clean(form, "url", 3000); if (!rawUrl) return Response.json({ error: "Paste a public learning-resource link." }, { status: 400 });
@@ -98,7 +98,7 @@ export async function POST(request: Request) {
         const inferredName = new URL(resource.finalUrl).pathname.split("/").filter(Boolean).at(-1) || "linked-resource";
         const extracted = resource.contentType.includes("html") ? extractArticleHtml(resource.body.toString("utf8")) : extractReadableContent(resource.body, inferredName, resource.contentType);
         if (extracted.text.length < 40) return Response.json({ error: "The linked page did not expose enough readable text. Add it as an external embed or supply a document instead." }, { status: 422 });
-        material = { id: crypto.randomUUID(), title: requestedTitle || titleFromUrl(new URL(resource.finalUrl)), kind: "Read", source: sourceLabel || new URL(resource.finalUrl).hostname, url: resource.finalUrl, externalUrl: resource.finalUrl, readableHtml: extracted.html, plainText: extracted.text, estimatedMinutes: Math.max(1, Math.ceil(extracted.wordCount / 200)), accessibilityChecked: true, license: clean(form, "license", 200) || "Licence and attribution review required", ...location };
+        material = { id: crypto.randomUUID(), title: requestedTitle || titleFromUrl(new URL(resource.finalUrl)), kind: "Read", source: sourceLabel || new URL(resource.finalUrl).hostname, url: resource.finalUrl, externalUrl: resource.finalUrl, readableHtml: extracted.html, plainText: extracted.text, estimatedMinutes: Math.max(1, Math.ceil(extracted.wordCount / 200)), accessibilityChecked: false, license: clean(form, "license", 200) || "Licence and attribution review required", ...location };
         return Response.json({ material, conversionNote: extracted.note }, { status: 201 });
       }
     } catch (reason) { return Response.json({ error: reason instanceof Error ? reason.message : "The linked resource could not be imported." }, { status: 422 }); }

@@ -1,11 +1,11 @@
-import { feeState } from "./learning-billing";
+import { feeState, feeStateNative } from "./learning-billing";
 import { assuranceCompletion } from "./assessment-assurance";
 import { getRawDb } from "@/db/raw";
 import { normalizeCourseDesign } from "@/lib/course-design";
 import { issueBroaderCredentialsIfEligible } from "@/lib/credential-stack";
 import { ensureStructuredLearningActivities } from "@/lib/structured-learning-activities";
 import type { CourseMaterialRecord } from "@/lib/course-design";
-import { certificateIssuerName, isCpdAward, requiresUccSignatory, type CertificateConfiguration } from "@/lib/certificate-policy";
+import { certificateIssuerName, isCpdAward, requiresPartnerSignatory, requiresUccSignatory, type CertificateConfiguration } from "@/lib/certificate-policy";
 import { officialCredentialsEnabled } from "@/lib/platform-mode";
 import { enrolledCourse, parseRecord } from "./course-access";
 import { assessmentRequired } from "./delivery-policy";
@@ -85,14 +85,14 @@ export async function evaluateCourseCompletion(userEmail: string, courseCode: st
     .bind(userEmail, course.code).first<{ score: number; passed: number; completed_at: string }>();
 
   const requirements: CompletionRequirement[] = [
-    ...(assessmentRequired(design.certificate.awardType) ? [{
+    {
       id: "verified-identity",
       type: "identity" as const,
       label: "Verified learner identity",
       complete: user?.status === "active" && user.identity_status === "verified",
       evidence: user?.identity_status ?? "not_submitted",
     },
-    {
+    ...(assessmentRequired(design.certificate.awardType) ? [{
       id: "course-assessment",
       type: "assessment" as const,
       label: "Course assessment passed",
@@ -190,31 +190,44 @@ export async function issueCertificateIfComplete(userEmail: string, courseCode: 
   if (!await officialCredentialsEnabled()) return { evaluation, certificate: null };
   if (!evaluation.certificateEnabled || !evaluation.certificatePreauthorised || evaluation.certificatePaymentRequired) return { evaluation, certificate: null };
 
-  const learner = await db.prepare("SELECT full_name FROM users WHERE email = ? AND role = 'learner' LIMIT 1")
-    .bind(userEmail).first<{ full_name: string }>();
-  if (!learner) return { evaluation, certificate: null };
-  const course=await db.prepare("SELECT created_by_email FROM course_drafts WHERE code=? AND status='active'").bind(courseCode).first<{created_by_email:string}>();
-  const facilitator=course?await db.prepare("SELECT signatory_name,signatory_title,file_key FROM certificate_signatures WHERE signature_key=?").bind(`facilitator:${course.created_by_email}`).first<{signatory_name:string;signatory_title:string;file_key:string}>():null;
-  const provost=await db.prepare("SELECT signatory_name,signatory_title,file_key FROM certificate_signatures WHERE signature_key='provost'").first<{signatory_name:string;signatory_title:string;file_key:string}>();
   const configuration = evaluation.certificateConfiguration;
   const requirementsJson = JSON.stringify({ evaluatedAt: new Date().toISOString(), requirements: evaluation.requirements, certificateConfiguration: configuration, certificateAuthorization: { preauthorised: evaluation.certificatePreauthorised, authority: evaluation.certificateAuthorizationAuthority, approvalReference: evaluation.certificateAuthorizationReference } });
   const certificateCode = `UCC-${new Date().getUTCFullYear()}-${crypto.randomUUID().replaceAll("-", "").slice(0, 12).toUpperCase()}`;
   const includeUcc = requiresUccSignatory(configuration.issuanceModel);
   const includeAcademicLead = configuration.showAcademicLead && !["jointly_issued", "partner_issued"].includes(configuration.issuanceModel);
-  await db.prepare(`INSERT OR IGNORE INTO certificates(
+  const issuanceProblem = db.transaction(native=>{
+    // Recheck the critical mutable evidence and signatories in the same write
+    // transaction as issuance. Already-issued credentials are left untouched.
+    if(native.prepare("SELECT id FROM certificates WHERE user_email=? AND course_code=? LIMIT 1").get(userEmail,courseCode))return "";
+    const learner=native.prepare("SELECT full_name,status,identity_status FROM users WHERE email=? AND role='learner'").get(userEmail) as {full_name:string;status:string;identity_status:string}|undefined;
+    if(learner?.status!=="active"||learner.identity_status!=="verified")return "Learner identity must be verified before this certificate can be issued.";
+    const course=native.prepare("SELECT created_by_email FROM course_drafts WHERE code=? AND status='active'").get(courseCode) as {created_by_email:string}|undefined;
+    if(!course||!native.prepare("SELECT id FROM enrollments WHERE user_email=? AND course_code=? AND status IN ('active','completed')").get(userEmail,courseCode))return "The approved course and an active enrolment are required.";
+    if(!feeStateNative(native,"course",courseCode,"certificate",userEmail).satisfied)return "Certificate funding must be confirmed before issuance.";
+    if(assessmentRequired(configuration.awardType)&&!native.prepare("SELECT 1 FROM assessment_attempts WHERE user_email=? AND course_code=? AND passed=1").get(userEmail,courseCode))return "A passing assessment result is required before issuance.";
+    for(const requirement of evaluation.requirements.filter(r=>r.type==="content"&&r.id.startsWith("content-"))){if(!native.prepare("SELECT 1 FROM learning_progress WHERE user_email=? AND course_code=? AND material_id=? AND completed=1").get(userEmail,courseCode,requirement.id.slice(8)))return "A required lesson is no longer recorded as complete.";}
+    type Signatory={signatory_name:string;signatory_title:string;file_key:string};
+    const provost=native.prepare("SELECT signatory_name,signatory_title,file_key FROM certificate_signatures WHERE signature_key='provost'").get() as Signatory|undefined;
+    const facilitator=native.prepare("SELECT signatory_name,signatory_title,file_key FROM certificate_signatures WHERE signature_key=?").get(`facilitator:${course.created_by_email}`) as Signatory|undefined;
+    if(includeUcc&&(!provost?.signatory_name||!provost.signatory_title||!provost.file_key))return "An authorised UCC signatory must be configured before this certificate can be issued.";
+    if(includeAcademicLead&&(!facilitator?.signatory_name||!facilitator.signatory_title||!facilitator.file_key))return "The selected academic lead's signature must be configured before this certificate can be issued.";
+    if(requiresPartnerSignatory(configuration.issuanceModel)&&(!configuration.partnerSignatoryName||!configuration.partnerSignatoryTitle||!configuration.partnerSignatureKey))return "The authorised partner signature must be configured before this certificate can be issued.";
+    native.prepare(`INSERT OR IGNORE INTO certificates(
     certificate_code,user_email,learner_name,course_code,course_title,issuer_name,
     award_type,issuance_model,partner_name,partner_logo_key,partner_signatory_name,partner_signatory_title,partner_signature_key,
     cpd_hours,cpd_points,professional_approval_body,professional_approval_reference,show_academic_lead,
     requirements_json,credit_value,learning_mode,facilitator_name,facilitator_title,facilitator_signature_key,provost_name,provost_title,provost_signature_key
-  ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
-    .bind(
+  ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
       certificateCode,userEmail,learner.full_name,evaluation.courseCode,evaluation.courseTitle,certificateIssuerName(configuration),
       configuration.awardType,configuration.issuanceModel,configuration.partnerName||null,configuration.partnerLogoKey||null,configuration.partnerSignatoryName||null,configuration.partnerSignatoryTitle||null,configuration.partnerSignatureKey||null,
       configuration.cpdHours,configuration.cpdPoints,configuration.approvalBody||null,configuration.approvalReference||null,includeAcademicLead?1:0,
       requirementsJson,evaluation.creditValue,evaluation.learningMode,
       includeAcademicLead?(facilitator?.signatory_name??null):null,includeAcademicLead?(facilitator?.signatory_title??null):null,includeAcademicLead?(facilitator?.file_key??null):null,
       includeUcc?(provost?.signatory_name??null):null,includeUcc?(provost?.signatory_title??null):null,includeUcc?(provost?.file_key??null):null,
-    ).run();
+    );
+    return "";
+  });
+  if(issuanceProblem)return {evaluation,certificate:null,issuanceProblem};
   const certificate = await db.prepare("SELECT certificate_code,learner_name,course_code,course_title,issuer_name,requirements_json,credential_type,status,issued_at,expires_at,revoked_at,revocation_reason,credit_value,learning_mode,award_type,issuance_model,partner_name,partner_logo_key,partner_signatory_name,partner_signatory_title,partner_signature_key,cpd_hours,cpd_points,professional_approval_body,professional_approval_reference,show_academic_lead,facilitator_name,facilitator_title,facilitator_signature_key,provost_name,provost_title,provost_signature_key FROM certificates WHERE user_email = ? AND course_code = ? LIMIT 1")
     .bind(userEmail, courseCode).first<IssuedCertificate>();
   await issueBroaderCredentialsIfEligible(userEmail);

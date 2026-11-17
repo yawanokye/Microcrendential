@@ -2,7 +2,7 @@ import { audienceAllowed } from "./catalogue-access";
 import { feeState } from "./learning-billing";
 import { getRawDb } from "@/db/raw";
 import { normalizeCourseDesign } from "@/lib/course-design";
-import { certificateIssuerName, requiresUccSignatory, type CertificateConfiguration } from "@/lib/certificate-policy";
+import { certificateIssuerName, requiresPartnerSignatory, requiresUccSignatory, type CertificateConfiguration } from "@/lib/certificate-policy";
 import { officialCredentialsEnabled } from "@/lib/platform-mode";
 
 type PathCourseRow = { code: string; title: string; design_json: string; created_by_email: string; certificate_enabled: number; certificate_preapproved: number };
@@ -48,7 +48,7 @@ function collectDefinitions(courses: PathCourseRow[]) {
 export async function issueBroaderCredentialsIfEligible(userEmail: string) {
   if (!await officialCredentialsEnabled()) return [] as string[];
   const db = getRawDb();
-  const learner = await db.prepare("SELECT full_name FROM users WHERE email=? AND role='learner' LIMIT 1").bind(userEmail).first<{ full_name: string }>();
+  const learner = await db.prepare("SELECT full_name FROM users WHERE email=? AND role='learner' AND status='active' AND identity_status='verified' LIMIT 1").bind(userEmail).first<{ full_name: string }>();
   if (!learner) return [] as string[];
   const courses = await db.prepare("SELECT code,title,design_json,created_by_email,certificate_enabled,certificate_preapproved FROM course_drafts WHERE status='active'").all<PathCourseRow>();
   const definitions = collectDefinitions(courses.results).filter(d=>audienceAllowed("course",d.code,{email:userEmail,role:"learner"})&&feeState("course",d.code,"enrollment",userEmail).satisfied&&feeState("course",d.code,"certificate",userEmail).satisfied);
@@ -76,6 +76,9 @@ export async function issueBroaderCredentialsIfEligible(userEmail: string) {
       ? await db.prepare("SELECT signatory_name,signatory_title,file_key FROM certificate_signatures WHERE signature_key=?").bind(`facilitator:${definition.createdByEmail}`).first<{signatory_name:string;signatory_title:string;file_key:string}>()
       : null;
     const includeUcc = requiresUccSignatory(configuration.issuanceModel);
+    if (includeUcc && (!provost?.signatory_name || !provost.signatory_title || !provost.file_key)) continue;
+    if (configuration.showAcademicLead && !["jointly_issued", "partner_issued"].includes(configuration.issuanceModel) && (!facilitator?.signatory_name || !facilitator.signatory_title || !facilitator.file_key)) continue;
+    if (requiresPartnerSignatory(configuration.issuanceModel) && (!configuration.partnerSignatoryName || !configuration.partnerSignatoryTitle || !configuration.partnerSignatureKey)) continue;
     await db.prepare(`INSERT OR IGNORE INTO certificates(
       certificate_code,user_email,learner_name,course_code,course_title,issuer_name,
       award_type,issuance_model,partner_name,partner_logo_key,partner_signatory_name,partner_signatory_title,partner_signature_key,

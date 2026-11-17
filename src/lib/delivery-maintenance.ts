@@ -7,6 +7,8 @@ import { processGradingJobs } from "./grading-workflow";
 import { enrolledCourse, parseRecord } from "./course-access";
 import { normalizeCourseDesign } from "./course-design";
 import { processEvidenceJobs } from "./evidence-workflow";
+import { reconcilePendingPayments } from "./payments";
+import { processQueuedCourseAiJobs } from "./course-ai-jobs";
 
 export async function deliveryMaintenance() {
   const processed=await processGradingJobs()+await processEvidenceJobs(),db=getRawDb(),now=Date.now();
@@ -30,5 +32,7 @@ export async function deliveryMaintenance() {
   const assuranceEvidenceRemoved=await cleanupAssuranceEvidence();
   const fundedCoursesReviewed=await reviewFundedCourseCredentials();
   const programmesReviewed = await reviewPendingProgrammeCredentials();
-  return {processed,assuranceEvidenceRemoved,programmesReviewed,fundedCoursesReviewed};
+  const paymentsReviewed = await reconcilePendingPayments();
+  const aiRequestsProcessed = await processQueuedCourseAiJobs();
+  return {processed,assuranceEvidenceRemoved,programmesReviewed,fundedCoursesReviewed,paymentsReviewed,aiRequestsProcessed};
 }

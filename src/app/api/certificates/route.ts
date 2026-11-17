@@ -66,7 +66,7 @@ export async function POST(request: Request) {
   const originError = rejectCrossSiteMutation(request); if (originError) return originError;
   const account = await requireActiveProfile(["learner"]);
   if (account.error || !account.profile) return account.error;
-  if (!await officialCredentialsEnabled()) return Response.json({ error: "New credential issuance is temporarily unavailable while emergency restricted operation is active." }, { status: 409 });
+  if (!await officialCredentialsEnabled()) return Response.json({ error: "New official credentials are paused until the environment is authorised. Contact the platform administrator." }, { status: 409 });
   const payload = await request.json() as { courseCode?: string };
   const courseCode = String(payload.courseCode ?? "").trim().toUpperCase();
   if (!courseCode) return Response.json({ error: "Choose a completed course." }, { status: 400 });
@@ -75,7 +75,7 @@ export async function POST(request: Request) {
   if (!result.evaluation.complete) return Response.json({ error: "Complete every academic requirement before requesting the certificate.", completion: result.evaluation }, { status: 409 });
   if (!result.evaluation.certificatePreauthorised) return Response.json({ error: "Certificate issuance is not pre-authorised for this programme.", completion: result.evaluation }, { status: 409 });
   if (result.evaluation.certificatePaymentRequired) { const finance=feeState("course",courseCode,"certificate",account.profile.email); return Response.json({ error: finance.requiresOrganisation?"Your organisation must confirm certificate funding.":"Certificate payment is required.", paymentRequired: !finance.requiresOrganisation, organisationPaymentRequired:finance.requiresOrganisation, purpose: "certificate", amountGhs: result.evaluation.certificateFeeGhs, completion: result.evaluation }, { status: 402 }); }
-  return Response.json({ certificate: result.certificate, completion: result.evaluation }, { status: result.certificate ? 201 : 409 });
+  return Response.json({ certificate: result.certificate, completion: result.evaluation, ...("issuanceProblem" in result ? { error: result.issuanceProblem } : {}) }, { status: result.certificate ? 201 : 409 });
 }
 
 export async function PATCH(request: Request) {

@@ -42,18 +42,18 @@ export async function GET(request: Request) {
   try {
     const openAlexUrl = new URL("https://api.openalex.org/works");
     openAlexUrl.searchParams.set("search", query);
-    openAlexUrl.searchParams.set("filter", "has_fulltext:true,is_paratext:false");
+    openAlexUrl.searchParams.set("filter", "is_oa:true,is_paratext:false");
     openAlexUrl.searchParams.set("per-page", "6");
     openAlexUrl.searchParams.set("select", "title,primary_location,open_access,authorships,publication_year");
     const response = await fetch(openAlexUrl, { headers: { "user-agent": "UCC-Microcredentials/1.0 (learning-resource-search)" } });
     if (response.ok) {
-      const data = await response.json() as { results?: Array<{ title?: string; publication_year?: number; open_access?: { oa_url?: string; oa_status?: string }; primary_location?: { landing_page_url?: string; source?: { display_name?: string } }; authorships?: Array<{ author?: { display_name?: string } }> }> };
+      const data = await response.json() as { results?: Array<{ title?: string; publication_year?: number; open_access?: { is_oa?:boolean; oa_url?: string; oa_status?: string }; primary_location?: { landing_page_url?: string; source?: { display_name?: string } }; authorships?: Array<{ author?: { display_name?: string } }> }> };
       for (const work of data.results ?? []) {
-        const target = cleanUrl(work.open_access?.oa_url) || cleanUrl(work.primary_location?.landing_page_url);
-        if (!work.title || !target) continue;
+        const target = cleanUrl(work.open_access?.oa_url);
+        if (!work.title || work.open_access?.is_oa !== true || !target) continue;
         const publisher = work.primary_location?.source?.display_name ?? "Open-access research";
         const year = work.publication_year ? ` · ${work.publication_year}` : "";
-        resources.push({ type: "Read", title: work.title, source: `${publisher}${year}`, license: work.open_access?.oa_status ? `Open access · ${work.open_access.oa_status}` : "Open access", url: target, externalUrl: target });
+        resources.push({ type: "Read", title: work.title, source: `${publisher}${year}`, license: "Open-access link reported by OpenAlex. Reuse rights require review.", url: target, externalUrl: target });
       }
     } else errors.push("OpenAlex search unavailable");
   } catch { errors.push("OpenAlex search unavailable"); }

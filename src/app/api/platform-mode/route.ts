@@ -2,8 +2,8 @@ import { getRawDb } from "@/db/raw";
 import { requireActiveProfile } from "@/lib/accounts";
 import { recordAudit } from "@/lib/audit";
 import { evaluatePilotReadiness } from "@/lib/pilot-readiness";
-import { demonstrationFullFunctionalityEnabled, demonstrationModeLocked, emergencyDemonstrationMode, fullFunctionalityEnabled, getPlatformMode, getSelectedPlatformMode, normalizePlatformMode, setPlatformMode } from "@/lib/platform-mode";
-import { emailVerificationRequired, staffMfaRequired } from "@/lib/runtime-config";
+import { checkoutAllowedInCurrentMode, demonstrationFullFunctionalityEnabled, demonstrationModeLocked, emergencyDemonstrationMode, fullFunctionalityEnabled, getPlatformMode, getSelectedPlatformMode, normalizePlatformMode, officialCredentialsEnabled, setPlatformMode } from "@/lib/platform-mode";
+import { emailVerificationRequired, paymentsEnabled, staffMfaRequired } from "@/lib/runtime-config";
 import { rejectCrossSiteMutation } from "@/lib/request-security";
 
 export const dynamic = "force-dynamic";
@@ -20,7 +20,8 @@ export async function GET() {
     label: mode === "official_pilot" ? "Official Pilot" : fullFunctionality ? "Acceptance" : "Restricted Demonstration",
     demonstrationFullFunctionality: demonstrationFullFunctionalityEnabled(),
     fullFunctionalityEnabled: fullFunctionality,
-    officialCredentialsEnabled: fullFunctionality,
+    officialCredentialsEnabled: await officialCredentialsEnabled(),
+    checkoutAllowed: paymentsEnabled() && await checkoutAllowedInCurrentMode(),
     emailVerificationEnforced: fullFunctionality && emailVerificationRequired(),
     staffMfaEnforced: fullFunctionality && staffMfaRequired(),
   }, { headers: { "cache-control": "no-store" } });

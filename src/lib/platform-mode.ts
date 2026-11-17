@@ -52,4 +52,16 @@ export async function setPlatformMode(mode: PlatformMode, administratorEmail: st
     .bind(mode, administratorEmail).run();
 }
 
-export const officialCredentialsEnabled = fullFunctionalityEnabled;
+/** Acceptance testing may use authentication without silently issuing official awards. */
+export async function officialCredentialsEnabled() {
+  if (!await fullFunctionalityEnabled()) return false;
+  if ((await getPlatformMode()) === "official_pilot") return (await (await import("./pilot-readiness")).evaluatePilotReadiness()).status === "pilot_ready";
+  return process.env.DEMONSTRATION_ALLOW_OFFICIAL_CREDENTIALS?.trim().toLowerCase() === "true";
+}
+
+/** Only new checkout is gated. Existing provider callbacks must remain processable. */
+export async function checkoutAllowedInCurrentMode() {
+  if (!await fullFunctionalityEnabled()) return false;
+  if ((await getPlatformMode()) === "official_pilot") return (await (await import("./pilot-readiness")).evaluatePilotReadiness()).status === "pilot_ready";
+  return process.env.DEMONSTRATION_ALLOW_PAYMENTS?.trim().toLowerCase() === "true";
+}

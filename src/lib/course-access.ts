@@ -56,9 +56,14 @@ export function enrolWithSnapshotInTransaction(native: DatabaseSync, email:strin
     if(!course)return {error:"The approved course is not open."};
     const run=native.prepare("SELECT enrolment_closes_at,capacity FROM course_runs WHERE offering_code=?").get(code) as {enrolment_closes_at:string;capacity:number}|undefined;
     if(run?.enrolment_closes_at&&Date.parse(run.enrolment_closes_at)<Date.now())return {error:"Enrolment for this intake has closed."};
-    if(run?.capacity){const count=native.prepare("SELECT COUNT(*) count FROM enrollments WHERE course_code=? AND status IN ('active','completed')").get(code) as {count:number};if(count.count>=run.capacity)return {error:"This intake has reached its capacity."};}
+    if(run?.capacity){
+      const count=native.prepare("SELECT COUNT(*) count FROM enrollments WHERE course_code=? AND status IN ('active','completed')").get(code) as {count:number};
+      const held=native.prepare(`SELECT COUNT(DISTINCT r.user_email) count FROM payment_seat_reservations r WHERE r.course_code=? AND r.user_email<>? AND r.released_at IS NULL AND datetime(r.expires_at)>datetime('now') AND NOT EXISTS (SELECT 1 FROM enrollments e WHERE e.course_code=r.course_code AND e.user_email=r.user_email AND e.status IN ('active','completed'))`).get(code,email) as {count:number};
+      if(count.count+held.count>=run.capacity)return {error:"This intake has reached its capacity."};
+    }
     const finance=feeStateNative(native,"course",code,"enrollment",email);
     native.prepare("INSERT INTO enrollments(user_email,course_code,status,course_snapshot_json,billing_snapshot_json) VALUES(?,?,'active',?,?)").run(email,code,JSON.stringify(course),JSON.stringify(finance.fundingSnapshot || finance.terms));
+    native.prepare("UPDATE payment_seat_reservations SET released_at=CURRENT_TIMESTAMP WHERE course_code=? AND user_email=? AND released_at IS NULL").run(code,email);
     return {enrolled:true};
 }
 export function enrolWithSnapshot(email:string,code:string) {

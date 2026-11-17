@@ -16,7 +16,11 @@ export async function POST(request: Request) {
   const order = await getRawDb().prepare("SELECT reference, user_email, course_code, purpose, amount_pesewas, currency, status, offering_kind,programme_enrolment_id FROM payment_orders WHERE reference = ? AND user_email = ? LIMIT 1")
     .bind(reference, account.profile.email).first<PaymentOrder>();
   if (!order) return Response.json({ error: "Payment order was not found." }, { status: 404 });
-  if (order.status === "paid") return Response.json({ verified: true, kind:order.offering_kind||"course",programmeEnrolmentId:order.programme_enrolment_id, courseCode: order.course_code, purpose: order.purpose });
+  if (order.status === "paid") {
+    const settled=await settlePaymentOrder(reference,{});
+    if ("error" in settled) return Response.json({error:settled.error},{status:settled.status});
+    return Response.json({verified:true,fulfilled:settled.fulfilled,fulfilmentMessage:settled.fulfilled?undefined:`Payment received. Enrolment is pending: ${settled.reason}`,kind:order.offering_kind||"course",programmeEnrolmentId:order.programme_enrolment_id,courseCode:order.course_code,purpose:order.purpose});
+  }
   const secret = process.env.PAYSTACK_SECRET_KEY?.trim();
   if (!secret) return Response.json({ error: "Online payment is not configured." }, { status: 503 });
   const response = await fetch(`https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`, { headers: { authorization: `Bearer ${secret}` }, cache: "no-store" });
@@ -26,5 +30,5 @@ export async function POST(request: Request) {
   if (!valid) return Response.json({ error: result.message || "Payment has not been verified. No access was granted." }, { status: 409 });
   const settled = await settlePaymentOrder(reference, result);
   if ("error" in settled) return Response.json({ error: settled.error }, { status: settled.status });
-  return Response.json({ verified: true, kind:order.offering_kind||"course",programmeEnrolmentId:order.programme_enrolment_id, courseCode: order.course_code, purpose: order.purpose });
+  return Response.json({ verified: true, fulfilled:settled.fulfilled, fulfilmentMessage:settled.fulfilled?undefined:`Payment received. Enrolment is pending: ${settled.reason}`, kind:order.offering_kind||"course",programmeEnrolmentId:order.programme_enrolment_id, courseCode: order.course_code, purpose: order.purpose });
 }

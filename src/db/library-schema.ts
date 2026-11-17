@@ -7,4 +7,6 @@ CREATE TABLE IF NOT EXISTS library_search_cache(cache_key TEXT PRIMARY KEY,resul
 CREATE TABLE IF NOT EXISTS library_usage(day TEXT NOT NULL,user_email TEXT NOT NULL,calls INTEGER NOT NULL DEFAULT 0,PRIMARY KEY(day,user_email));
 CREATE TABLE IF NOT EXISTS library_settings(id INTEGER PRIMARY KEY CHECK(id=1),enabled INTEGER NOT NULL DEFAULT 1,daily_limit INTEGER NOT NULL DEFAULT 80);
 INSERT OR IGNORE INTO library_settings(id) VALUES(1);
-`);}
+`);
+if (!(db.prepare("PRAGMA table_info(library_settings)").all() as {name:string}[]).some(c=>c.name==="per_user_daily_limit"))db.exec("ALTER TABLE library_settings ADD COLUMN per_user_daily_limit INTEGER NOT NULL DEFAULT 20");
+}

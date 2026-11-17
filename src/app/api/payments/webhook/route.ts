@@ -19,6 +19,7 @@ export async function POST(request: Request) {
   if (!order) return Response.json({ received: true });
   const valid = event.data.status === "success" && event.data.reference === order.reference && Number(event.data.amount) === order.amount_pesewas && event.data.currency === order.currency && event.data.customer?.email?.toLowerCase() === order.user_email.toLowerCase();
   if (!valid) return Response.json({ error: "Payment details did not match the order." }, { status: 409 });
-  await settlePaymentOrder(order.reference, event);
-  return Response.json({ received: true });
+  const settled=await settlePaymentOrder(order.reference, event);
+  if ("error" in settled) return Response.json({error:settled.error},{status:settled.status});
+  return Response.json({ received: true, fulfilled:settled.fulfilled });
 }

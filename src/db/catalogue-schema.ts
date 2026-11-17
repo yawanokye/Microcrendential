@@ -13,8 +13,14 @@ export function migrateCatalogue(db: DatabaseSync) {
     CREATE INDEX IF NOT EXISTS learning_invoice_member_email ON learning_invoice_members(user_email,invoice_id);
     CREATE TABLE IF NOT EXISTS organisation_receipts(id INTEGER PRIMARY KEY AUTOINCREMENT,organisation_id INTEGER NOT NULL REFERENCES learning_organisations(id),reference TEXT NOT NULL UNIQUE,amount_pesewas INTEGER NOT NULL,received_date TEXT NOT NULL,recorded_by TEXT NOT NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
     CREATE TABLE IF NOT EXISTS organisation_receipt_allocations(id INTEGER PRIMARY KEY AUTOINCREMENT,receipt_id INTEGER NOT NULL REFERENCES organisation_receipts(id),invoice_id INTEGER NOT NULL REFERENCES learning_invoices(id),amount_pesewas INTEGER NOT NULL,recorded_by TEXT NOT NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
+    CREATE TABLE IF NOT EXISTS payment_seat_reservations(reference TEXT PRIMARY KEY,course_code TEXT NOT NULL,user_email TEXT NOT NULL,expires_at TEXT NOT NULL,released_at TEXT);
+    CREATE INDEX IF NOT EXISTS payment_seat_availability ON payment_seat_reservations(course_code,expires_at,released_at);
   `);
   const column = (table: string, name: string, type: string) => { if (!(db.prepare("PRAGMA table_info(" + table + ")").all() as {name:string}[]).some(c => c.name === name)) db.exec("ALTER TABLE " + table + " ADD COLUMN " + name + " " + type); };
   column("enrollments", "billing_snapshot_json", "TEXT"); column("enrollments","funded_certificate_checked_at","TEXT"); column("programme_enrolments", "billing_snapshot_json", "TEXT");
   column("payment_orders", "offering_kind", "TEXT NOT NULL DEFAULT 'course'"); column("payment_orders", "programme_enrolment_id", "INTEGER"); column("payment_orders", "billing_snapshot_json", "TEXT");
+  column("payment_orders", "fulfilment_status", "TEXT NOT NULL DEFAULT 'untracked'");
+  column("payment_orders", "fulfilment_error", "TEXT");
+  column("payment_orders", "fulfilment_attempted_at", "TEXT");
+  column("payment_orders", "fulfilled_at", "TEXT");
 }

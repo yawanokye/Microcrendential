@@ -17,13 +17,18 @@ export function aiDailyLimit() {
   const configured=getRawDb().transaction(native=>native.prepare("SELECT setting_value FROM platform_settings WHERE setting_key='course_ai_daily_limit'").get()) as {setting_value:string}|undefined;
   return Math.min(500,Math.max(1,Number(configured?.setting_value)||Number(process.env.COURSE_AI_DAILY_LIMIT)||30));
 }
+export function aiInstitutionDailyLimit() {
+  const configured=getRawDb().read(native=>native.prepare("SELECT setting_value FROM platform_settings WHERE setting_key='course_ai_institution_daily_limit'").get()) as {setting_value:string}|undefined;
+  const value=Number(configured?.setting_value)||Number(process.env.COURSE_AI_INSTITUTION_DAILY_LIMIT)||150;
+  return Math.min(10_000,Math.max(1,Math.floor(value)));
+}
 export function aiEstimatedCost(inputTokens:number,outputTokens:number) {
   if(!process.env.COURSE_AI_INPUT_USD_PER_MILLION?.trim()||!process.env.COURSE_AI_OUTPUT_USD_PER_MILLION?.trim())return null;
   const input=Number(process.env.COURSE_AI_INPUT_USD_PER_MILLION),output=Number(process.env.COURSE_AI_OUTPUT_USD_PER_MILLION);
   return Number.isFinite(input)&&Number.isFinite(output)&&input>=0&&output>=0 ? Math.round((inputTokens*input+outputTokens*output)/1000000*10000)/10000 : null;
 }
 export function queueCourseAi(owner: string, input: GenerateInput, resumeFrom?: string) {
-  ensureAiTables(); const db = getRawDb(), limit = aiDailyLimit();
+  ensureAiTables(); const db = getRawDb(), limit = aiDailyLimit(), institutionLimit=aiInstitutionDailyLimit();
   const sections = input.generationStrategy === "sectioned" ? approvedCourseOutline(input).design.sections.length : 0;
   return db.transaction(native => {
     const previous = resumeFrom ? native.prepare("SELECT status,input_json FROM course_ai_jobs WHERE id=? AND owner_email=?").get(resumeFrom, owner) as {status:string;input_json:string}|undefined : undefined;
@@ -32,6 +37,8 @@ export function queueCourseAi(owner: string, input: GenerateInput, resumeFrom?: 
     const units = Math.max(1, sections - completed.length);
     const count = native.prepare("SELECT COALESCE(SUM(request_units),0) n FROM course_ai_jobs WHERE owner_email=? AND date(created_at)=date('now')").get(owner) as { n: number };
     if (count.n + units > limit) throw new Error(`This request needs ${units} provider calls and would exceed your daily AI limit. Continue manually or contact the administrator.`);
+    const institutionCount=native.prepare("SELECT COALESCE(SUM(request_units),0) n FROM course_ai_jobs WHERE date(created_at)=date('now')").get() as {n:number};
+    if (institutionCount.n + units > institutionLimit) throw new Error("The institution's daily AI authoring allowance has been reached. Continue manually or contact the administrator.");
     const active = native.prepare("SELECT COUNT(*) n FROM course_ai_jobs WHERE owner_email=? AND status IN ('queued','running')").get(owner) as { n: number };
     if (active.n >= 2) throw new Error("Two AI requests are already in progress. Wait for a result before starting another.");
     const id = crypto.randomUUID();
@@ -80,4 +87,13 @@ export async function recoverStaleAiJobs() {
   ensureAiTables();
   // A lost process never silently spends money again. The owner chooses Retry.
   await getRawDb().prepare("UPDATE course_ai_jobs SET status='failed',error='The worker stopped before completing this request. Retry or continue manually.',updated_at=CURRENT_TIMESTAMP WHERE status='running' AND started_at<datetime('now','-10 minutes')").run();
+}
+
+/** Process one previously authorised saved request per maintenance cycle. */
+export async function processQueuedCourseAiJobs() {
+  await recoverStaleAiJobs();
+  const job=await getRawDb().prepare("SELECT id FROM course_ai_jobs WHERE status='queued' ORDER BY created_at,id LIMIT 1").first<{id:string}>();
+  if (!job) return 0;
+  await processCourseAiJob(job.id);
+  return 1;
 }

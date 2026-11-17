@@ -1,17 +1,5 @@
-import { offeringRoute } from "@/lib/learning-discovery";
-import { getRawDb } from "@/db/raw";
-import { normalizeCourseDesign, type CourseMaterialRecord } from "@/lib/course-design";
-import { audienceAllowed, audienceSql, courseDiscoverySql } from "@/lib/catalogue-access";
-import { currentBillingNative } from "@/lib/learning-billing";
-import { programmeConfig, type ProgrammeRow } from "@/lib/programmes";
-const parse = <T,>(value:string,fallback:T)=>{try{return JSON.parse(value||"") as T;}catch{return fallback;}};
-export async function GET(){
- const db=getRawDb(),audience=courseDiscoverySql("c.code"),programmeAudience=audienceSql("programme","p.code");
- const rows=await db.prepare(`SELECT c.id,c.code,c.title,c.discipline,c.description,c.design_json,c.materials_json,c.activities_json,c.certificate_enabled,c.activated_at,u.full_name facilitator_name FROM course_drafts c LEFT JOIN users u ON u.email=c.created_by_email WHERE c.status='active' AND ${audience.sql} ORDER BY c.activated_at DESC,c.created_at DESC LIMIT 100`).bind(...audience.values).all<{id:number;code:string;title:string;discipline:string;description:string;design_json:string;materials_json:string;activities_json:string;certificate_enabled:number;activated_at:string|null;facilitator_name:string|null}>();
- const courses=rows.results.map(row=>{const design=normalizeCourseDesign(parse(row.design_json,{})),billing=db.read(native=>currentBillingNative(native,"course",row.code));
-  if(design.broaderCredentialCode&&!audienceAllowed("course",design.broaderCredentialCode)){design.broaderCredentialCode="";design.broaderCredentialTitle="";design.broaderCredentialRequiredCodes=[];}
-  return {kind:"course",route:design.certificate.awardType.startsWith("cpd_")?"cpd":"microcredential",id:row.id,code:row.code,title:row.title,discipline:row.discipline,description:row.description,design:{...design,priceGhs:billing.enrollmentPesewas/100,certificateFeeGhs:billing.certificatePesewas/100},billing,materials:parse<CourseMaterialRecord[]>(row.materials_json,[]).map(m=>({id:m.id,title:m.title,kind:m.kind,sectionId:m.sectionId,sectionTitle:m.sectionTitle,unitTitle:m.unitTitle,estimatedMinutes:m.estimatedMinutes,outcomeIds:m.outcomeIds,required:m.required})),activities:parse<Record<string,unknown>[]>(row.activities_json,[]).map(a=>({id:a.id,kind:a.kind,title:a.title,required:a.required,passMark:a.passMark})),certificateEnabled:Boolean(row.certificate_enabled),activatedAt:row.activated_at,facilitatorName:row.facilitator_name||"University of Cape Coast"};});
- const programmes=await db.prepare(`SELECT p.* FROM academic_programmes p WHERE p.status='active' AND ${programmeAudience.sql} ORDER BY p.id DESC LIMIT 100`).bind(...programmeAudience.values).all<ProgrammeRow>();
- const formal=programmes.results.map(p=>{const c=programmeConfig(p),billing=db.read(native=>currentBillingNative(native,"programme",p.code));return {kind:"programme",route:offeringRoute("programme",c.award),id:p.id,code:p.code,title:p.title,discipline:c.academicUnit||"Full programmes",description:c.description,duration:c.duration,entryRequirements:c.entryRequirements,qualificationTitle:c.qualificationTitle,termCount:c.terms.length,credits:c.minimumCredits,design:{certificate:{awardType:c.award},outcomes:[],priceGhs:billing.enrollmentPesewas/100,certificateFeeGhs:billing.certificatePesewas/100,deliveryPattern:c.delivery,level:c.award},billing,facilitatorName:"University of Cape Coast",materials:[],activities:[]};});
- return Response.json({courses:[...courses,...formal],routes:["microcredential","cpd","certificate","degree"]},{headers:{"cache-control":"no-store"}});
+import { publicCatalogue } from "@/lib/public-catalogue";
+
+export async function GET(request:Request){
+  return Response.json(publicCatalogue(new URL(request.url).searchParams),{headers:{"cache-control":"no-store"}});
 }

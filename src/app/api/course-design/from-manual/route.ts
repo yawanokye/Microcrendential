@@ -74,7 +74,7 @@ function buildMaterials(html: string, text: string, sections: ReturnType<typeof 
       unitTitle: `Learning unit ${index + 1}`,
       estimatedMinutes: Math.max(5, Math.ceil(readable.split(/\s+/).length / 180)),
       outcomeIds: [outcomes[index % outcomes.length]?.id, outcomes[(index + 1) % outcomes.length]?.id].filter(Boolean),
-      accessibilityChecked: true,
+      accessibilityChecked: false,
       required: true,
       license: "Facilitator-supplied course manual; rights and attribution must be reviewed",
       fileKey: original.key,

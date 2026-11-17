@@ -2,7 +2,7 @@ import { recordAudit } from "@/lib/audit";
 import { after } from "next/server";
 import { requireActiveProfile } from "@/lib/accounts";
 import { getRawDb } from "@/db/raw";
-import { aiDailyLimit, aiEstimatedCost, ensureAiTables, processCourseAiJob, queueCourseAi, recoverStaleAiJobs } from "@/lib/course-ai-jobs";
+import { aiDailyLimit, aiInstitutionDailyLimit, aiEstimatedCost, ensureAiTables, processCourseAiJob, queueCourseAi, recoverStaleAiJobs } from "@/lib/course-ai-jobs";
 import { rejectCrossSiteMutation } from "@/lib/request-security";
 export async function GET() {
   const account = await requireActiveProfile(["admin","facilitator"]); if (account.error || !account.profile) return account.error;
@@ -12,7 +12,7 @@ export async function GET() {
   const usage = await db.prepare("SELECT COALESCE(SUM(request_units),0) requests,SUM(input_tokens) inputTokens,SUM(output_tokens) outputTokens FROM course_ai_jobs WHERE owner_email=? AND date(created_at)=date('now')").bind(account.profile.email).first<{requests:number;inputTokens:number;outputTokens:number}>();
   const institutionUsage = account.profile.role === "admin" ? (await db.prepare("SELECT owner_email,SUM(request_units) requests,SUM(input_tokens) input_tokens,SUM(output_tokens) output_tokens FROM course_ai_jobs WHERE date(created_at)=date('now') GROUP BY owner_email").all()).results : undefined;
   const progress = await db.prepare("SELECT s.job_id,COUNT(*) total,SUM(s.status='completed') completed FROM course_ai_job_sections s JOIN course_ai_jobs j ON j.id=s.job_id WHERE j.owner_email=? GROUP BY s.job_id").bind(account.profile.email).all<{job_id:string;total:number;completed:number}>();
-  return Response.json({ jobs: rows.results.map(r=>({id:r.id,status:r.status,mode:r.mode,targetMaterialId:r.target_material_id,targetCourseCode:r.target_course_code,proposal:r.proposal_json?JSON.parse(r.proposal_json):undefined,error:r.error,createdAt:r.created_at,progress:progress.results.find(p=>p.job_id===r.id)})),usage:{...usage,estimatedUsd:aiEstimatedCost(usage?.inputTokens||0,usage?.outputTokens||0)}, dailyLimit:aiDailyLimit(), institutionUsage,admin:account.profile.role==="admin" });
+  return Response.json({ jobs: rows.results.map(r=>({id:r.id,status:r.status,mode:r.mode,targetMaterialId:r.target_material_id,targetCourseCode:r.target_course_code,proposal:r.proposal_json?JSON.parse(r.proposal_json):undefined,error:r.error,createdAt:r.created_at,progress:progress.results.find(p=>p.job_id===r.id)})),usage:{...usage,estimatedUsd:aiEstimatedCost(usage?.inputTokens||0,usage?.outputTokens||0)}, dailyLimit:aiDailyLimit(), institutionDailyLimit:aiInstitutionDailyLimit(), institutionUsage,admin:account.profile.role==="admin" });
 }
 export async function POST(request:Request) {
   const origin = rejectCrossSiteMutation(request); if(origin)return origin;
@@ -27,8 +27,9 @@ export async function POST(request:Request) {
 export async function PATCH(request:Request) {
   const origin=rejectCrossSiteMutation(request);if(origin)return origin;
   const account=await requireActiveProfile(["admin"]);if(account.error||!account.profile)return account.error;
-  const body=await request.json() as {dailyLimit?:number};const limit=Number(body.dailyLimit);
+  const body=await request.json() as {dailyLimit?:number;institutionDailyLimit?:number};const limit=Number(body.dailyLimit),institutionLimit=body.institutionDailyLimit===undefined?aiInstitutionDailyLimit():Number(body.institutionDailyLimit);
   if(!Number.isInteger(limit)||limit<1||limit>500)return Response.json({error:"Set a daily limit between 1 and 500."},{status:400});
-  await getRawDb().prepare("INSERT INTO platform_settings(setting_key,setting_value,updated_by_email) VALUES('course_ai_daily_limit',?,?) ON CONFLICT(setting_key) DO UPDATE SET setting_value=excluded.setting_value,updated_by_email=excluded.updated_by_email,updated_at=CURRENT_TIMESTAMP").bind(String(limit),account.profile.email).run();
-  await recordAudit(account.profile.email,"course.ai_limit_changed",{dailyLimit:limit});return Response.json({dailyLimit:limit});
+  if(!Number.isInteger(institutionLimit)||institutionLimit<1||institutionLimit>10000)return Response.json({error:"Set the institution-wide limit between 1 and 10,000."},{status:400});
+  getRawDb().transaction(db=>{for(const [key,value] of [["course_ai_daily_limit",limit],["course_ai_institution_daily_limit",institutionLimit]] as const)db.prepare("INSERT INTO platform_settings(setting_key,setting_value,updated_by_email) VALUES(?,?,?) ON CONFLICT(setting_key) DO UPDATE SET setting_value=excluded.setting_value,updated_by_email=excluded.updated_by_email,updated_at=CURRENT_TIMESTAMP").run(key,String(value),account.profile!.email);});
+  await recordAudit(account.profile.email,"course.ai_limit_changed",{dailyLimit:limit,institutionDailyLimit:institutionLimit});return Response.json({dailyLimit:limit,institutionDailyLimit:institutionLimit});
 }
