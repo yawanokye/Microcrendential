@@ -5,6 +5,7 @@ import { normalizeCourseDesign } from "@/lib/course-design";
 import { issueBroaderCredentialsIfEligible } from "@/lib/credential-stack";
 import { ensureStructuredLearningActivities } from "@/lib/structured-learning-activities";
 import type { CourseMaterialRecord } from "@/lib/course-design";
+import type { DatabaseSync } from "node:sqlite";
 import { certificateIssuerName, isCpdAward, requiresPartnerSignatory, requiresUccSignatory, type CertificateConfiguration } from "@/lib/certificate-policy";
 import { officialCredentialsEnabled } from "@/lib/platform-mode";
 import { enrolledCourse, parseRecord } from "./course-access";
@@ -72,6 +73,19 @@ const parseActivities = (materialsJson: string, activitiesJson: string) => ensur
   parseJson<CourseMaterialRecord[]>(materialsJson, []),
   parseJson<unknown[]>(activitiesJson, []),
 ) as CourseActivity[];
+
+// Completion evidence can change between the initial evaluation and a write.
+// Recheck these mutable requirements while holding the SQLite write transaction.
+function currentEvidenceProblem(native: DatabaseSync, evaluation: CompletionEvaluation, userEmail: string, courseCode: string) {
+  const learner = native.prepare("SELECT status,identity_status FROM users WHERE email=? AND role='learner'").get(userEmail) as { status: string; identity_status: string } | undefined;
+  if (learner?.status !== "active" || learner.identity_status !== "verified") return "Learner identity must be verified before completion.";
+  for (const requirement of evaluation.requirements) {
+    if (requirement.type === "assessment" && !native.prepare("SELECT 1 FROM assessment_attempts WHERE user_email=? AND course_code=? AND passed=1").get(userEmail, courseCode)) return "A passing assessment result is required before completion.";
+    if (requirement.type === "content" && requirement.id.startsWith("content-") && !native.prepare("SELECT 1 FROM learning_progress WHERE user_email=? AND course_code=? AND material_id=? AND completed=1").get(userEmail, courseCode, requirement.id.slice(8))) return "A required lesson is no longer recorded as complete.";
+    if (requirement.type === "learning_activity" && !native.prepare("SELECT 1 FROM material_activity_submissions WHERE user_email=? AND course_code=? AND activity_id=? AND passed=1 AND length(trim(feedback))>0 LIMIT 1").get(userEmail, courseCode, requirement.id)) return "A required learning activity is no longer recorded as passed.";
+  }
+  return "";
+}
 
 export async function evaluateCourseCompletion(userEmail: string, courseCode: string): Promise<CompletionEvaluation | null> {
   const db = getRawDb();
@@ -185,8 +199,14 @@ export async function issueCertificateIfComplete(userEmail: string, courseCode: 
   if (!evaluation.complete) return { evaluation, certificate: null };
 
   const db = getRawDb();
-  await db.prepare("UPDATE enrollments SET status = 'completed' WHERE user_email = ? AND course_code = ? AND status IN ('active', 'completed')")
-    .bind(userEmail, courseCode).run();
+  const completionProblem = db.transaction(native => {
+    if (!native.prepare("SELECT 1 FROM enrollments WHERE user_email=? AND course_code=? AND status IN ('active','completed')").get(userEmail, courseCode)) return "An active enrolment is required.";
+    const problem = currentEvidenceProblem(native, evaluation, userEmail, courseCode);
+    if (problem) return problem;
+    native.prepare("UPDATE enrollments SET status='completed' WHERE user_email=? AND course_code=? AND status IN ('active','completed')").run(userEmail, courseCode);
+    return "";
+  });
+  if (completionProblem) return { evaluation: await evaluateCourseCompletion(userEmail, courseCode), certificate: null, issuanceProblem: completionProblem };
   if (!await officialCredentialsEnabled()) return { evaluation, certificate: null };
   if (!evaluation.certificateEnabled || !evaluation.certificatePreauthorised || evaluation.certificatePaymentRequired) return { evaluation, certificate: null };
 
@@ -200,12 +220,18 @@ export async function issueCertificateIfComplete(userEmail: string, courseCode: 
     // transaction as issuance. Already-issued credentials are left untouched.
     if(native.prepare("SELECT id FROM certificates WHERE user_email=? AND course_code=? LIMIT 1").get(userEmail,courseCode))return "";
     const learner=native.prepare("SELECT full_name,status,identity_status FROM users WHERE email=? AND role='learner'").get(userEmail) as {full_name:string;status:string;identity_status:string}|undefined;
-    if(learner?.status!=="active"||learner.identity_status!=="verified")return "Learner identity must be verified before this certificate can be issued.";
+    if(learner?.status!=="active"||learner.identity_status!=="verified"){
+      native.prepare("UPDATE enrollments SET status='active' WHERE user_email=? AND course_code=? AND status='completed'").run(userEmail,courseCode);
+      return "Learner identity must be verified before this certificate can be issued.";
+    }
     const course=native.prepare("SELECT created_by_email FROM course_drafts WHERE code=? AND status='active'").get(courseCode) as {created_by_email:string}|undefined;
     if(!course||!native.prepare("SELECT id FROM enrollments WHERE user_email=? AND course_code=? AND status IN ('active','completed')").get(userEmail,courseCode))return "The approved course and an active enrolment are required.";
     if(!feeStateNative(native,"course",courseCode,"certificate",userEmail).satisfied)return "Certificate funding must be confirmed before issuance.";
-    if(assessmentRequired(configuration.awardType)&&!native.prepare("SELECT 1 FROM assessment_attempts WHERE user_email=? AND course_code=? AND passed=1").get(userEmail,courseCode))return "A passing assessment result is required before issuance.";
-    for(const requirement of evaluation.requirements.filter(r=>r.type==="content"&&r.id.startsWith("content-"))){if(!native.prepare("SELECT 1 FROM learning_progress WHERE user_email=? AND course_code=? AND material_id=? AND completed=1").get(userEmail,courseCode,requirement.id.slice(8)))return "A required lesson is no longer recorded as complete.";}
+    const evidenceProblem=currentEvidenceProblem(native,evaluation,userEmail,courseCode);
+    if(evidenceProblem){
+      native.prepare("UPDATE enrollments SET status='active' WHERE user_email=? AND course_code=? AND status='completed'").run(userEmail,courseCode);
+      return evidenceProblem;
+    }
     type Signatory={signatory_name:string;signatory_title:string;file_key:string};
     const provost=native.prepare("SELECT signatory_name,signatory_title,file_key FROM certificate_signatures WHERE signature_key='provost'").get() as Signatory|undefined;
     const facilitator=native.prepare("SELECT signatory_name,signatory_title,file_key FROM certificate_signatures WHERE signature_key=?").get(`facilitator:${course.created_by_email}`) as Signatory|undefined;
@@ -227,7 +253,7 @@ export async function issueCertificateIfComplete(userEmail: string, courseCode: 
     );
     return "";
   });
-  if(issuanceProblem)return {evaluation,certificate:null,issuanceProblem};
+  if(issuanceProblem)return {evaluation:await evaluateCourseCompletion(userEmail,courseCode),certificate:null,issuanceProblem};
   const certificate = await db.prepare("SELECT certificate_code,learner_name,course_code,course_title,issuer_name,requirements_json,credential_type,status,issued_at,expires_at,revoked_at,revocation_reason,credit_value,learning_mode,award_type,issuance_model,partner_name,partner_logo_key,partner_signatory_name,partner_signatory_title,partner_signature_key,cpd_hours,cpd_points,professional_approval_body,professional_approval_reference,show_academic_lead,facilitator_name,facilitator_title,facilitator_signature_key,provost_name,provost_title,provost_signature_key FROM certificates WHERE user_email = ? AND course_code = ? LIMIT 1")
     .bind(userEmail, courseCode).first<IssuedCertificate>();
   await issueBroaderCredentialsIfEligible(userEmail);

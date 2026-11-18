@@ -16,6 +16,8 @@ Limited-capacity courses hold a place for 15 minutes while a checkout is initiat
 
 All course awards, including attendance and CPD participation, require the active learner's verified identity. UCC, partner and optional academic-lead signatures must be available when applicable before a new award is created. Existing credentials are not deleted or automatically revoked. Registry staff should review any historical awards of concern rather than assuming they were invalid.
 
+When completion is recorded and again when a certificate is issued, required inline activity results are checked in the same database transaction as the write. This includes connected LTI activities. If a required result has been cleared or no longer passes, the platform stops the certificate and returns the enrolment to active when needed. Virtual practical, attendance and corporate-assurance evidence still require their normal checks and review workflows.
+
 ## Course design and library
 
 Facilitators can optionally require earlier required lessons to be completed in order. The progress flag records an action and is not proof of identity or understanding. Use an appropriate assessment and, when selected, the existing corporate verification options for stronger assurance.

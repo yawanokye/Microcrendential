@@ -3,6 +3,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawn } from "node:child_process";
+import type { DatabaseSync } from "node:sqlite";
 import test from "node:test";
 import { getRawDb } from "../src/db/raw";
 import { defaultCourseDesign,evaluateCourseQuality } from "../src/lib/course-design";
@@ -62,6 +63,42 @@ test("stacked awards also require current verified identity and the UCC signatur
   await db.prepare("UPDATE users SET identity_status='verified' WHERE email=?").bind(email).run();assert.deepEqual(await issueBroaderCredentialsIfEligible(email),[]);
   await db.prepare("INSERT INTO certificate_signatures(signature_key,role,signatory_name,signatory_title,file_key,file_name,mime_type,uploaded_by_email) VALUES('provost','provost','Authorised signatory','Provost','test/signature','signature.png','image/png',?)").bind(owner).run();
   assert.equal((await issueBroaderCredentialsIfEligible(email)).length,1);await db.prepare("DELETE FROM certificate_signatures WHERE signature_key='provost'").run();
+});
+
+test("a required activity cleared during completion cannot produce a certificate or completed enrolment",async()=>{
+  const email="second@example.test",code="ACTIVITY-ISSUANCE-RACE";
+  await addCourse(code);
+  const activity={id:"external",kind:"inline",materialId:"lesson",title:"External activity",required:true};
+  await db.prepare("UPDATE course_drafts SET activities_json=? WHERE code=?").bind(JSON.stringify([activity]),code).run();
+  assert.equal(enrolWithSnapshot(email,code).enrolled,true);
+  await db.prepare("INSERT INTO learning_progress(user_email,course_code,material_id,completed) VALUES(?,?,'lesson',1)").bind(email,code).run();
+  await db.prepare("INSERT INTO assessment_attempts(user_email,course_code,score,passed) VALUES(?,?,80,1)").bind(email,code).run();
+  await db.prepare("INSERT INTO material_activity_submissions(user_email,course_code,material_id,activity_id,mark,passed,feedback) VALUES(?,?,'lesson','external',80,1,'Evidence reviewed')").bind(email,code).run();
+  await db.prepare("INSERT INTO certificate_signatures(signature_key,role,signatory_name,signatory_title,file_key,file_name,mime_type,uploaded_by_email) VALUES('provost','provost','Authorised signatory','Provost','test/signature','signature.png','image/png',?)").bind(owner).run();
+  const original=db.transaction.bind(db);let cleared=false;
+  db.transaction=<T,>(operation:(native:DatabaseSync)=>T):T=>{
+    if(!cleared){cleared=true;db.read(native=>native.prepare("UPDATE material_activity_submissions SET passed=0,mark=NULL WHERE user_email=? AND course_code=? AND activity_id='external'").run(email,code));}
+    return original(operation);
+  };
+  try{
+    const result=await issueCertificateIfComplete(email,code);
+    assert.equal(cleared,true);assert.equal(result.certificate,null);
+    assert.equal((await db.prepare("SELECT status FROM enrollments WHERE user_email=? AND course_code=?").bind(email,code).first<{status:string}>())?.status,"active");
+  }finally{db.transaction=original;}
+  await db.prepare("UPDATE material_activity_submissions SET passed=1,mark=80 WHERE user_email=? AND course_code=? AND activity_id='external'").bind(email,code).run();
+  let transactions=0;
+  db.transaction=<T,>(operation:(native:DatabaseSync)=>T):T=>{
+    if(++transactions===2)db.read(native=>native.prepare("UPDATE material_activity_submissions SET passed=0,mark=NULL WHERE user_email=? AND course_code=? AND activity_id='external'").run(email,code));
+    return original(operation);
+  };
+  try{
+    const result=await issueCertificateIfComplete(email,code);
+    assert.equal(transactions,2);assert.equal(result.certificate,null);
+    assert.equal((await db.prepare("SELECT status FROM enrollments WHERE user_email=? AND course_code=?").bind(email,code).first<{status:string}>())?.status,"active");
+  }finally{db.transaction=original;}
+  await db.prepare("UPDATE material_activity_submissions SET passed=1,mark=80 WHERE user_email=? AND course_code=? AND activity_id='external'").bind(email,code).run();
+  assert.ok((await issueCertificateIfComplete(email,code)).certificate);
+  await db.prepare("DELETE FROM certificate_signatures WHERE signature_key='provost'").run();
 });
 
 test("a checkout seat is held atomically and settlement is idempotent",async()=>{

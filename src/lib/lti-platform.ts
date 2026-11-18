@@ -245,7 +245,8 @@ export async function recordLtiScore(tool: LtiTool, code: string, activityId: st
     if (current.last_score_timestamp && Date.parse(timestamp) <= Date.parse(current.last_score_timestamp)) return { duplicate: false, ignored: true, passed, changedGrade: false };
     db.prepare("INSERT INTO lti_score_events(tool_id,course_code,activity_id,subject,payload_hash,timestamp,payload_json) VALUES(?,?,?,?,?,?,?)").run(tool.id, code, activityId, score.userId!, payloadHash, timestamp, payload);
     db.prepare("UPDATE lti_resource_users SET last_score_timestamp=? WHERE tool_id=? AND course_code=? AND activity_id=? AND subject=?").run(timestamp, tool.id, code, activityId, score.userId!);
-    // Partial progress is recorded but cannot overwrite a completed grade. An explicit null score clears it.
+    // Partial numeric progress cannot overwrite a completed grade. LTI AGS
+    // treats a null or omitted score as a request to clear the previous result.
     if (!final && score.scoreGiven !== null && score.scoreGiven !== undefined) return { duplicate: false, ignored: false, passed: false, changedGrade: false };
     const previous = db.prepare("SELECT id,mark,passed,status FROM material_activity_submissions WHERE user_email=? AND course_code=? AND activity_id=? AND attempt_number=1").get(row.user_email,code,activityId) as {id:number;mark:number;passed:number;status:string}|undefined;
     db.prepare(`INSERT INTO material_activity_submissions(user_email,course_code,material_id,activity_id,attempt_number,response_type,response_text,status,mark,max_mark,pass_mark,passed,feedback,criteria_json,grading_mode,model,assessed_at)

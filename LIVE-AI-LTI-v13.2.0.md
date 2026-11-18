@@ -80,6 +80,8 @@ npm run test:integrations
 
 Browser checks require Playwright and Chromium. Integration checks use temporary databases and a simulated external tool with real RSA signatures. They never contact a live H5P account. PDF worker and native canvas dependencies are traced into the standalone build.
 
+After the production build, `npm run test:lti:api` runs the signed launch, grade return and content-selection API checks without a browser. This is also run by GitHub Actions. It does not replace browser accessibility checks or verification with the institution's actual H5P/LTI provider.
+
 New tables and the AI request-unit column are created automatically when the corresponding feature is first used. The default signing key is encrypted in the database using `AUTH_SECRET`. Alternatively provide the original PKCS8 RSA private key as `LTI_PLATFORM_PRIVATE_KEY_BASE64`. Do not replace the signing key or secret without a planned tool re-registration or key migration.
 
 See `VALIDATION-LIVE-AI-LTI-v13.2.0.md` for the exact test results and live-service limits. v13.1.0 documentation remains as historical context.

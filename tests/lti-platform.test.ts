@@ -51,6 +51,11 @@ test("Authenticated external scores scale into evidence, deduplicate retries and
   assert.equal((await recordLtiScore(tool, "LTI-COURSE", "external", { ...data, scoreGiven: 1, timestamp: new Date(tick - 1000).toISOString() })).ignored, true);
   await recordLtiScore(tool, "LTI-COURSE", "external", { ...score(1), gradingProgress: "PendingManual", activityProgress: "InProgress" });
   assert.equal((await getRawDb().prepare("SELECT mark FROM material_activity_submissions WHERE activity_id='external'").first<{ mark: number }>())?.mark, 80);
+  const pending = await recordLtiScore(tool, "LTI-COURSE", "external", { userId: subject, timestamp: new Date(tick += 1000).toISOString(), gradingProgress: "PendingManual", activityProgress: "InProgress" });
+  assert.equal(pending.changedGrade, true);
+  const afterPending = await getRawDb().prepare("SELECT mark, passed, status FROM material_activity_submissions WHERE activity_id='external'").first<{ mark: number; passed: number; status: string }>();
+  assert.deepEqual({ ...afterPending }, { mark: null, passed: 0, status: "submitted" });
+  await recordLtiScore(tool, "LTI-COURSE", "external", score());
   await assert.rejects(() => recordLtiScore(tool, "LTI-COURSE", "external", { ...score(), userId: "another-learner" }), /no learner launch/);
 });
 test("A lower or cleared external result removes its pass and sends an issued credential for review", async () => {
