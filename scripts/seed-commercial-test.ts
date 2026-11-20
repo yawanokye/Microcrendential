@@ -10,7 +10,7 @@ for(const [key,role,email] of [["provost","provost","admin@example.test"],["faci
   const fileKey=await putStoredFile("certificate-signatures/test",new File([signatureBytes],"test-signature.png",{type:"image/png"}),{contentType:"image/png",originalName:"test-signature.png",ownerEmail:email});
   await db.prepare("INSERT INTO certificate_signatures(signature_key,role,owner_email,signatory_name,signatory_title,file_key,file_name,mime_type,uploaded_by_email) VALUES(?,?,?,?,?,?,?,'image/png',?)").bind(key,role,email,"Test signatory","Acceptance test only",fileKey,"test-signature.png",email).run();
 }
-for(const [name,role] of [["learner","learner"],["owner","facilitator"],["marker","facilitator"],["moderator","facilitator"],["outsider","facilitator"],["admin","admin"]]){
+for(const [name,role] of [["learner","learner"],["otherlearner","learner"],["owner","facilitator"],["marker","facilitator"],["moderator","facilitator"],["outsider","facilitator"],["admin","admin"]]){
   const email=`${name}@example.test`;
   await db.prepare("INSERT INTO auth_accounts(email,full_name,password_hash,password_salt,email_verified_at) VALUES(?,?, 'not-a-password','test-only',CURRENT_TIMESTAMP)").bind(email,`Test ${name}`).run();
   await db.prepare("INSERT INTO users(email,full_name,role,status,identity_status,is_test_record) VALUES(?,?,?,'active','verified',1)").bind(email,`Test ${name}`,role).run();

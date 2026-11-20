@@ -2,7 +2,8 @@ import { copyOfferingPoliciesNative } from "@/lib/catalogue-access";
 import { credentialEvidenceValid, reviewAffectedCredential } from "@/lib/grading-workflow";
 import { getRawDb } from "@/db/raw";
 import { requireActiveProfile } from "@/lib/accounts";
-import { coursePermission, enrolledCourse, parseRecord, recordEngagement } from "@/lib/course-access";
+import { coursePermission, enrolledCourse, learningAccess, parseRecord, recordEngagement, type DeliveryCourse } from "@/lib/course-access";
+import type { CourseMaterialRecord } from "@/lib/course-design";
 import { learnerCourseRecord, usageReport } from "@/lib/delivery-reports";
 import { notify, notifyCourse, notifyTeachers } from "@/lib/delivery-notifications";
 import { rejectCrossSiteMutation } from "@/lib/request-security";
@@ -29,6 +30,30 @@ export async function GET(request:Request) {
       stats.push({...c,...row});
     }
     return Response.json({...base,queues:stats});
+  }
+  if (area === "notes") {
+    if (profile.role !== "learner") return bad("Learner access is required.", 403);
+    const pageOffset = Math.min(100000, Math.floor(offset));
+    const rows = await db.prepare(`SELECT w.course_code,w.item_key,w.value_json,w.updated_at
+      FROM learner_workspace w JOIN enrollments e ON e.user_email=w.user_email AND e.course_code=w.course_code
+      WHERE w.user_email=? AND w.item_key LIKE 'note:%' AND e.status IN ('active','completed')
+      ORDER BY w.updated_at DESC,w.rowid DESC LIMIT 101 OFFSET ?`).bind(profile.email,pageOffset)
+      .all<{course_code:string;item_key:string;value_json:string;updated_at:string}>();
+    const accessByCourse = new Map<string, DeliveryCourse | null>();
+    const items: {noteKey:string;courseCode:string;courseTitle:string;materialId:string|null;label:string;note:string;updatedAt:string}[] = [];
+    for (const row of rows.results.slice(0,100)) {
+      if (!accessByCourse.has(row.course_code)) {
+        const access = await learningAccess(profile,row.course_code);
+        accessByCourse.set(row.course_code,access.error ? null : access.course);
+      }
+      const course = accessByCourse.get(row.course_code), note = parseRecord<unknown>(row.value_json,null);
+      if (!course || typeof note !== "string" || !note.trim()) continue;
+      const id = row.item_key.slice(5), parsedMaterials = parseRecord<unknown>(course.materials_json,[]);
+      const materials = Array.isArray(parsedMaterials) ? parsedMaterials as CourseMaterialRecord[] : [];
+      const material = materials.find((item,index) => String(item.id || `material-${index+1}`) === id);
+      items.push({noteKey:row.item_key,courseCode:row.course_code,courseTitle:course.title,materialId:material ? id : null,label:id === "course" ? "Course notes" : material?.title || "Saved notes",note,updatedAt:row.updated_at});
+    }
+    return Response.json({items,nextOffset:rows.results.length > 100 ? pageOffset+100 : null});
   }
   if(area==="workspace") {if(profile.role!=="learner"||!code)return bad("Select an enrolled course.");const rows=await db.prepare("SELECT item_key,value_json,updated_at FROM learner_workspace WHERE user_email=? AND course_code=?").bind(profile.email,code).all<{item_key:string;value_json:string;updated_at:string}>();return Response.json({...base,items:rows.results.map(r=>({...r,value:parseRecord(r.value_json,null)}))});}
   if(area==="preferences")return Response.json({preferences:await db.prepare("SELECT * FROM notification_preferences WHERE user_email=?").bind(profile.email).first()??{assessment_reminders:1,session_reminders:1,teaching_alerts:1,weekly_digest:0,email_enabled:0}});
