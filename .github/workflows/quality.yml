@@ -25,8 +25,11 @@ jobs:
       - run: npm run test:lti:api
       - name: Install browser test dependencies
         run: npm install --prefix "$RUNNER_TEMP/ucc-browser-tools" --no-save --ignore-scripts playwright@1.55.0
-      - name: Install Chromium
-        run: '"$RUNNER_TEMP/ucc-browser-tools/node_modules/.bin/playwright" install --with-deps chromium'
+      - name: Locate the runner browser
+        run: |
+          browser_path="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$browser_path"
+          printf 'TEST_CHROMIUM_EXECUTABLE=%s\n' "$browser_path" >> "$GITHUB_ENV"
       - name: Check public discovery in a browser
         env:
           CODEX_PRIMARY_RUNTIME_NODE_MODULES: ${{ runner.temp }}/ucc-browser-tools/node_modules
