@@ -8,6 +8,8 @@ import { assuranceEnabled } from "@/lib/assessment-assurance-policy";
 import { LearningDiscoveryHeader } from "@/components/learning-discovery";
 import { CourseLearningNavigation, type CourseWorkspaceView } from "@/components/course-learning-navigation";
 import { LearnerCourseGrades } from "@/components/learner-course-grades";
+import { LearnerAccountMenu, LearnerResourceCentre } from "@/components/learner-account-menu";
+import { LearnerNotes } from "@/components/learner-notes";
 import { materialKey, materialSectionIndex } from "@/lib/course-outline";
 import { discoveryLink } from "@/lib/learning-discovery";
 import { CatalogueManagement } from "@/components/catalogue-management";
@@ -139,6 +141,8 @@ const roleNavigation: Record<PortalRole, PortalNavGroup[]> = {
       { id: "learning", label: "My courses", icon: BookOpen },
       { id: "programmes", label: "My programmes", icon: Layers3 },
       { id: "passport", label: "Skills passport", icon: ShieldCheck },
+      { id: "notes", label: "My notes", icon: FileText },
+      { id: "resources", label: "Student resources", icon: BookOpen },
       { id: "assessments", label: "Assessments", icon: FileCheck2 },
       { id: "certificates", label: "Credential wallet", icon: Award },
       { id: "payments", label: "Payments and receipts", icon: FileText },
@@ -342,7 +346,7 @@ export default function Home() {
           {role !== "admin" && <label className="searchbox"><Search size={18} /><input value={role === "facilitator" ? resourceQuery : query} onChange={(event) => role === "facilitator" ? setResourceQuery(event.target.value) : setQuery(event.target.value)} placeholder={role === "facilitator" ? "Search teaching resources" : "Search your learning"} aria-label={role === "facilitator" ? "Search teaching resources" : "Search your learning"} /></label>}
           <button className="icon-button" aria-label="Notifications" onClick={() => setUtility("notifications")}><Bell size={19} /><i /></button>
           <span className={`account-role ${role}`}><ShieldCheck /> {roleLabel}</span>
-          <button className="profile-chip" onClick={() => setUtility("profile")}><span>{initials || "UC"}</span><b>{displayName}</b></button>
+          {role === "learner" ? <LearnerAccountMenu name={displayName} initials={initials} onProfile={() => setUtility("profile")}/> : <button className="profile-chip" onClick={() => setUtility("profile")}><span>{initials || "UC"}</span><b>{displayName}</b></button>}
           <a className="signout-link" href="/signout-with-chatgpt?return_to=%2F">Sign out</a>
           <button className="mobile-menu" onClick={() => setMobileOpen(!mobileOpen)} aria-label="Open navigation" aria-expanded={mobileOpen} aria-controls="portal-navigation">{mobileOpen ? <X /> : <Menu />}</button>
         </div>
@@ -367,6 +371,8 @@ export default function Home() {
           <TabsContent value="catalogue_management">{active === "catalogue_management" && role !== "learner" && <CatalogueManagement role={role} />}</TabsContent>
           <TabsContent value="programmes">{active === "programmes" && <ProgrammeWorkspace role={role} />}</TabsContent>
           <TabsContent value="live"><DeliveryWorkspace area="sessions" role={role}/></TabsContent>
+          {role === "learner" && <TabsContent value="notes"><LearnerNotes /></TabsContent>}
+          {role === "learner" && <TabsContent value="resources"><LearnerResourceCentre /></TabsContent>}
           {role === "learner" && <TabsContent value="assessments"><DeliveryWorkspace area="assessments" role={role}/></TabsContent>}
           <TabsContent value="colab"><ColabWorkspace role={role} email={account.profile.email} /></TabsContent>
           <TabsContent value="virtual_labs"><VirtualLabsWorkspace role={role} /></TabsContent>
@@ -807,6 +813,7 @@ export function PublishedCourseExperience({ course, onOpenActivity, onExit, prev
   const [corporateSession,setCorporateSession]=useState<AssuranceClientSession|null>(null),[corporateKey,setCorporateKey]=useState("");
   const questions = (corporateSession?.questions as AssessmentQuestion[]|undefined) ?? course.assessmentConfig?.questions ?? []; const orderedMaterials = course.materials ?? []; const design = course.design ?? defaultCourseDesign(); const sections = design.sections.length ? design.sections : [{ id: "section-1", title: "Course learning", description: "Guided microcredential content" }]; const [stage, setStage] = useState<"materials" | "assessment" | "result">("materials"); const [activeSectionIndex, setActiveSectionIndex] = useState(0); const [answers, setAnswers] = useState<Record<string, unknown>>({}); const [videoReady, setVideoReady] = useState<Record<string, boolean>>({}); const [score, setScore] = useState<number | null>(null); const [passed, setPassed] = useState(false); const [assessmentPassedPreviously, setAssessmentPassedPreviously] = useState(false); const [awaitingMarking, setAwaitingMarking] = useState(false); const [certificate, setCertificate] = useState<CertificateRecord | null>(null); const [completion, setCompletion] = useState<Completion | null>(null); const [submitting, setSubmitting] = useState(false); const [selectedMaterial, setSelectedMaterial] = useState<CourseMaterial | null>(null); const [completedMaterialIds, setCompletedMaterialIds] = useState<string[]>([]); const [activityStatuses, setActivityStatuses] = useState<Record<string,ActivityStatus>>({}); const [assessmentFeedback, setAssessmentFeedback] = useState<AssessmentFeedback[]>([]); const [progressLoading, setProgressLoading] = useState(!preview); const sectionViewRef = useRef<HTMLDivElement | null>(null);
   const [courseView, setCourseView] = useState<CourseWorkspaceView>(initialMaterialId ? "lesson" : "overview");
+  const [notesTarget, setNotesTarget] = useState("");
   const onCorporateSession=useCallback((session:AssuranceClientSession,key:string,restoreAnswers:boolean)=>{setCorporateSession(session);setCorporateKey(key);if(restoreAnswers)setAnswers(session.answers||{});},[]);
   const [corporateNow,setCorporateNow]=useState(()=>Date.now());
   useEffect(()=>{if(!assuranceEnabled(design.assurance))return;const timer=setInterval(()=>setCorporateNow(Date.now()),1000);return()=>clearInterval(timer);},[design.assurance]);
@@ -827,7 +834,7 @@ export function PublishedCourseExperience({ course, onOpenActivity, onExit, prev
       if (material) {
         setSelectedMaterial(material); setActiveSectionIndex(materialSectionIndex(material, sections));
         if (structured) setCourseView("lesson");
-        if (structured && requestedView === "notes") requestAnimationFrame(() => requestAnimationFrame(() => document.getElementById("lesson-notes")?.scrollIntoView({behavior:"smooth",block:"start"})));
+        if (structured && requestedView === "notes") { setNotesTarget(materialKey(material, orderedMaterials.indexOf(material))); requestAnimationFrame(() => requestAnimationFrame(() => document.getElementById("lesson-notes")?.scrollIntoView({behavior:"smooth",block:"start"}))); }
         const position = result.progress?.find(item => item.materialId === id)?.lastPosition;
         if (position && requestedView !== "notes") requestAnimationFrame(() => requestAnimationFrame(() => window.scrollTo({top:position,behavior:"instant"})));
       }
@@ -888,7 +895,7 @@ export function PublishedCourseExperience({ course, onOpenActivity, onExit, prev
     const resumeMaterial = sectionMaterials.find((material) => !completedMaterialIds.includes(materialId(material, orderedMaterials.indexOf(material)))) ?? sectionMaterials[0];
     const startLabel = sectionComplete ? "Review section" : completedInSection > 0 ? "Continue section" : "Start learning";
     return renderWorkspace(<div className="published-course commercial-learner-course">
-      {!preview && course.enrolled !== false && (!structured || courseView === "lesson") && <div id="lesson-notes"><LearnerCourseTools code={course.code} materialId={selectedMaterial?.id}/></div>}
+      {!preview && course.enrolled !== false && (!structured || courseView === "lesson") && <div id="lesson-notes"><LearnerCourseTools code={course.code} materialId={selectedMaterial?.id} initialOpen={Boolean(structured && selectedMaterial && notesTarget === materialKey(selectedMaterial, orderedMaterials.indexOf(selectedMaterial)))}/></div>}
       {!structured && <><p className="saved-answer-status">{assuranceEnabled(design.assurance)?"Assessment answers save to your verified browser session.":"Assessment answers save automatically across your devices."}</p>{corporatePanel}</>}
       {!structured && <nav className="learner-course-navigator" aria-label="Course section navigation">
         <div className="learner-course-nav-status">

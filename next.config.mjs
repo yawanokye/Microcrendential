@@ -12,6 +12,7 @@ export const requiredReleaseSources = [
   "src/app/page.tsx", "src/app/facilitator-studio/page.tsx", "src/app/learn/page.tsx",
   "src/components/platform-home.tsx", "src/components/learning-page.tsx",
   "src/components/course-learning-navigation.tsx", "src/components/learner-course-grades.tsx",
+  "src/components/learner-account-menu.tsx", "src/components/learner-notes.tsx",
   "src/lib/course-outline.ts", "src/lib/learner-grade-display.ts", "src/app/course-learning-workspace.css",
   "src/components/corporate-assessment-settings.tsx",
   "src/components/corporate-assessment-review.tsx",
