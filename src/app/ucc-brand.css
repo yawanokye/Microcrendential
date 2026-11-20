@@ -160,3 +160,11 @@
   .signin-brand .ucc-brand-copy strong { font-size: 16px; }
   .signin-brand .ucc-brand-subtitle { font-size: 7px; }
 }
+
+/* The portal identity returns to the public site without signing the user out. */
+.portal-brand-home,.learning-page-brand-home { text-decoration: none; }
+.portal-brand-home:focus-visible,.learning-page-brand-home:focus-visible,.portal-home-link:focus-visible { outline: 3px solid #087569; outline-offset: 3px; border-radius: 6px; }
+.portal-home-link { display: inline-flex; align-items: center; white-space: nowrap; padding: 9px 12px; border: 1px solid #bed4d2; border-radius: 8px; color: #075e58; font-size: 13px; font-weight: 700; text-decoration: none; }
+.portal-home-link:hover { background: #edf8f5; }
+@media (max-width: 760px) { .portal-home-link { padding: 7px 9px; font-size: 12px; } }
+@media (max-width: 400px) { .topbar .top-actions { gap: 6px; } .portal-home-link { padding: 7px 6px; font-size: 11px; } }
