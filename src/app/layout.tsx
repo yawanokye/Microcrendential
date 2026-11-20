@@ -13,6 +13,7 @@ import "./certificate-template-platform.css";
 import "./ucc-brand.css";
 import "./policy.css";
 import "./platform-mode.css";
+import "./course-learning-workspace.css";
 import { PlatformModeBanner } from "@/components/platform-mode-banner";
 
 export const metadata: Metadata = {
