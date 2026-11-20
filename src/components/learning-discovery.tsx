@@ -10,19 +10,21 @@ import { awardLabel, discoveryLink, learningRoutes, offeringRoute, type Discover
 type CatalogueSummary={counts:Record<string,number>;subjects:string[];providers:string[]};
 function usePublicCatalogue(filterKey:string,page:number) {
   const [offerings, setOfferings] = useState<DiscoveryOffering[]>([]), [loading, setLoading] = useState(true), [error, setError] = useState("");
-  const [total,setTotal]=useState(0),[hasMore,setHasMore]=useState(false),[summary,setSummary]=useState<CatalogueSummary>();
+  const [total,setTotal]=useState(0),[hasMore,setHasMore]=useState(false),[summary,setSummary]=useState<CatalogueSummary>(),[resolvedKey,setResolvedKey]=useState("");
+  const requestKey = JSON.stringify([filterKey, page]);
   const [attempt, setAttempt] = useState(0), [signedIn, setSignedIn] = useState(false), [accountRole,setAccountRole]=useState("");
   useEffect(() => {
     const controller = new AbortController();
     fetch("/api/auth/session",{signal:controller.signal,cache:"no-store"}).then(r=>r.json()).then(d=>{setSignedIn(Boolean(d.profile?.status==="active"));setAccountRole(d.profile?.role||"");}).catch(()=>{});
-    const search=new URLSearchParams(filterKey);search.set("page",String(page));search.set("limit","24");setLoading(true);
+    const search=new URLSearchParams(filterKey);search.set("page",String(page));search.set("limit","24");setLoading(true);setError("");
     fetch("/api/courses/public?"+search, { signal: controller.signal, cache: "no-store" }).then(async response => {
       if (!response.ok) throw new Error("The catalogue could not be loaded.");
       return response.json() as Promise<{ courses?: DiscoveryOffering[];total:number;hasMore:boolean;summary:CatalogueSummary }>;
-    }).then(data => { setOfferings(data.courses || []);setTotal(data.total);setHasMore(data.hasMore);setSummary(data.summary); setError(""); }).catch(e => { if (!controller.signal.aborted) setError(e instanceof Error ? e.message : "The catalogue could not be loaded."); }).finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    }).then(data => { if (controller.signal.aborted) return; setOfferings(data.courses || []);setTotal(data.total);setHasMore(data.hasMore);setSummary(data.summary);setResolvedKey(requestKey); }).catch(e => { if (!controller.signal.aborted) { setOfferings([]);setTotal(0);setHasMore(false);setResolvedKey(requestKey);setError(e instanceof Error ? e.message : "The catalogue could not be loaded."); } }).finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
-  }, [attempt,filterKey,page]);
-  return { offerings, loading, error, signedIn, accountRole,total,hasMore,summary, retry: () => { setLoading(true); setAttempt(n => n + 1); } };
+  }, [attempt,filterKey,page,requestKey]);
+  const current = resolvedKey === requestKey;
+  return { offerings: current && !loading ? offerings : [], loading: loading || !current, error: current ? error : "", signedIn, accountRole, total: current && !loading ? total : 0, hasMore: current && !loading && hasMore,summary, retry: () => { setLoading(true); setAttempt(n => n + 1); } };
 }
 
 export function LearningDiscoveryHeader({ offerings: supplied, authenticated, role,summary }: { offerings?: DiscoveryOffering[]; authenticated?: boolean; role?: string;summary?:CatalogueSummary }) {
