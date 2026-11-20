@@ -27,7 +27,7 @@ function usePublicCatalogue(filterKey:string,page:number) {
 
 export function LearningDiscoveryHeader({ offerings: supplied, authenticated, role,summary }: { offerings?: DiscoveryOffering[]; authenticated?: boolean; role?: string;summary?:CatalogueSummary }) {
   const [open, setOpen] = useState(false), [offerings, setOfferings] = useState<DiscoveryOffering[]>(supplied || []), [signedIn, setSignedIn] = useState(false),[detectedRole,setDetectedRole]=useState("");
-  const root = useRef<HTMLElement>(null), trigger = useRef<HTMLButtonElement>(null), panel = useRef<HTMLElement>(null), panelId = useId();
+  const root = useRef<HTMLElement>(null), trigger = useRef<HTMLButtonElement>(null), panel = useRef<HTMLElement>(null), focusFirstLink = useRef(false), panelId = useId();
   useEffect(() => {
     const controller = new AbortController();
     if (!supplied) fetch("/api/courses/public", { signal: controller.signal, cache: "no-store" }).then(r => r.ok ? r.json() : { courses: [] }).then(d => setOfferings(d.courses || [])).catch(() => {});
@@ -37,6 +37,7 @@ export function LearningDiscoveryHeader({ offerings: supplied, authenticated, ro
   useEffect(() => { if (supplied) setOfferings(supplied); }, [supplied]);
   useEffect(() => {
     if (!open) return;
+    if (focusFirstLink.current) { focusFirstLink.current = false; panel.current?.querySelector<HTMLAnchorElement>("a")?.focus(); }
     const dismiss = (e: PointerEvent) => { if (e.target instanceof Node && !root.current?.contains(e.target)) setOpen(false); };
     const escape = (e: KeyboardEvent) => { if (e.key === "Escape") { setOpen(false); trigger.current?.focus(); } };
     const fit = () => { if(root.current && panel.current) panel.current.style.maxHeight = Math.max(160,(window.visualViewport?.height || window.innerHeight)-root.current.getBoundingClientRect().bottom-12)+"px"; };
@@ -52,7 +53,7 @@ export function LearningDiscoveryHeader({ offerings: supplied, authenticated, ro
   const count = (route: string) => summary?.counts[route] ?? list.filter(o => offeringRoute(o.kind, o.design?.certificate?.awardType) === route).length;
   return <header className="learning-header" ref={root}>
     <a className="public-brand learning-brand" href="/" aria-label="UCC Growth+ home"><Image unoptimized width={48} height={48} src="/ucc_crest_approved_2026.png" alt="University of Cape Coast crest" /><div><b className="ucc-growth-wordmark"><UccGrowthWordmark /></b><small>University of Cape Coast</small></div></a>
-    <button className="learning-learn-trigger" type="button" ref={trigger} aria-expanded={open} aria-controls={panelId} onClick={() => setOpen(value => !value)} onKeyDown={e => { if (e.key === "ArrowDown") { e.preventDefault(); setOpen(true); requestAnimationFrame(() => panel.current?.querySelector<HTMLAnchorElement>("a")?.focus()); } }}>Learn <ChevronDown aria-hidden="true" className={open ? "is-open" : ""} /></button>
+    <button className="learning-learn-trigger" type="button" ref={trigger} aria-expanded={open} aria-controls={panelId} onClick={() => setOpen(value => !value)} onKeyDown={e => { if (e.key === "ArrowDown") { e.preventDefault(); if (open) panel.current?.querySelector<HTMLAnchorElement>("a")?.focus(); else { focusFirstLink.current = true; setOpen(true); } } }}>Learn <ChevronDown aria-hidden="true" className={open ? "is-open" : ""} /></button>
     {open && <nav id={panelId} ref={panel} className="learning-mega-panel" aria-label="Learn catalogue" onClick={e => { if ((e.target as Element).closest("a")) setOpen(false); }}>
       <div className="learning-menu-heading"><span>Find your next learning opportunity</span><button type="button" aria-label="Close Learn menu" onClick={() => { setOpen(false); trigger.current?.focus(); }}><X /></button></div>
       <div className="learning-menu-columns">

@@ -31,10 +31,16 @@ jobs:
           test -n "$browser_path"
           printf 'TEST_CHROMIUM_EXECUTABLE=%s\n' "$browser_path" >> "$GITHUB_ENV"
       - name: Check public discovery in a browser
+        id: discovery
+        continue-on-error: true
         env:
           CODEX_PRIMARY_RUNTIME_NODE_MODULES: ${{ runner.temp }}/ucc-browser-tools/node_modules
         run: npm run test:discovery
       - name: Check the learner workspace in a browser
+        id: learner
+        continue-on-error: true
         env:
           CODEX_PRIMARY_RUNTIME_NODE_MODULES: ${{ runner.temp }}/ucc-browser-tools/node_modules
         run: npm run test:browser
+      - name: Require both browser checks to pass
+        run: test "${{ steps.discovery.outcome }}" = success && test "${{ steps.learner.outcome }}" = success
