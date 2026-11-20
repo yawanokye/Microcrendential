@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   checks:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -23,3 +23,24 @@ jobs:
       - run: npm ci --include=dev
       - run: npm run pilot:check
       - run: npm run test:lti:api
+      - name: Install browser test dependencies
+        run: npm install --prefix "$RUNNER_TEMP/ucc-browser-tools" --no-save --ignore-scripts playwright@1.55.0
+      - name: Locate the runner browser
+        run: |
+          browser_path="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$browser_path"
+          printf 'TEST_CHROMIUM_EXECUTABLE=%s\n' "$browser_path" >> "$GITHUB_ENV"
+      - name: Check public discovery in a browser
+        id: discovery
+        continue-on-error: true
+        env:
+          CODEX_PRIMARY_RUNTIME_NODE_MODULES: ${{ runner.temp }}/ucc-browser-tools/node_modules
+        run: npm run test:discovery
+      - name: Check the learner workspace in a browser
+        id: learner
+        continue-on-error: true
+        env:
+          CODEX_PRIMARY_RUNTIME_NODE_MODULES: ${{ runner.temp }}/ucc-browser-tools/node_modules
+        run: npm run test:browser
+      - name: Require both browser checks to pass
+        run: test "${{ steps.discovery.outcome }}" = success && test "${{ steps.learner.outcome }}" = success

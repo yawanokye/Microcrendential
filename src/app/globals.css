@@ -168,3 +168,7 @@ body { font-family:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe U
 @media(max-width:800px){.public-learning-routes>div{grid-template-columns:repeat(2,minmax(0,1fr))}.catalogue-form fieldset{grid-template-columns:1fr}.catalogue-card{padding:16px}}@media(max-width:480px){.public-learning-routes>div{grid-template-columns:1fr}}
 .catalogue-management{grid-template-columns:minmax(0,1fr)}.catalogue-management>*{min-width:0;max-width:100%}.catalogue-management .catalogue-card,.catalogue-management .catalogue-form{min-width:0}.catalogue-management .catalogue-check input{width:auto;min-width:16px;flex:0 0 auto}.catalogue-management .programme-table-scroll{max-width:100%;overflow-x:auto}.catalogue-management .catalogue-card{overflow-wrap:anywhere}
 .catalogue-management table{min-width:640px;overflow-wrap:normal}
+.public-learning-routes > div a{display:flex;text-align:left;flex-direction:column;gap:12px;background:#fff;color:#183653;border:1px solid #d4deea;border-radius:16px;padding:24px;text-decoration:none}
+.public-learning-routes > div a:hover,.public-learning-routes > div a:focus-visible{border-color:#147a73;background:#eef8f5}
+.public-learning-routes > div a:focus-visible{outline:3px solid #147a73;outline-offset:3px}
+.public-learning-routes>a{display:inline-block;padding:10px 18px;border:1px solid #cbd6e4;border-radius:8px;background:#fff;color:#183653;text-decoration:none}

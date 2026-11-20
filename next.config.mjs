@@ -11,6 +11,8 @@ export const requiredReleaseSources = [
   "src/db/catalogue-schema.ts", "src/components/catalogue-management.tsx", "src/app/api/catalogue/route.ts", "src/app/api/organisations/route.ts",
   "src/app/page.tsx", "src/app/facilitator-studio/page.tsx", "src/app/learn/page.tsx",
   "src/components/platform-home.tsx", "src/components/learning-page.tsx",
+  "src/components/course-learning-navigation.tsx", "src/components/learner-course-grades.tsx",
+  "src/lib/course-outline.ts", "src/lib/learner-grade-display.ts", "src/app/course-learning-workspace.css",
   "src/components/corporate-assessment-settings.tsx",
   "src/components/corporate-assessment-review.tsx",
   "src/components/corporate-assessment-learner.tsx",

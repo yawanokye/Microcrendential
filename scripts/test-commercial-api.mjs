@@ -6,7 +6,7 @@ import { createHmac } from "node:crypto";
 import { spawn,execFileSync } from "node:child_process";
 import { PDFDocument,PDFName,PDFDict } from "pdf-lib";
 const productionProject=resolve(process.env.TEST_PRODUCTION_PROJECT||'.');
-const directory=mkdtempSync(join(tmpdir(),"ucc-browser-test-")),port=Number(process.env.TEST_PORT||3108),origin=`http://127.0.0.1:${port}`,secret="isolated-commercial-api-test-secret",env={...process.env,DATA_DIR:directory,SQLITE_PATH:join(directory,"test.sqlite"),AUTH_SECRET:secret,NODE_ENV:"production",DEMONSTRATION_FULL_FUNCTIONALITY:"true",NEXT_PUBLIC_APP_URL:origin,EMAIL_PROVIDER:"",AUTO_BACKUP_ENABLED:"false",PORT:String(port),HOSTNAME:"127.0.0.1"};
+const directory=mkdtempSync(join(tmpdir(),"ucc-browser-test-")),port=Number(process.env.TEST_PORT||3108),origin=`http://127.0.0.1:${port}`,secret="isolated-commercial-api-test-secret",env={...process.env,DATA_DIR:directory,SQLITE_PATH:join(directory,"test.sqlite"),AUTH_SECRET:secret,NODE_ENV:"production",DEMONSTRATION_FULL_FUNCTIONALITY:"true",DEMONSTRATION_ALLOW_OFFICIAL_CREDENTIALS:"true",NEXT_PUBLIC_APP_URL:origin,EMAIL_PROVIDER:"",AUTO_BACKUP_ENABLED:"false",PORT:String(port),HOSTNAME:"127.0.0.1"};
 for(const key of Object.keys(env))if(/^(RESEND_|GMAIL_|GOOGLE_OAUTH_|SMTP_)/.test(key)||key==="SUPPORT_EMAIL")delete env[key];
 execFileSync(process.execPath,["--import","tsx","scripts/seed-commercial-test.ts"],{env,stdio:["ignore","pipe","pipe"]});
 cpSync(join(productionProject,"public"),join(productionProject,".next/standalone/public"),{recursive:true});cpSync(join(productionProject,".next/static"),join(productionProject,".next/standalone/.next/static"),{recursive:true});
