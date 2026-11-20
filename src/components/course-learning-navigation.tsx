@@ -5,7 +5,7 @@ import { BookOpen, CheckCircle2, ChevronDown, Circle, ClipboardCheck, List, Mess
 import { buildCourseOutline } from "@/lib/course-outline";
 import type { CourseMaterialRecord, CourseSection } from "@/lib/course-design";
 
-export type CourseWorkspaceView = "overview" | "section" | "lesson" | "grades" | "assessment";
+export type CourseWorkspaceView = "overview" | "section" | "lesson" | "grades" | "assessment" | "course-notes";
 
 type Props = {
   code: string;

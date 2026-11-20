@@ -24,7 +24,7 @@ export function LearnerNotes() {
     {error && <div role="alert"><p>{error}</p><button onClick={()=>void load()}>Try again</button></div>}
     {loading && <p role="status">Loading your notes…</p>}
     {!loading&&!error&&!items.length&&!next&&<p>You have not saved any notes yet. Open a lesson and use “Notes, bookmark and achievement record” to add one.</p>}
-    <div className="learner-notes-list">{items.map(item=><article key={`${item.courseCode}:${item.noteKey}`}><p className="learner-notes-eyebrow">{item.courseTitle} · {item.courseCode}</p><h3>{item.label}</h3><p className="learner-notes-content">{item.note}</p><a href={item.materialId ? `/learn/${encodeURIComponent(item.courseCode)}/${encodeURIComponent(item.materialId)}?view=notes` : `/learn/${encodeURIComponent(item.courseCode)}?view=overview`}>{item.materialId ? "Open lesson and edit note" : "Open course"}</a></article>)}</div>
+    <div className="learner-notes-list">{items.map(item=><article key={`${item.courseCode}:${item.noteKey}`}><p className="learner-notes-eyebrow">{item.courseTitle} · {item.courseCode}</p><h3>{item.label}</h3><p className="learner-notes-content">{item.note}</p><a href={item.materialId ? `/learn/${encodeURIComponent(item.courseCode)}/${encodeURIComponent(item.materialId)}?view=notes` : `/learn/${encodeURIComponent(item.courseCode)}?view=${item.noteKey === "note:course" ? "course-notes" : "overview"}`}>{item.materialId ? "Open lesson and edit note" : item.noteKey === "note:course" ? "Edit course notes" : "Open course"}</a></article>)}</div>
     {next!==null && <button disabled={loading} onClick={()=>void load(next)}>Load more notes</button>}
   </section>;
 }
