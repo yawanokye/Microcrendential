@@ -20,7 +20,7 @@ test("course navigation retains unassigned and older lesson records", () => {
 test("only marked evidence displays scores, including a real zero", () => {
   const activities = [{id:"practice",title:"Practice",kind:"inline"},{id:"project",title:"Project",kind:"inline"}];
   const statuses = {practice:{status:"submitted",mark:0,maximum:10,feedback:""},project:{status:"assessed",mark:0,maximum:20,feedback:"Please revise"}};
-  const submissions = [{id:1,attemptNumber:1,status:"awaiting_marking",finalScore:0},{id:2,attemptNumber:2,status:"marked",finalScore:75,markerFeedback:"Well done"}];
+  const submissions = [{id:1,attemptNumber:1,status:"awaiting_marking",finalScore:0},{id:2,attemptNumber:2,status:"marked",finalScore:75,markerFeedback:"Well done",automaticFeedback:[{earned:3,available:4,feedback:"Review your evidence",learnerAdvice:"Explain your reasoning"}]}];
   const rows = buildLearnerGradeRows(activities, statuses, submissions, true);
   assert.equal(rows[0].earned, null);
   assert.equal(rows[0].percentage, null);
@@ -28,7 +28,8 @@ test("only marked evidence displays scores, including a real zero", () => {
   assert.equal(rows[1].percentage, 0);
   assert.equal(rows[2].earned, null);
   assert.equal(rows[3].earned, 75);
-  assert.equal(rows[3].feedback, "Well done");
+  assert.match(rows[3].feedback, /Well done/);
+  assert.match(rows[3].feedback, /Question 1 \(3\/4\): Review your evidence Explain your reasoning/);
 });
 
 test("an earlier passed assessment stays visible and unstarted work is not graded", () => {

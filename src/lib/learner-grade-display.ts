@@ -1,6 +1,6 @@
 export type GradeActivity = { id: string; title: string; kind: string };
 export type GradeActivityStatus = { status: string; mark: number | null; maximum?: number; feedback?: string };
-export type GradeAssessment = { id: number; attemptNumber?: number; status: string; finalScore: number | null; markerFeedback?: string };
+export type GradeAssessment = { id: number; attemptNumber?: number; status: string; finalScore: number | null; markerFeedback?: string; automaticFeedback?: { earned?: number; available?: number; feedback?: string; learnerAdvice?: string }[] };
 export type GradeRow = { key: string; title: string; status: string; earned: number | null; maximum: number | null; percentage: number | null; feedback: string };
 
 function asNumber(value: unknown): number | null {
@@ -25,9 +25,18 @@ export function buildLearnerGradeRows(activities: GradeActivity[], statuses: Rec
   if (submissions.length) {
     for (const submission of submissions) {
       const mark = submission.status === "marked" ? asNumber(submission.finalScore) : null;
+      const itemFeedback = submission.status === "marked" && Array.isArray(submission.automaticFeedback)
+        ? submission.automaticFeedback.map((item, index) => {
+            const earned = asNumber(item.earned), available = asNumber(item.available);
+            const points = earned !== null && available !== null ? ` (${earned}/${available})` : "";
+            const detail = [item.feedback, item.learnerAdvice].filter((text): text is string => typeof text === "string" && Boolean(text.trim())).join(" ");
+            return detail ? `Question ${index + 1}${points}: ${detail}` : "";
+          }).filter(Boolean)
+        : [];
+      const feedback = [submission.markerFeedback?.trim() || "", ...itemFeedback].filter(Boolean).join("\n\n");
       rows.push({ key: `assessment-${submission.id}`, title: `Course assessment${submission.attemptNumber ? ` · attempt ${submission.attemptNumber}` : ""}`,
         status: submission.status === "marked" ? "Marked" : submission.status === "resubmit" ? "Revision requested" : "Awaiting marking",
-        earned: mark, maximum: 100, percentage: mark, feedback: submission.markerFeedback?.trim() || "" });
+        earned: mark, maximum: 100, percentage: mark, feedback });
     }
   } else if (previousPass?.passed && asNumber(previousPass.score) !== null) {
     const mark = asNumber(previousPass.score);
